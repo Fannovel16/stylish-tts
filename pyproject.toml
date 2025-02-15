@@ -5,8 +5,6 @@ requires-python = ">=3.12"
 dependencies = [
     "nltk>=3.9.1",
     "pandas>=2.2.3",
-    "torch>=2.6.0",
-    "torchaudio>=2.6.0",
     "numba>=0.60.0",
     "numpy>=2.0.2",
     "munch>=4.0.0",
@@ -24,8 +22,10 @@ dependencies = [
     "pydantic>=2.10.6",
     "tensorboard>=2.18.0",
     "ring-attention-pytorch>=0.5.19",
-    "triton>=3.2.0",
     "triton-nightly>=3.0.0.post20240716052845",
+    "torch==2.5",
+    "torchaudio==2.5",
+    "vocos",
 ]
 
 [dependency-groups]
@@ -36,6 +36,7 @@ dev = [
 
 [tool.uv.sources]
 monotonic-align = { git = "https://github.com/resemble-ai/monotonic_align.git" }
+vocos = { path = "../vtrain/vocos", editable = true }
 
 [[tool.uv.index]]
 url = "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/Triton-Nightly/pypi/simple/"

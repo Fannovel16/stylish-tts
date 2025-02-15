@@ -126,7 +126,7 @@ class BatchManager:
                         loader = train.accelerator.prepare(loader)
                         for _, batch in enumerate(loader):
                             _ = train.train_batch(
-                                i=0, batch=batch, running_loss=0, iters=0, train=train
+                                0, batch=batch, running_loss=0, iters=0, train=train
                             )
                             break
                         self.set_batch_size(key, batch_size)
@@ -198,7 +198,7 @@ class BatchManager:
                         f"{attempt * ('*' if attempt < max_attempts else 'X')} "
                         f"TRAIN_BATCH OOM ({self.last_bin}) @ batch_size {batch_size}: audio_length {audio_length} total audio length {audio_length * batch_size}"
                     )
-                    #self.log_print(e)
+                    # self.log_print(e)
                     train.optimizer.zero_grad()
                     if self.last_oom != self.last_bin:
                         self.last_oom = self.last_bin

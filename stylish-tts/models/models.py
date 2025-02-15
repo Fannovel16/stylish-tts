@@ -23,6 +23,7 @@ from .diffusion.diffusion import AudioDiffusionConditional
 from .discriminators import (
     MultiPeriodDiscriminator,
     MultiScaleSubbandCQTDiscriminator,
+    # MultiResolutionDiscriminator,
     WavLMDiscriminator,
 )
 
@@ -777,11 +778,13 @@ def build_model(config):
             gen_istft_hop_size=config.decoder.gen_istft_hop_size,
         )
     elif config.decoder.type == "vocos":
-        from .decoder.vocos import Decoder
+        from .decoder.decoder import Decoder
 
         decoder = Decoder(
             dim_in=config.decoder.hidden_dim,
             style_dim=config.model.style_dim,
+            # TODO: Add to config
+            residual_dim=64,
             dim_out=config.model.n_mels,
             intermediate_dim=config.decoder.intermediate_dim,
             num_layers=config.decoder.num_layers,
@@ -881,6 +884,7 @@ def build_model(config):
         pitch_extractor=pitch_extractor,
         mpd=MultiPeriodDiscriminator(),
         msd=MultiScaleSubbandCQTDiscriminator(),
+        # msd=MultiResolutionDiscriminator(),
         # slm discriminator head
         wd=WavLMDiscriminator(
             config.slm.hidden, config.slm.nlayers, config.slm.initial_channel
