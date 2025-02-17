@@ -45,7 +45,7 @@ from stages import (
     validate_second,
     train_acoustic_adapter,
 )
-
+import transformers
 
 # simple fix for dataparallel that allows access to class attributes
 # class MyDataParallel(torch.nn.DataParallel):
@@ -191,22 +191,38 @@ def main(config_path, early_joint, stage, pretrained_model):
     train.manifest.current_epoch = 1
     train.manifest.current_total_step = 0
 
+    model_list = []
+    for key in train.model:
+        #if key != "decoder":
+        model_list.append(key)
+
     scheduler_params = {
         "max_lr": train.config.optimizer.lr,
         "pct_start": float(0),
         "epochs": train.manifest.max_epoch,
         "steps_per_epoch": train.batch_manager.get_step_count(),
     }
-    scheduler_params_dict = {key: scheduler_params.copy() for key in train.model}
-    scheduler_params_dict["bert"]["max_lr"] = train.config.optimizer.bert_lr * 2
-    scheduler_params_dict["decoder"]["max_lr"] = train.config.optimizer.ft_lr * 2
-    scheduler_params_dict["style_encoder"]["max_lr"] = train.config.optimizer.ft_lr * 2
+    scheduler_params_dict = {key: scheduler_params.copy() for key in model_list}
+    #scheduler_params_dict["bert"]["max_lr"] = train.config.optimizer.bert_lr * 2
+    #scheduler_params_dict["decoder"]["max_lr"] = train.config.optimizer.ft_lr * 2
+    #scheduler_params_dict["style_encoder"]["max_lr"] = train.config.optimizer.ft_lr * 2
+
 
     train.optimizer = build_optimizer(
-        {key: train.model[key].parameters() for key in train.model},
+        {key: train.model[key].parameters() for key in model_list},
         scheduler_params_dict=scheduler_params_dict,
         lr=train.config.optimizer.lr,
     )
+
+    #train.decoder_opt = torch.optim.AdamW(train.model["decoder"].parameters(), lr=1e-4, betas=(0.8,0.9))
+    #train.decoder_scheduler = (
+    #    transformers.get_cosine_schedule_with_warmup(
+    #        train.decoder_opt, num_warmup_steps=0,
+    #        num_training_steps=train.batch_manager.get_step_count() * train.manifest.max_epoch)
+    #)
+    #train.decoder_opt = train.accelerator.prepare(train.decoder_opt)
+    #train.decoder_scheduler = train.accelerator.prepare(train.decoder_scheduler)
+
 
     # load an existing model for first stage
     if (
@@ -302,21 +318,21 @@ def main(config_path, early_joint, stage, pretrained_model):
         )
 
     # adjust BERT learning rate
-    for g in train.optimizer.optimizers["bert"].param_groups:
-        g["betas"] = (0.9, 0.99)
-        g["lr"] = train.config.optimizer.bert_lr
-        g["initial_lr"] = train.config.optimizer.bert_lr
-        g["min_lr"] = 0
-        g["weight_decay"] = 0.01
+    #for g in train.optimizer.optimizers["bert"].param_groups:
+    #    g["betas"] = (0.9, 0.99)
+    #    g["lr"] = train.config.optimizer.bert_lr
+    #    g["initial_lr"] = train.config.optimizer.bert_lr
+    #    g["min_lr"] = 0
+    #    g["weight_decay"] = 0.01
 
     # adjust acoustic module learning rate
-    for module in ["decoder", "style_encoder"]:
-        for g in train.optimizer.optimizers[module].param_groups:
-            g["betas"] = (0.0, 0.99)
-            g["lr"] = train.config.optimizer.ft_lr
-            g["initial_lr"] = train.config.optimizer.ft_lr
-            g["min_lr"] = 0
-            g["weight_decay"] = 1e-4
+    #for module in ["decoder", "style_encoder"]:
+    #for g in train.optimizer.optimizers["decoder"].param_groups:
+    #    g["lr"] = train.config.optimizer.lr*10
+    #        g["initial_lr"] = train.config.optimizer.ft_lr
+    #        g["betas"] = (0.0, 0.99)
+    #        g["min_lr"] = 0
+    #        g["weight_decay"] = 1e-4
 
     train.n_down = 1  # TODO: Use train.model.text_aligner.n_down
 

@@ -285,8 +285,7 @@ def train_acoustic(train: TrainContext, inputs, split=False):
         train.optimizer.zero_grad()
         loglist = []
         for audio_out, mag, phase, audio_gt_slice in decoding:
-            # audio_out = torch.cat([audio_out, audio_out[:, -300:]], dim=1)
-            audio_gt_slice = audio_gt_slice[:, :-300]
+            #audio_gt_slice = audio_gt_slice[:, :-300]
             log = incremental_loss_acoustic(
                 audio_out, mag, phase, audio_gt_slice, split_count, state=state
             )
@@ -395,7 +394,7 @@ def train_first(
     # --- Waveform Preparation ---
     wav = prepare_batch(batch, train.config.training.device, ["waves"])[0]
     wav.requires_grad_(False)
-    wav = wav[:, :-300]
+    #wav = wav[:, :-300]
 
     # --- Discriminator Loss ---
     if train.manifest.stage == "first_tma":
@@ -443,6 +442,8 @@ def train_first(
 
     # --- Optimizer Steps ---
     optimizer_step(train, ["text_encoder", "style_encoder", "decoder"])
+    #train.decoder_opt.step()
+    #train.decoder_scheduler.step()
 
     if train.manifest.stage == "first_tma":
         optimizer_step(train, ["text_aligner", "pitch_extractor"])
@@ -774,7 +775,7 @@ def validate_first(current_step: int, save: bool, train: TrainContext) -> None:
             s = train.model.style_encoder(mels.unsqueeze(1))
             real_norm = log_norm(mels.unsqueeze(1)).squeeze(1)
             y_rec, _, _ = train.model.decoder(asr, F0_real, real_norm, s)
-            waves = waves[:, :-300]
+            #waves = waves[:, :-300]
 
             loss_mel = train.stft_loss(y_rec.squeeze(), waves.detach())
             loss_test += loss_mel.item()

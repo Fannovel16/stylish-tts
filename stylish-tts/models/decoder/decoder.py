@@ -4,10 +4,10 @@ from torch import nn
 from torch.nn.utils.parametrizations import weight_norm
 import torch.nn.functional as F
 
-# from .vocos import VocosBackbone, ISTFTHead
-from vocos import Vocos
+from .vocos import VocosBackbone, ISTFTHead
+#from vocos import Vocos
 
-vocos = Vocos.from_pretrained("/mnt/z/vtrain/epoch-12.ckpt").to("cuda")
+#vocos = Vocos.from_pretrained("/mnt/z/vtrain/epoch-12.ckpt").to("cuda")
 
 
 class ResBlk1d(nn.Module):
@@ -228,19 +228,19 @@ class Decoder(nn.Module):
             nn.InstanceNorm1d(residual_dim, affine=True),
         )
 
-        self.to_out = nn.Sequential(weight_norm(nn.Conv1d(dim_in, dim_out, 1, 1, 0)))
+        #self.to_out = nn.Sequential(weight_norm(nn.Conv1d(dim_in, dim_out, 1, 1, 0)))
 
-        # self.head = ISTFTHead(
-        #    dim = dim_in,
-        #    n_fft=gen_istft_n_fft,
-        #    hop_length=gen_istft_hop_size,
-        # )
-        # self.generator = VocosBackbone(
-        #    input_channels=dim_out,
-        #    dim=dim_in,
-        #    intermediate_dim=intermediate_dim,
-        #    num_layers=num_layers,
-        # )
+        self.head = ISTFTHead(
+           dim = dim_in,
+           n_fft=gen_istft_n_fft,
+           hop_length=gen_istft_hop_size,
+        )
+        self.generator = VocosBackbone(
+           input_channels=dim_in,
+           dim=dim_in,
+           intermediate_dim=intermediate_dim,
+           num_layers=num_layers,
+        )
 
     def forward(self, asr, F0, N, s):
         F0 = self.F0_conv(F0.unsqueeze(1))
@@ -259,8 +259,8 @@ class Decoder(nn.Module):
             if block.upsample_type != "none":
                 res = False
 
-        x = self.to_out(x)
-        x = vocos.decode(x)
-        # x = self.generator(x)
-        # x = self.head(x).unsqueeze(-2)
+        #x = self.to_out(x)
+        #x = vocos.decode(x)
+        x = self.generator(x)
+        x = self.head(x).unsqueeze(-2)
         return x, None, None
