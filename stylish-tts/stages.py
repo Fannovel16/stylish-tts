@@ -598,6 +598,7 @@ def train_second(
         )
 
     wav = waves  # Assume already on train.config.training.device
+    wav = wav[:, :-300]
     if mels.shape[-1] < 40 or (
         mels.shape[-1] < 80 and not train.config.embedding_encoder.skip_downsamples
     ):
