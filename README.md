@@ -1,4 +1,26 @@
-# StyleTTS Improved Training Code (still being tested)
+# Stylish TTS
+
+Stylish TTS is a lightweight text-to-speech system suitable for offline local use. Our goal is providing consistency for long form text and screen reading with a focus on high quality single speaker models rather than zero-shot voice cloning. The architecture is based on [StyleTTS 2](https://github.com/yl4579/StyleTTS2) with many bugfixes, model immprovements, and an improved training process.
+
+TODO: Make some samples
+
+# Getting Started
+
+# Training a Model
+
+## Preparing a dataset
+
+A dataset consists of many segments. Each segment has a written text and an audio file where that text is spoken by a reader. When using the default model options, the audio must be at least 0.25 seconds long. The upper limit on audio length for a segment will be based on the VRAM of your GPU. You typically want to have audio clips distributed over the whole range of possible lengths. If your range doesn't cover the shortest lengths, your model will sound worse when doing short utterances of one word or a few words. If your range doesn't cover longer lengths which include multiple sentences, your model will tend to skip past punctuation too quickly.
+
+## First Steps
+
+## More Details
+
+# Training New Languages
+
+## Phonemization
+
+
 
 This code is mostly the same as the original StyleTTS 2 repo and you
 can read the original documentation below.
