@@ -116,10 +116,13 @@ class BatchContext:
     def get_attention(self):
         return self.attention
 
-    # # def acoustic_pitch(self, mels: torch.Tensor):
+    def acoustic_pitch(self, mels: torch.Tensor):
+        pitch, _, _ = self.model.pitch_extractor(mels.unsqueeze(1))
+        return pitch
+
     # def acoustic_pitch(self, audio_gt: torch.Tensor):
     #     with torch.no_grad():
-    #         # pitch, _, _ = self.model.pitch_extractor(mels.unsqueeze(1))
+    #
     #         c = self.config
     #         fmin = 50
     #         fmax = 550
@@ -244,12 +247,14 @@ class BatchContext:
             use_random_choice=use_random_mono,
         )
         energy = self.acoustic_energy(batch.mel)
+        pitch = self.acoustic_pitch(batch.mel)
         # style_embedding = self.acoustic_style_embedding(batch.mel)
         style_embedding = self.style_embedding(batch.sentence_embedding)
         prediction = self.decoding_single(
             text_encoding,
             duration,
-            batch.pitch,
+            # batch.pitch,
+            pitch,
             energy,
             style_embedding,
         )

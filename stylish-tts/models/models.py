@@ -13,6 +13,7 @@ from config_loader import ModelConfig
 
 
 from .text_aligner import TextAligner
+from .pitch_extractor import PitchExtractor
 from .plbert import PLBERT
 
 from .discriminators import (
@@ -725,7 +726,7 @@ def build_model(model_config: ModelConfig):
         n_token=model_config.text_encoder.n_token,
         **(model_config.text_aligner.model_dump()),
     )
-    # pitch_extractor = PitchExtractor(**(model_config.pitch_extractor.dict()))
+    pitch_extractor = PitchExtractor(**(model_config.pitch_extractor.dict()))
     bert = PLBERT(
         vocab_size=model_config.text_encoder.n_token,
         **(model_config.plbert.model_dump()),
@@ -899,7 +900,7 @@ def build_model(model_config: ModelConfig):
         # style_encoder=style_encoder,
         # diffusion=diffusion,
         text_aligner=text_aligner,
-        # pitch_extractor=pitch_extractor,
+        pitch_extractor=pitch_extractor,
         mpd=MultiPeriodDiscriminator(),
         msd=MultiScaleSubbandCQTDiscriminator(),
         # msd=MultiResolutionDiscriminator(),
@@ -925,13 +926,13 @@ def load_defaults(train, model):
         model.text_aligner.load_state_dict(params)
 
         # Load pretrained pitch_extractor
-        # params = safetensors.torch.load_file(
-        # hf_hub_download(
-        # repo_id="stylish-tts/pitch_extractor",
-        # filename="pitch_extractor.safetensors",
-        # )
-        # )
-        # model.pitch_extractor.load_state_dict(params)
+        params = safetensors.torch.load_file(
+            hf_hub_download(
+                repo_id="stylish-tts/pitch_extractor",
+                filename="pitch_extractor.safetensors",
+            )
+        )
+        model.pitch_extractor.load_state_dict(params)
 
         # Load pretrained PLBERT
         params = safetensors.torch.load_file(

@@ -84,7 +84,7 @@ stages = {
         train_fn=train_pre_acoustic,
         validate_fn=validate_acoustic,
         train_models=["text_encoder", "style_encoder", "decoder"],
-        eval_models=["text_aligner"],
+        eval_models=["text_aligner", "pitch_extractor"],
         disc_models=[],
         inputs=[
             "text",
@@ -99,7 +99,13 @@ stages = {
     "acoustic": StageConfig(
         train_fn=train_acoustic,
         validate_fn=validate_acoustic,
-        train_models=["text_encoder", "style_encoder", "decoder", "text_aligner"],
+        train_models=[
+            "text_encoder",
+            "style_encoder",
+            "decoder",
+            "text_aligner",
+            "pitch_extractor",
+        ],
         eval_models=[],
         disc_models=["msd", "mpd"],
         inputs=[
