@@ -12,7 +12,7 @@ def train_pre_acoustic(batch, model, train) -> LossLog:
         log = build_loss_log(train)
         log.add_loss(
             "mel",
-            train.stft_loss(pred.audio.squeeze(1), batch.audio_gt),
+            train.stft_loss(pred.audio, batch.audio_gt.unsqueeze(1)),
         )
         if pred.magnitude is not None and pred.phase is not None:
             log.add_loss(
@@ -39,7 +39,7 @@ def train_acoustic(batch, model, train) -> LossLog:
         log = build_loss_log(train)
         log.add_loss(
             "mel",
-            train.stft_loss(pred.audio.squeeze(1), batch.audio_gt),
+            train.stft_loss(pred.audio, batch.audio_gt.unsqueeze(1)),
         )
         log.add_loss(
             "gen",
@@ -83,7 +83,7 @@ def train_textual(batch, model, train) -> LossLog:
         log = build_loss_log(train)
         log.add_loss(
             "mel",
-            train.stft_loss(pred.audio.squeeze(1), batch.audio_gt),
+            train.stft_loss(pred.audio, batch.audio_gt.unsqueeze(1)),
         )
         log.add_loss(
             "slm",

@@ -25,6 +25,7 @@ from losses import GeneratorLoss, DiscriminatorLoss, WavLMLoss, MultiResolutionS
 from utils import get_data_path_list, save_git_diff
 from loss_log import combine_logs
 import tqdm
+import auraloss
 
 # from models.slmadv import SLMAdversarialLoss
 # from models.diffusion.sampler import (
@@ -239,7 +240,18 @@ def main(config_path, model_config_path, out_dir, stage, checkpoint):
 
     torch.cuda.empty_cache()
 
-    train.stft_loss = MultiResolutionSTFTLoss().to(train.config.training.device)
+    # train.stft_loss = MultiResolutionSTFTLoss().to(train.config.training.device)
+    train.stft_loss = auraloss.freq.MultiResolutionSTFTLoss(
+        fft_sizes=[1024, 2048, 512],
+        hop_sizes=[120, 240, 60],
+        win_lengths=[600, 1200, 300],
+        scale="mel",
+        n_bins=120,
+        sample_rate=24000,
+        perceptual_weighting=True,
+        w_lin_mag=0.1,
+        w_phs=0.1,
+    )
 
     # TODO: This value is calculated inconsistently based on whether checkpoints are loaded/saved
     train.manifest.running_std = []
