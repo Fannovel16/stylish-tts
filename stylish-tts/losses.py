@@ -1,4 +1,5 @@
 import math
+import random
 from typing import List, Tuple
 import torch
 from torch import nn
@@ -6,6 +7,8 @@ import torch.nn.functional as F
 import torchaudio
 from transformers import AutoModel
 import numpy as np
+from models import penn
+import huggingface_hub
 
 
 class SpectralConvergenceLoss(torch.nn.Module):
@@ -610,6 +613,49 @@ class WavLMLoss(torch.nn.Module):
         ).hidden_states
         y_rec_tensor = torch.stack(y_rec_embeddings)
         return torch.nn.functional.l1_loss(wav_tensor, y_rec_tensor)
+
+
+class PitchReconstructionLoss(torch.nn.Module):
+    def __init__(self, *, hop_length, win_length):
+        super(PitchReconstructionLoss, self).__init__()
+        checkpoint = huggingface_hub.hf_hub_download(
+            "maxrmorrison/fcnf0-plus-plus", "fcnf0++.pt"
+        )
+        states = torch.load(checkpoint, map_location="cpu")
+        self.model = penn.Fcnf0()
+        self.model.load_state_dict(states["model"])
+        self.unfold = torch.nn.Unfold(kernel_size=(1, 1024), stride=(1, 80))
+        self.resample = torchaudio.transforms.Resample(24000, 8000)
+
+    def predict(self, x):
+        # x = x[index:index+1]
+        # x = self.resample(x)
+        # x = x.unsqueeze(1)
+        # frames = self.unfold(x)
+        # frames = frames.transpose(0, 1)
+        # return self.model(frames.unsqueeze(1))
+
+        # frames = frames.unsqueeze(2)
+        # result = []
+        # for i in range(frames.shape[0]):
+        # result.append(self.model(frames[i]))
+        # return torch.stack(result)
+
+        x = self.resample(x)
+        x = x.unsqueeze(1).unsqueeze(1)
+        frames = self.unfold(x)
+        frames = frames.transpose(1, 2)
+        frames = frames.flatten(0, 1)
+        return self.model(frames.unsqueeze(1))
+
+    def forward(self, audio_gt, audio, log):
+        # index = random.randrange(0, audio.shape[0])
+        with torch.no_grad():
+            x_pred = self.predict(audio_gt)
+        y_pred = self.predict(audio)
+        result = F.l1_loss(x_pred, y_pred)
+        log.add_loss("pitch_reconstruction", result)
+        return result
 
 
 def compute_duration_ce_loss(

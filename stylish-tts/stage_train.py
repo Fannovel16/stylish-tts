@@ -52,6 +52,7 @@ def train_pre_acoustic(
         train.stage.optimizer.zero_grad()
         log = build_loss_log(train)
         train.stft_loss(pred.audio.squeeze(1), batch.audio_gt, log)
+        train.pitch_r_loss(batch.audio_gt, pred.audio.squeeze(1), log)
         if pred.magnitude is not None and pred.phase is not None:
             log.add_loss(
                 "magphase",
@@ -151,7 +152,7 @@ def train_pre_textual(
             log.backwards_loss() * math.sqrt(batch.text.shape[0])
         )
 
-    return log.detach(), pred.audio.detach()
+    return log.detach(), None
 
 
 def train_textual(
@@ -255,8 +256,12 @@ def train_sbert(batch, model, train, probing) -> Tuple[LossLog, Optional[torch.T
     state = BatchContext(train=train, model=model, text_length=batch.text_length)
     with train.accelerator.autocast():
         # 1. Get textual and acoustic embeddings
-        textual_style_embedding = state.textual_style_embedding(batch.sentence_embedding)
-        textual_prosody_embedding = state.textual_prosody_embedding(batch.sentence_embedding)
+        textual_style_embedding = state.textual_style_embedding(
+            batch.sentence_embedding
+        )
+        textual_prosody_embedding = state.textual_prosody_embedding(
+            batch.sentence_embedding
+        )
         acoustic_style_embedding = state.acoustic_style_embedding(batch.mel)
         acoustic_prosody_embedding = state.acoustic_prosody_embedding(batch.mel)
 
@@ -264,8 +269,12 @@ def train_sbert(batch, model, train, probing) -> Tuple[LossLog, Optional[torch.T
         log = build_loss_log(train)
 
         # 2. Calculate Loss
-        style_loss = torch.nn.functional.l1_loss(textual_style_embedding, acoustic_style_embedding)
-        prosody_loss = torch.nn.functional.l1_loss(textual_prosody_embedding, acoustic_prosody_embedding)
+        style_loss = torch.nn.functional.l1_loss(
+            textual_style_embedding, acoustic_style_embedding
+        )
+        prosody_loss = torch.nn.functional.l1_loss(
+            textual_prosody_embedding, acoustic_prosody_embedding
+        )
 
         log.add_loss("sbert_style_loss", style_loss)
         log.add_loss("sbert_prosody_loss", prosody_loss)

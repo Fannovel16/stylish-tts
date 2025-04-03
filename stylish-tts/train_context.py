@@ -6,7 +6,13 @@ from accelerate import Accelerator
 from accelerate import DistributedDataParallelKwargs
 import logging
 from torch.utils.data import DataLoader
-from losses import GeneratorLoss, DiscriminatorLoss, WavLMLoss, MultiResolutionSTFTLoss
+from losses import (
+    GeneratorLoss,
+    DiscriminatorLoss,
+    WavLMLoss,
+    MultiResolutionSTFTLoss,
+    PitchReconstructionLoss,
+)
 from torch.utils.tensorboard.writer import SummaryWriter
 from text_utils import TextCleaner
 
@@ -86,6 +92,10 @@ class TrainContext:
         self.wavlm_loss: Optional[WavLMLoss] = None  # WavLM Loss
         self.stft_loss: MultiResolutionSTFTLoss = MultiResolutionSTFTLoss(
             sample_rate=self.model_config.sample_rate
+        ).to(self.config.training.device)
+        self.pitch_r_loss: PitchReconstructionLoss = PitchReconstructionLoss(
+            hop_length=self.model_config.hop_length,
+            win_length=self.model_config.win_length,
         ).to(self.config.training.device)
 
         # Run parameters
