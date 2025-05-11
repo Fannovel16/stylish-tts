@@ -31,7 +31,6 @@ class TrainingConfig(BaseModel):
     )
 
 
-
 class TrainingPlanConfig(BaseModel):
     """
     Training plan configuration that defines the number of epochs for different stages.
@@ -121,11 +120,15 @@ class LossWeightConfig(BaseModel):
     mel_rec: float = Field(..., description="Weight for text mel reconstruction")
     text_gen: float = Field(..., description="Weight for text mel generator model")
 
+
 class DiscriminatorLossWeightConfig(BaseModel):
     mpd: float = Field(..., description="Weight for Multi-Period discriminator.")
     mrd: float = Field(..., description="Weight for Multi-Resolution discriminator.")
-    msbd: float = Field(..., description="Weight for Multi-Scale Sub-Band CQT discriminator.")
+    msbd: float = Field(
+        ..., description="Weight for Multi-Scale Sub-Band CQT discriminator."
+    )
     mstftd: float = Field(..., description="Weight for Multi-Scale STFT discriminator.")
+
 
 class OptimizerConfig(BaseModel):
     """
@@ -136,7 +139,9 @@ class OptimizerConfig(BaseModel):
     bert_lr: float = Field(..., description="Learning rate for the PLBERT model.")
     ft_lr: float = Field(..., description="Learning rate for acoustic modules.")
     alignment_lr: float = Field(..., description="Alignment learning rate.")
-    text_encoder_lr: float = Field(..., description="Text encoder pretraining learning rate.")
+    text_encoder_lr: float = Field(
+        ..., description="Text encoder pretraining learning rate."
+    )
 
 
 ######## Model Configuration ########
@@ -186,8 +191,9 @@ class PLBERTConfig(BaseModel):
     """
     Configuration for the PLBERT model.
     """
+
     enabled: bool = Field(..., description="Enable PL-BERT.")
-    path: bool = Field(..., description="Path to the safetensors checkpoint.")
+    path: str = Field(..., description="Path to the safetensors checkpoint.")
     hidden_size: int = Field(..., description="Hidden size of the PLBERT model.")
     num_attention_heads: int = Field(
         ..., description="Number of attention heads in the PLBERT model."
