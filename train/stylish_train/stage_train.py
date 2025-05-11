@@ -266,11 +266,11 @@ def train_textual(
             "slm",
             train.wavlm_loss(batch.audio_gt.detach(), pred.audio),
         )
-        if pred.magnitude is not None and pred.phase is not None:
+        """if pred.magnitude is not None and pred.phase is not None:
             log.add_loss(
                 "magphase",
                 magphase_loss(pred.magnitude, pred.phase, batch.audio_gt),
-            )
+            )"""
         log.add_loss(
             "pitch",
             torch.nn.functional.smooth_l1_loss(pitch, state.pitch_prediction),
