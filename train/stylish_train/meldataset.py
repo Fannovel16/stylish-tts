@@ -456,6 +456,7 @@ def build_dataloader(
     train,
 ):
     collate_config["multispeaker"] = multispeaker
+    collate_config["sbert_output_dim"] = train.sbert.get_sentence_embedding_dimension()
     collate_fn = Collater(**collate_config)
     drop_last = not validation and probe_batch_size is not None
     data_loader = torch.utils.data.DataLoader(
