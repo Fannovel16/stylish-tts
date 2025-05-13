@@ -16,6 +16,7 @@ from losses import (
 from torch.utils.tensorboard.writer import SummaryWriter
 from text_utils import TextCleaner
 import torchaudio
+from sentence_transformers import SentenceTransformer
 
 
 class Manifest:
@@ -107,6 +108,8 @@ class TrainContext:
             hop_length=self.model_config.hop_length,
             sample_rate=self.model_config.sample_rate,
         ).to(self.config.training.device)
+
+        self.sbert: SentenceTransformer = None
 
     def reset_out_dir(self, stage_name):
         self.out_dir = osp.join(self.base_output_dir, stage_name)
