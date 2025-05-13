@@ -5,7 +5,8 @@ import torch
 from torch.nn import functional as F
 import torchaudio
 from einops import rearrange, reduce
-#import train_context
+
+# import train_context
 from config_loader import Config
 from utils import length_to_mask, log_norm, maximum_path
 from models.models import build_model
@@ -21,6 +22,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 
 class CustomSTFT(nn.Module):
     """
@@ -54,8 +56,10 @@ class CustomSTFT(nn.Module):
         self.freq_bins = self.n_fft // 2 + 1
 
         # Build window
-        assert window == 'hann', window
-        window_tensor = torch.hann_window(win_length, periodic=True, dtype=torch.float32)
+        assert window == "hann", window
+        window_tensor = torch.hann_window(
+            win_length, periodic=True, dtype=torch.float32
+        )
         if self.win_length < self.n_fft:
             # Zero-pad up to n_fft
             extra = self.n_fft - self.win_length
@@ -84,12 +88,8 @@ class CustomSTFT(nn.Module):
 
         # Register as Conv1d weight => (out_channels, in_channels, kernel_size)
         # out_channels = freq_bins, in_channels=1, kernel_size=n_fft
-        self.register_buffer(
-            "weight_forward_real", forward_real_torch.unsqueeze(1)
-        )
-        self.register_buffer(
-            "weight_forward_imag", forward_imag_torch.unsqueeze(1)
-        )
+        self.register_buffer("weight_forward_real", forward_real_torch.unsqueeze(1))
+        self.register_buffer("weight_forward_imag", forward_imag_torch.unsqueeze(1))
 
         # Precompute inverse DFT
         # Real iFFT formula => scale = 1/n_fft, doubling for bins 1..freq_bins-2 if n_fft even, etc.
@@ -115,8 +115,6 @@ class CustomSTFT(nn.Module):
         self.register_buffer(
             "weight_backward_imag", torch.from_numpy(backward_imag).float().unsqueeze(1)
         )
-
-
 
     def transform(self, waveform: torch.Tensor):
         """
@@ -155,7 +153,6 @@ class CustomSTFT(nn.Module):
         correction_mask = (imag_out == 0) & (real_out < 0)
         phase[correction_mask] = torch.pi
         return magnitude, phase
-
 
     def inverse(self, magnitude: torch.Tensor, phase: torch.Tensor, length=None):
         """
@@ -214,18 +211,39 @@ class CustomSTFT(nn.Module):
         mag, phase = self.transform(x)
         return self.inverse(mag, phase, length=x.shape[-1])
 
+
 class Stylish(nn.Module):
-    def __init__(self,
-                 text_encoder, textual_style_encoder, textual_prosody_encoder, bert, bert_encoder,
-                 duration_predictor, pitch_energy_predictor, decoder, generator, device="cuda", **kwargs):
+    def __init__(
+        self,
+        text_encoder,
+        textual_style_encoder,
+        textual_prosody_encoder,
+        bert,
+        bert_encoder,
+        duration_predictor,
+        pitch_energy_predictor,
+        decoder,
+        generator,
+        device="cuda",
+        **kwargs
+    ):
         super(Stylish, self).__init__()
-        
-        for model in [text_encoder, textual_style_encoder, textual_prosody_encoder, bert, bert_encoder,
-                 duration_predictor, pitch_energy_predictor, decoder, generator,]:
+
+        for model in [
+            text_encoder,
+            textual_style_encoder,
+            textual_prosody_encoder,
+            bert,
+            bert_encoder,
+            duration_predictor,
+            pitch_energy_predictor,
+            decoder,
+            generator,
+        ]:
             model.to(device).eval()
             for p in model.parameters():
                 p.requires_grad = False
-        
+
         self.device = device
         self.text_encoder = text_encoder
         self.textual_style_encoder = textual_style_encoder
@@ -236,7 +254,6 @@ class Stylish(nn.Module):
         self.pitch_energy_predictor = pitch_energy_predictor
         self.decoder = decoder
         self.generator = generator
-        
 
     def decoding_single(
         self,
@@ -253,23 +270,29 @@ class Stylish(nn.Module):
         mel, f0_curve = self.decoder(
             text_encoding @ duration, pitch, energy, style, probing=probing
         )
-        prediction = self.generator(
-            mel=mel, style=style, pitch=f0_curve, energy=energy
-        )
+        prediction = self.generator(mel=mel, style=style, pitch=f0_curve, energy=energy)
         # prediction = self.decoder(
         #     text_encoding @ duration, pitch, energy, style, probing=probing
         # )
         return prediction
 
-    def duration_predict(self, duration_encoding, prosody_embedding, text_lengths, text_mask):
-        d = self.duration_predictor.text_encoder(duration_encoding, prosody_embedding, text_lengths, text_mask)
+    def duration_predict(
+        self, duration_encoding, prosody_embedding, text_lengths, text_mask
+    ):
+        d = self.duration_predictor.text_encoder(
+            duration_encoding, prosody_embedding, text_lengths, text_mask
+        )
         x, _ = self.duration_predictor.lstm(d)
         duration = self.duration_predictor.duration_proj(x)
         duration = torch.sigmoid(duration).sum(axis=-1)
 
         pred_dur = torch.round(duration).clamp(min=1).long().squeeze()
-        indices = torch.repeat_interleave(torch.arange(duration_encoding.shape[2], device=self.device), pred_dur)
-        pred_aln_trg = torch.zeros((duration_encoding.shape[2], indices.shape[0]), device=self.device)
+        indices = torch.repeat_interleave(
+            torch.arange(duration_encoding.shape[2], device=self.device), pred_dur
+        )
+        pred_aln_trg = torch.zeros(
+            (duration_encoding.shape[2], indices.shape[0]), device=self.device
+        )
         pred_aln_trg[indices, torch.arange(indices.shape[0])] = 1
         pred_aln_trg = pred_aln_trg.unsqueeze(0).to(self.device)
 
@@ -280,9 +303,7 @@ class Stylish(nn.Module):
         text_encoding = self.text_encoder(texts, text_lengths, text_mask)
         style_embedding = self.textual_style_encoder(sentence_embedding)
         prosody_embedding = self.textual_prosody_encoder(sentence_embedding)
-        plbert_embedding = self.bert(
-            texts, attention_mask=(~text_mask).int()
-        )
+        plbert_embedding = self.bert(texts, attention_mask=(~text_mask).int())
         duration_encoding = self.bert_encoder(plbert_embedding).permute(0, 2, 1)
         duration_prediction, prosody = self.duration_predict(
             duration_encoding,
@@ -290,9 +311,9 @@ class Stylish(nn.Module):
             text_lengths,
             text_mask,
         )
-        #duration_prediction, prosody = self.duration_prediction, self.prosody
-        pitch_prediction, energy_prediction = (
-            self.pitch_energy_predictor(prosody, prosody_embedding)
+        # duration_prediction, prosody = self.duration_prediction, self.prosody
+        pitch_prediction, energy_prediction = self.pitch_energy_predictor(
+            prosody, prosody_embedding
         )
 
         prediction = self.decoding_single(
@@ -304,10 +325,11 @@ class Stylish(nn.Module):
         )
         return prediction.audio.squeeze()
 
+
 model_config = load_model_config_yaml("/content/stylish-tts/config/model.yml")
 text_cleaner = TextCleaner(model_config.symbol)
 sbert = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2").cpu()
-modules = build_model(model_config)
+modules = build_model(model_config, sbert.get_sentence_embedding_dimension())
 model = Stylish(**modules, device="cuda").eval()
 model.generator.stft = CustomSTFT(
     filter_length=model.generator.gen_istft_n_fft,
@@ -319,29 +341,43 @@ texts = torch.tensor(text_cleaner("ɑɐɒæɓʙβɔɗɖðʤəɘɚɛɜɝɞɟʄɡ�
 text_lengths = torch.zeros([1], dtype=int).cuda()
 text_lengths[0] = texts.shape[1]
 text_mask = torch.ones(1, texts.shape[1], dtype=bool).cuda()
-sentence_embedding = torch.from_numpy(
-    sbert.encode(["Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."], show_progress_bar=False)
-).float().cuda()
+sentence_embedding = (
+    torch.from_numpy(
+        sbert.encode(
+            [
+                "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+            ],
+            show_progress_bar=False,
+        )
+    )
+    .float()
+    .cuda()
+)
 inputs = (texts, text_lengths, text_mask, sentence_embedding)
 with torch.no_grad():
-    torch.onnx.export(model, inputs, opset_version=14, f="stylish.onnx",
-        input_names=['texts', 'text_lengths', 'text_mask', 'sentence_embedding'],
-        output_names=['waveform'],
+    torch.onnx.export(
+        model,
+        inputs,
+        opset_version=14,
+        f="stylish.onnx",
+        input_names=["texts", "text_lengths", "text_mask", "sentence_embedding"],
+        output_names=["waveform"],
         dynamic_axes={
-            "texts": { 1: "num_token" },
-            "text_mask": { 1: "num_token"},
-            "waveform": { 0: 'num_samples' },
+            "texts": {1: "num_token"},
+            "text_mask": {1: "num_token"},
+            "waveform": {0: "num_samples"},
         },
-        verify=True
+        verify=True,
     )
 
 import onnx
-onnx_model = onnx.load('stylish.onnx')
+
+onnx_model = onnx.load("stylish.onnx")
 for node in onnx_model.graph.node:
     if node.op_type == "Transpose":
-        if node.name == "/text_encoder_1/Transpose_7":  
-            perm = list(node.attribute[0].ints)  
-            perm = [2 if i == -1 else i for i in perm]  
-            node.attribute[0].ints[:] = perm  
+        if node.name == "/text_encoder_1/Transpose_7":
+            perm = list(node.attribute[0].ints)
+            perm = [2 if i == -1 else i for i in perm]
+            node.attribute[0].ints[:] = perm
 onnx.save(onnx_model, "stylish.onnx")
-print('Exported!')
+print("Exported!")
