@@ -23,6 +23,7 @@ import tqdm
 
 import os.path as osp
 import os
+from sentence_transformers import SentenceTransformer
 
 logging.basicConfig(
     level=logging.INFO,
@@ -135,6 +136,7 @@ def main(config_path, model_config_path, out_dir, stage, checkpoint, reset_stage
 
     train.config.validation.force_samples = selected_files
 
+    sbert = SentenceTransformer(**train.model_config.sbert.model_dump()).cpu()
     val_dataset = FilePathDataset(
         data_list=val_list,
         root_path=train.config.dataset.wav_path,
@@ -142,6 +144,7 @@ def main(config_path, model_config_path, out_dir, stage, checkpoint, reset_stage
         model_config=train.model_config,
         pitch_path=train.config.dataset.pitch_path,
         alignment_path=train.config.dataset.alignment_path,
+        sbert=sbert,
     )
     val_time_bins = val_dataset.time_bins()
     train.val_dataloader = build_dataloader(
@@ -170,7 +173,9 @@ def main(config_path, model_config_path, out_dir, stage, checkpoint, reset_stage
     )
 
     # build model
-    train.model = build_model(train.model_config)
+    train.model = build_model(
+        train.model_config, sbert.get_sentence_embedding_dimension()
+    )
     for key in train.model:
         train.model[key] = train.accelerator.prepare(train.model[key])
         train.model[key].to(train.config.training.device)

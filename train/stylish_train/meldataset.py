@@ -17,9 +17,6 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-
-sbert = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2").cpu()
-
 mel_window = {}
 
 
@@ -81,6 +78,7 @@ class FilePathDataset(torch.utils.data.Dataset):
         model_config,
         pitch_path,
         alignment_path,
+        sbert,
     ):
         self.pitch = {}
         with safe_open(pitch_path, framework="pt", device="cpu") as f:
@@ -120,6 +118,8 @@ class FilePathDataset(torch.utils.data.Dataset):
             hop_length=model_config.hop_length,
             sample_rate=model_config.sample_rate,
         )
+
+        self.sbert = sbert
 
         # self.min_length = min_length
         # with open(
@@ -266,7 +266,7 @@ class FilePathDataset(torch.utils.data.Dataset):
                 dtype=torch.float32,  # Match Collater's target dtype
             )
         sentence_embedding = torch.from_numpy(
-            sbert.encode([self.sentences[idx]], show_progress_bar=False)
+            self.sbert.encode([self.sentences[idx]], show_progress_bar=False)
         ).float()
 
         return (

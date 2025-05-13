@@ -39,7 +39,20 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def build_model(model_config: ModelConfig):
+class TextualStyleEncoder(nn.Linear):
+    """Linear layer with merciful load_state_dict."""
+
+    def load_state_dict(self, state_dict, strict=True, assign=False):
+        if strict:
+            try:
+                return super().load_state_dict(state_dict, strict, assign)
+            except:
+                logger.warning(
+                    "The state dict from the checkpoint of TextualStyleEncoder is not compatible. Ignore this message if the sbert is intentionally changed."
+                )
+
+
+def build_model(model_config: ModelConfig, sbert_output_dim: int):
     bert = PLBERT(
         vocab_size=model_config.text_encoder.n_token,
         **{
@@ -180,14 +193,12 @@ def build_model(model_config: ModelConfig):
         text_encoder=text_encoder,
         # text_mel_generator=text_mel_generator,
         # text_mel_classifier=text_mel_classifier,
-        # TODO Make this a config option
-        # TODO Make the sbert model a config option
-        textual_prosody_encoder=nn.Linear(
-            384,  # model_config.embedding_encoder.dim_in,
+        textual_prosody_encoder=TextualStyleEncoder(
+            sbert_output_dim,  # model_config.embedding_encoder.dim_in,
             model_config.style_dim,
         ),
-        textual_style_encoder=nn.Linear(
-            384,  # model_config.embedding_encoder.dim_in,
+        textual_style_encoder=TextualStyleEncoder(
+            sbert_output_dim,  # model_config.embedding_encoder.dim_in,
             model_config.style_dim,
         ),
         acoustic_prosody_encoder=predictor_encoder,
