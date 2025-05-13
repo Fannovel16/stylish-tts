@@ -341,12 +341,13 @@ class Collater(object):
       adaptive_batch_size (bool): if true, decrease batch size when long data comes.
     """
 
-    def __init__(self, return_wave=False, multispeaker=False):
+    def __init__(self, return_wave=False, multispeaker=False, sbert_output_dim=384):
         self.text_pad_index = 0
         self.min_mel_length = 192
         self.max_mel_length = 192
         self.return_wave = return_wave
         self.multispeaker = multispeaker
+        self.sbert_output_dim = sbert_output_dim
 
     def __call__(self, batch):
         # batch[0] = wave, mel, text, f0, speakerid
@@ -377,7 +378,7 @@ class Collater(object):
             (batch_size, batch[0][7].shape[-1])
         ).float()  # [None for _ in range(batch_size)]
         pitches = torch.zeros((batch_size, max_mel_length)).float()
-        sentence_embeddings = torch.zeros(batch_size, 384).float()
+        sentence_embeddings = torch.zeros(batch_size, self.sbert_output_dim).float()
         voiced = torch.zeros((batch_size, max_text_length)).float()
         align_mels = torch.zeros((batch_size, 80, max_mel_length)).float()
         alignments = torch.zeros((batch_size, max_text_length, max_mel_length // 2))
