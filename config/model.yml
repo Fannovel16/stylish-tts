@@ -84,6 +84,9 @@ slm:
   nlayers: 13 # number of layers of SLM
   initial_channel: 64 # initial channels of SLM discriminator head
 
+sbert:
+  model: 'sentence-transformers/all-MiniLM-L6-v2'
+
 symbol:
   pad: "$"
   punctuation: ";:,.!?¡¿—…\"()“” "

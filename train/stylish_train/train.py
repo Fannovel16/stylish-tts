@@ -136,7 +136,7 @@ def main(config_path, model_config_path, out_dir, stage, checkpoint, reset_stage
 
     train.config.validation.force_samples = selected_files
 
-    sbert = SentenceTransformer(**train.model_config.sbert.model_dump()).cpu()
+    sbert = SentenceTransformer(train.model_config.sbert.model).cpu()
     val_dataset = FilePathDataset(
         data_list=val_list,
         root_path=train.config.dataset.wav_path,

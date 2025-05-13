@@ -416,7 +416,7 @@ class SlmConfig(BaseModel):
 
 
 class SbertConfig(BaseModel):
-    model_name_or_path: str = Field(
+    model: str = Field(
         ..., description="Model name on HuggingFace or filepath to a SBERT checkpoint."
     )
 
