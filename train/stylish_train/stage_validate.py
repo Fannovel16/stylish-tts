@@ -176,7 +176,7 @@ def validate_sbert(batch, train):
         textual_prosody_embedding, acoustic_prosody_embedding
     )
 
-    log.add_loss("mel", train.stft_loss(pred.audio.squeeze(1), batch.audio_gt))
+    log.add_loss("mel", train.stft_loss(pred.audio.squeeze(1), batch.audio_gt, log))
     log.add_loss("sbert_style_loss", style_loss)
     log.add_loss("sbert_prosody_loss", prosody_loss)
     return log, state.get_attention(), pred.audio[0], batch.audio_gt
