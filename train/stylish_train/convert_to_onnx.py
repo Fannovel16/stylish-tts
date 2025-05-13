@@ -225,7 +225,7 @@ class Stylish(nn.Module):
         decoder,
         generator,
         device="cuda",
-        **kwargs
+        **kwargs,
     ):
         super(Stylish, self).__init__()
 
@@ -328,9 +328,20 @@ class Stylish(nn.Module):
 
 model_config = load_model_config_yaml("/content/stylish-tts/config/model.yml")
 text_cleaner = TextCleaner(model_config.symbol)
-sbert = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2").cpu()
+sbert = SentenceTransformer(model_config.sbert.model).cpu()
 modules = build_model(model_config, sbert.get_sentence_embedding_dimension())
 model = Stylish(**modules, device="cuda").eval()
+
+checkpoint = "/content/results/sbert/checkpoint_final"
+for i, key in enumerate(modules.keys()):
+    name = f"pytorch_model_{i}.bin" if i > 0 else "pytorch_model.bin"
+    if not hasattr(model, key):
+        continue
+    getattr(model, key).load_state_dict(
+        torch.load(f"{checkpoint}/{name}", weights_only=True),
+        strict=(key != "generator"),
+    )
+
 model.generator.stft = CustomSTFT(
     filter_length=model.generator.gen_istft_n_fft,
     hop_length=model.generator.gen_istft_hop_size,
