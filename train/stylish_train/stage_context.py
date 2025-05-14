@@ -106,7 +106,7 @@ stages = {
         next_stage="acoustic",
         train_fn=train_pre_acoustic,
         validate_fn=validate_acoustic,
-        train_models=["text_encoder", "decoder", "acoustic_style_encoder", "generator"],
+        train_models=["text_encoder", "decoder", "textual_style_encoder", "generator"],
         eval_models=[],
         adversarial=False,
         inputs=[
@@ -128,7 +128,7 @@ stages = {
         validate_fn=validate_acoustic,
         train_models=[
             "text_encoder",
-            "acoustic_style_encoder",
+            "textual_style_encoder",
             "decoder",
             "generator",
         ],
@@ -152,7 +152,7 @@ stages = {
         train_fn=train_pre_textual,
         validate_fn=validate_textual,
         train_models=[
-            "acoustic_prosody_encoder",
+            "texual_prosody_encoder",
             "duration_predictor",
             "pitch_energy_predictor",
             "bert",
@@ -160,7 +160,7 @@ stages = {
         ],
         eval_models=[
             "text_encoder",
-            "acoustic_style_encoder",
+            "textual_style_encoder",
             "decoder",
             "generator",
             # "text_aligner",
@@ -184,7 +184,7 @@ stages = {
         train_fn=train_textual,
         validate_fn=validate_textual,
         train_models=[
-            "acoustic_prosody_encoder",
+            "texual_prosody_encoder",
             "duration_predictor",
             "pitch_energy_predictor",
             "bert",
@@ -192,7 +192,7 @@ stages = {
         ],
         eval_models=[
             "text_encoder",
-            "acoustic_style_encoder",
+            "textual_style_encoder",
             "decoder",
             "generator",
             # "text_aligner",
