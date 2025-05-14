@@ -45,11 +45,13 @@ class TextualStyleEncoder(nn.Module):
     def __init__(self, sbert_output_dim, style_dim):
         super(TextualStyleEncoder, self).__init__()
         self.model = nn.Sequential(
-            nn.Linear(
-                sbert_output_dim, 256
-            ),  # Hidden layer with 256 units (can be adjusted)
-            nn.ReLU(),  # Activation function
-            nn.Linear(256, style_dim),  # Output layer
+            nn.Linear(sbert_output_dim, 512),
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            nn.Linear(512, 256),
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            nn.Linear(256, style_dim),
         )
 
     def forward(self, x):
