@@ -39,8 +39,21 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class TextualStyleEncoder(nn.Linear):
+class TextualStyleEncoder(nn.Module):
     """Linear layer with merciful load_state_dict."""
+
+    def __init__(self, sbert_output_dim, style_dim):
+        super(TextualStyleEncoder, self).__init__()
+        self.model = nn.Sequential(
+            nn.Linear(
+                sbert_output_dim, 256
+            ),  # Hidden layer with 256 units (can be adjusted)
+            nn.ReLU(),  # Activation function
+            nn.Linear(256, style_dim),  # Output layer
+        )
+
+    def forward(self, x):
+        return self.model(x)
 
     def load_state_dict(self, state_dict, strict=True, assign=False):
         if strict:
