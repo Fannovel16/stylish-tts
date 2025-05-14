@@ -316,14 +316,24 @@ class Stylish(nn.Module):
             prosody, prosody_embedding
         )
 
-        prediction = self.decoding_single(
+        return (
             text_encoding,
             duration_prediction,
             pitch_prediction,
             energy_prediction,
             style_embedding,
         )
-        return prediction.audio.squeeze()
+
+
+class Generator(torch.nn.Module):
+    def __init__(self, generator):
+        super(self, Generator).__init__()
+        self.generator = generator
+
+    def forward(self, mel, style, pitch, energy):
+        return self.generator(
+            mel=mel, style=style, pitch=pitch, energy=energy
+        ).audio.squeeze()
 
 
 model_config = load_model_config_yaml("/content/stylish-tts/config/model.yml")
@@ -365,6 +375,22 @@ sentence_embedding = (
     .cuda()
 )
 inputs = (texts, text_lengths, text_mask, sentence_embedding)
+with torch.no_grad():
+    torch.onnx.export(
+        model,
+        inputs,
+        opset_version=14,
+        f="stylish.onnx",
+        input_names=["texts", "text_lengths", "text_mask", "sentence_embedding"],
+        output_names=["waveform"],
+        dynamic_axes={
+            "texts": {1: "num_token"},
+            "text_mask": {1: "num_token"},
+            "waveform": {0: "num_samples"},
+        },
+        verify=True,
+    )
+
 with torch.no_grad():
     torch.onnx.export(
         model,

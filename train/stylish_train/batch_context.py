@@ -178,7 +178,7 @@ class BatchContext:
             # use_random_choice=False,
         )
         energy = self.acoustic_energy(batch.mel)
-        style_embedding = self.acoustic_style_embedding(batch.mel)
+        style_embedding = self.textual_style_embedding(batch.sentence_embedding)
         pitch = self.calculate_pitch(batch).detach()
         return self.model.decoder(
             text_encoding, pitch, energy, style_embedding, probing=probing
@@ -187,7 +187,7 @@ class BatchContext:
     def audio_reconstruction(self, batch):
         mel = batch.mel
         energy = self.acoustic_energy(batch.mel).detach()
-        style_embedding = self.acoustic_style_embedding(batch.mel)
+        style_embedding = self.textual_style_embedding(batch.sentence_embedding)
         pitch = self.calculate_pitch(batch).detach()
         gt = batch.audio_gt
         # if mel.shape[2] > 200:
@@ -215,7 +215,7 @@ class BatchContext:
             # use_random_choice=True,
         )
         energy = self.acoustic_energy(batch.mel)
-        style_embedding = self.acoustic_style_embedding(batch.mel)
+        style_embedding = self.textual_style_embedding(batch.sentence_embedding)
         pitch = self.calculate_pitch(batch).detach()
         prediction = self.decoding(
             text_encoding,
@@ -240,7 +240,7 @@ class BatchContext:
             # use_random_choice=use_random_mono,
         )
         energy = self.acoustic_energy(batch.mel)
-        style_embedding = self.acoustic_style_embedding(batch.mel)
+        style_embedding = self.textual_style_embedding(batch.sentence_embedding)
         pitch = self.calculate_pitch(batch).detach()
         prediction = self.decoding_single(
             text_encoding,
@@ -262,13 +262,15 @@ class BatchContext:
             # apply_attention_mask=False,
             # use_random_choice=False,
         )
-        style_embedding = self.acoustic_style_embedding(batch.mel)
-        prosody_embedding = self.acoustic_prosody_embedding(batch.mel)
+        style_embedding = self.textual_style_embedding(batch.sentence_embedding)
+        prosody_embedding = self.textual_prosody_embedding(batch.sentence_embedding)
         if self.plbert_enabled:
             plbert_embedding = self.model.bert(
                 batch.text, attention_mask=(~self.text_mask).int()
             )
-            duration_encoding = self.model.bert_encoder(plbert_embedding).transpose(-1, -2)
+            duration_encoding = self.model.bert_encoder(plbert_embedding).transpose(
+                -1, -2
+            )
         else:
             duration_encoding = text_encoding
         self.duration_prediction, prosody = self.model.duration_predictor(
@@ -308,7 +310,9 @@ class BatchContext:
             plbert_embedding = self.model.bert(
                 batch.text, attention_mask=(~self.text_mask).int()
             )
-            duration_encoding = self.model.bert_encoder(plbert_embedding).transpose(-1, -2)
+            duration_encoding = self.model.bert_encoder(plbert_embedding).transpose(
+                -1, -2
+            )
         else:
             duration_encoding = text_encoding
         self.duration_prediction, prosody = self.model.duration_predictor(
@@ -341,12 +345,14 @@ class BatchContext:
             # apply_attention_mask=False,
             # use_random_choice=False,
         )
-        prosody_embedding = self.acoustic_prosody_embedding(batch.mel)
+        prosody_embedding = self.textual_prosody_embedding(batch.sentence_embedding)
         if self.plbert_enabled:
             plbert_embedding = self.model.bert(
                 batch.text, attention_mask=(~self.text_mask).int()
             )
-            duration_encoding = self.model.bert_encoder(plbert_embedding).transpose(-1, -2)
+            duration_encoding = self.model.bert_encoder(plbert_embedding).transpose(
+                -1, -2
+            )
         else:
             duration_encoding = text_encoding
         self.duration_prediction, prosody = self.model.duration_predictor(
