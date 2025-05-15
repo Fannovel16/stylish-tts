@@ -3,7 +3,10 @@ from torch import nn
 import torch.nn.functional as F
 
 from einops.layers.torch import Rearrange
-from .ring_attention_pytorch import RingAttention
+from einops import rearrange
+from torch import nn, einsum
+
+# from .ring_attention_pytorch import RingAttention
 import logging
 
 logger = logging.getLogger(__name__)
@@ -96,6 +99,68 @@ class FeedForward(nn.Module):
         return self.net(x)
 
 
+class Attention(nn.Module):
+    def __init__(self, dim, heads=8, dim_head=64, dropout=0.0, use_sdpa=True):
+        super().__init__()
+        inner_dim = dim_head * heads
+        self.heads = heads
+        self.scale = dim_head**-0.5
+        self.use_sdpa = use_sdpa
+        self.to_q = nn.Linear(dim, inner_dim, bias=False)
+        self.to_kv = nn.Linear(dim, inner_dim * 2, bias=False)
+        self.to_out = nn.Linear(inner_dim, dim)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x, context=None, mask=None, context_mask=None):
+        h = self.heads
+        context = context if context is not None else x
+
+        q = self.to_q(x)
+        k, v = self.to_kv(context).chunk(2, dim=-1)
+        q, k, v = map(lambda t: rearrange(t, "b n (h d) -> b h n d", h=h), (q, k, v))
+
+        if self.use_sdpa:
+            q_ = rearrange(q, "b h n d -> b n h d")
+            k_ = rearrange(k, "b h n d -> b n h d")
+            v_ = rearrange(v, "b h n d -> b n h d")
+
+            if mask is not None or context_mask is not None:
+                attn_mask = self._get_combined_mask(mask, context_mask, x, context)
+                attn_mask = attn_mask.to(torch.bool)
+            else:
+                attn_mask = None
+
+            out = F.scaled_dot_product_attention(
+                q_, k_, v_, attn_mask=attn_mask, dropout_p=0.0
+            )
+            out = rearrange(out, "b n h d -> b n (h d)")
+        else:
+            dots = einsum("b h i d, b h j d -> b h i j", q, k) * self.scale
+
+            if mask is not None or context_mask is not None:
+                attn_mask = self._get_combined_mask(mask, context_mask, x, context)
+                mask_value = -torch.finfo(dots.dtype).max
+                dots.masked_fill_(~attn_mask, mask_value)
+
+            attn = dots.softmax(dim=-1)
+            out = einsum("b h i j, b h j d -> b h i d", attn, v)
+            out = rearrange(out, "b h n d -> b n (h d)")
+        return self.dropout(self.to_out(out))
+
+    def _get_combined_mask(self, mask, context_mask, x, context):
+        b, n = x.shape[:2]
+        _, m = context.shape[:2]
+        mask = mask if mask is not None else torch.ones(b, n, device=x.device)
+        context_mask = (
+            context_mask
+            if context_mask is not None
+            else (mask if not (context is not x) else torch.ones(b, m, device=x.device))
+        )
+        return rearrange(mask, "b i -> b () i ()") * rearrange(
+            context_mask, "b j -> b () () j"
+        )
+
+
 class ConformerConvModule(nn.Module):
     def __init__(
         self, dim, causal=False, expansion_factor=2, kernel_size=31, dropout=0.0
@@ -144,15 +209,8 @@ class ConformerBlock(nn.Module):
     ):
         super().__init__()
         self.ff1 = FeedForward(dim=dim, mult=ff_mult, dropout=ff_dropout)
-        self.attn = RingAttention(
-            dim=dim,
-            dim_head=dim_head,
-            heads=heads,
-            causal=False,
-            striped_ring_attn=False,
-            auto_shard_seq=False,
-            ring_attn=False,
-            ring_seq_size=512,
+        self.attn = Attention(
+            dim=dim, dim_head=dim_head, heads=heads, dropout=attn_dropout
         )
         self.self_attn_dropout = torch.nn.Dropout(attn_dropout)
         self.conv = ConformerConvModule(
