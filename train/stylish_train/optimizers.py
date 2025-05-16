@@ -69,7 +69,7 @@ class MultiOptimizer:
         if isinstance(lr, torch.Tensor):
             lr = lr.item()
         for key in discriminators:
-            self.discriminator_loss.discriminators[key].last_loss = 0.5
+            # self.discriminator_loss.discriminators[key].last_loss = 0.5
             for param_group in self.optimizers[key].param_groups:
                 if isinstance(param_group["lr"], torch.Tensor):
                     param_group["lr"].fill_(lr)
