@@ -13,6 +13,14 @@ logical_step_warmup = 0
 discriminators = {"mpd", "mrd", "msbd", "mstftd"}
 
 
+class MercifulAdamW(AdamW):
+    def load_state_dict(self, state_dict):
+        try:
+            return super().load_state_dict(state_dict)
+        except:
+            pass
+
+
 class MultiOptimizer:
     def __init__(
         self,
@@ -116,7 +124,7 @@ def build_optimizer(stage_name: str, *, train):
                     param.requires_grad = True
                 else:
                     param.requires_grad = False
-            optim[key] = AdamW(
+            optim[key] = MercifulAdamW(
                 filter(lambda p: p.requires_grad, train.model[key].parameters()),
                 lr=lr,
                 weight_decay=weight_decay,
