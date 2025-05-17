@@ -82,6 +82,10 @@ class TextEncoder(nn.Module):
 
         return x
 
+    def load_state_dict(self, state_dict, strict=False, assign=False):
+        strict = False
+        return super().load_state_dict(state_dict, strict, assign)
+
 
 # class TextEncoder(torch.nn.Module):
 #     def __init__(
