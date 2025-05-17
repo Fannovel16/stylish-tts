@@ -32,14 +32,18 @@ class BatchContext:
         self.duration_prediction = None
         self.plbert_enabled = train.model_config.plbert.enabled
 
-    def text_encoding(self, texts: torch.Tensor, text_lengths: torch.Tensor):
+    def text_encoding(
+        self, texts: torch.Tensor, text_lengths: torch.Tensor, is_prosody=False
+    ):
         # text_spread = texts.unsqueeze(1).float() @ alignment
         # text_spread = F.interpolate(text_spread, scale_factor=2, mode="nearest-exact")
         # text_spread = text_spread.squeeze(1).int()
         # embedding = self.model.text_encoder(text_spread)
         # embedding = rearrange(embedding, "b t f -> b f t")
         # return embedding
-        return self.model.text_encoder(texts, text_lengths, self.text_mask)
+        return self.model.text_encoder(
+            texts, text_lengths, self.text_mask, is_prosody=is_prosody
+        )
 
     def bert_encoding(self, texts: torch.Tensor):
         mask = (~self.text_mask).int()
@@ -272,7 +276,9 @@ class BatchContext:
                 -1, -2
             )
         else:
-            duration_encoding = text_encoding
+            duration_encoding = self.text_encoding(
+                batch.text, batch.text_length, is_prosody=True
+            )
         self.duration_prediction, prosody = self.model.duration_predictor(
             duration_encoding,
             prosody_embedding,
@@ -314,7 +320,9 @@ class BatchContext:
                 -1, -2
             )
         else:
-            duration_encoding = text_encoding
+            duration_encoding = self.text_encoding(
+                batch.text, batch.text_length, is_prosody=True
+            )
         self.duration_prediction, prosody = self.model.duration_predictor(
             duration_encoding,
             prosody_embedding,
@@ -354,7 +362,9 @@ class BatchContext:
                 -1, -2
             )
         else:
-            duration_encoding = text_encoding
+            duration_encoding = self.text_encoding(
+                batch.text, batch.text_length, is_prosody=True
+            )
         self.duration_prediction, prosody = self.model.duration_predictor(
             duration_encoding,
             prosody_embedding,

@@ -110,13 +110,27 @@ def build_optimizer(stage_name: str, *, train):
     schedulers = {}
     for key in train.model.keys():
         lr, weight_decay, betas = calculate_lr(key, stage_name, train=train)
-        optim[key] = AdamW(
-            train.model[key].parameters(),
-            lr=lr,
-            weight_decay=weight_decay,
-            betas=betas,
-            eps=1e-9,
-        )
+        if "textual" in stage_name and key == "text_encoder":
+            for name, param in train.model[key].named_parameters():
+                if "prosody_lstm" in name:
+                    param.requires_grad = True
+                else:
+                    param.requires_grad = False
+            optim[key] = AdamW(
+                filter(lambda p: p.requires_grad, train.model[key].parameters()),
+                lr=lr,
+                weight_decay=weight_decay,
+                betas=betas,
+                eps=1e-9,
+            )
+        else:
+            optim[key] = AdamW(
+                train.model[key].parameters(),
+                lr=lr,
+                weight_decay=weight_decay,
+                betas=betas,
+                eps=1e-9,
+            )
         if key not in discriminators:
             schedulers[key] = transformers.get_cosine_schedule_with_warmup(
                 optim[key],

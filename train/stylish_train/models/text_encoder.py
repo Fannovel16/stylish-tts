@@ -43,7 +43,11 @@ class TextEncoder(nn.Module):
             channels, channels // 2, 1, batch_first=True, bidirectional=True
         )
 
-    def forward(self, x, input_lengths, m):
+        self.prosody_lstm = nn.LSTM(
+            channels, channels // 2, 1, batch_first=True, bidirectional=True
+        )
+
+    def forward(self, x, input_lengths, m, is_prosody):
         x = self.embedding(x)  # [B, T, emb]
         x = x.transpose(1, 2)  # [B, emb, T]
         m = m.to(input_lengths.device).unsqueeze(1)
@@ -60,8 +64,12 @@ class TextEncoder(nn.Module):
             x, input_lengths, batch_first=True, enforce_sorted=False
         )
 
-        self.lstm.flatten_parameters()
-        x, _ = self.lstm(x)
+        if is_prosody:
+            self.prosody_lstm.flatten_parameters()
+            x, _ = self.prosody_lstm(x)
+        else:
+            self.lstm.flatten_parameters()
+            x, _ = self.lstm(x)
         x, _ = nn.utils.rnn.pad_packed_sequence(x, batch_first=True)
 
         x = x.transpose(-1, -2)
