@@ -59,20 +59,6 @@ class StageConfig:
 
 
 stages = {
-    "text_encoder": StageConfig(
-        next_stage="pre_acoustic",
-        train_fn=train_text_encoder,
-        validate_fn=validate_text_encoder,
-        train_models=["text_encoder", "text_mel_classifier"],
-        eval_models=["text_mel_generator"],
-        adversarial=False,
-        inputs=[
-            "text",
-            "alignment",
-            "mel",
-            "mel_length",
-        ],
-    ),
     "alignment": StageConfig(
         next_stage=None,
         train_fn=train_alignment,
@@ -87,48 +73,13 @@ stages = {
             "mel_length",
         ],
     ),
-    "vocoder": StageConfig(
-        next_stage="pre_acoustic",
-        train_fn=train_vocoder,
-        validate_fn=validate_vocoder,
-        train_models=["acoustic_style_encoder", "generator"],
-        eval_models=[],
-        adversarial=False,
-        inputs=[
-            "text",
-            "text_length",
-            "mel",
-            "audio_gt",
-            "pitch",
-        ],
-    ),
-    "pre_acoustic": StageConfig(
-        next_stage="acoustic",
-        train_fn=train_pre_acoustic,
-        validate_fn=validate_acoustic,
-        train_models=["text_encoder", "decoder", "textual_style_encoder", "generator"],
-        eval_models=[],
-        adversarial=False,
-        inputs=[
-            "text",
-            "text_length",
-            "mel",
-            "mel_length",
-            "audio_gt",
-            "pitch",
-            "sentence_embedding",
-            "voiced",
-            "align_mel",
-            "alignment",
-        ],
-    ),
     "acoustic": StageConfig(
         next_stage="pre_textual",
         train_fn=train_acoustic,
         validate_fn=validate_acoustic,
         train_models=[
             "text_encoder",
-            "textual_style_encoder",
+            "acoustic_style_encoder",
             "decoder",
             "generator",
         ],
@@ -152,7 +103,8 @@ stages = {
         train_fn=train_pre_textual,
         validate_fn=validate_textual,
         train_models=[
-            "texual_prosody_encoder",
+            "prosody_lstm",
+            "acoustic_prosody_encoder",
             "duration_predictor",
             "pitch_energy_predictor",
             "bert",
@@ -184,7 +136,8 @@ stages = {
         train_fn=train_textual,
         validate_fn=validate_textual,
         train_models=[
-            "texual_prosody_encoder",
+            "prosody_lstm",
+            "textual_prosody_encoder",
             "duration_predictor",
             "pitch_energy_predictor",
             "bert",
