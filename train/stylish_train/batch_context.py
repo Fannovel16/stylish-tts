@@ -102,7 +102,7 @@ class BatchContext:
             self.text_mask,
             external_lstm=self.model.prosody_style_lstm,
         )
-        prosody_embedding = F.adaptive_avg_pool1d(pitch_energy_encoding, 1)
+        prosody_embedding = F.adaptive_avg_pool1d(pitch_energy_encoding, 1).squeeze(-1)
         prosody_embedding = self.model.textual_prosody_encoder(prosody_embedding)
         return prosody_embedding
 
