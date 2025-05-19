@@ -147,7 +147,7 @@ class BatchContext:
         prosody_embedding = self.textual_prosody_embedding(
             batch.text, batch.text_length
         )
-        duration_encoding = self.duration_encoding(batch.text, batch.text_lengths)
+        duration_encoding = self.duration_encoding(batch.text, batch.text_length)
         self.duration_prediction, prosody = self.model.duration_predictor(
             duration_encoding,
             prosody_embedding,
@@ -207,7 +207,7 @@ class BatchContext:
         prosody_embedding = self.textual_prosody_embedding(
             batch.text, batch.text_length
         )
-        duration_encoding = self.duration_encoding(batch.text, batch.text_lengths)
+        duration_encoding = self.duration_encoding(batch.text, batch.text_length)
         self.duration_prediction, prosody = self.model.duration_predictor(
             duration_encoding,
             prosody_embedding,
