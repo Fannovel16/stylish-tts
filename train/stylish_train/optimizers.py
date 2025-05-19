@@ -110,6 +110,8 @@ def build_optimizer(stage_name: str, *, train):
     schedulers = {}
     for key in train.model.keys():
         lr, weight_decay, betas = calculate_lr(key, stage_name, train=train)
+        if "pool" in key:
+            continue
         optim[key] = AdamW(
             train.model[key].parameters(),
             lr=lr,
