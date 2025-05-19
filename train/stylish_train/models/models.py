@@ -38,17 +38,23 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class TextualStyleEncoder(nn.Linear):
+class TextualStyleEncoder(nn.Module):
     """Linear layer with merciful load_state_dict."""
 
-    def load_state_dict(self, state_dict, strict=True, assign=False):
-        if strict:
-            try:
-                return super().load_state_dict(state_dict, strict, assign)
-            except:
-                logger.warning(
-                    "The state dict from the checkpoint of TextualStyleEncoder is not compatible. Ignore this message if the sbert is intentionally changed."
-                )
+    def __init__(self, sbert_output_dim, style_dim):
+        super(TextualStyleEncoder, self).__init__()
+        self.model = nn.Sequential(
+            nn.Linear(sbert_output_dim, 512),
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            nn.Linear(512, 256),
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            nn.Linear(256, style_dim),
+        )
+
+    def forward(self, x):
+        return self.model(x)
 
 
 def build_model(model_config: ModelConfig, sbert_output_dim):
