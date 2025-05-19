@@ -31,7 +31,7 @@ class TextEncoder(nn.Module):
             channels, channels // 2, 1, batch_first=True, bidirectional=True
         )
 
-    def forward(self, x, input_lengths, m, exteral_lstm: nn.LSTM = None):
+    def forward(self, x, input_lengths, m, external_lstm: nn.LSTM = None):
         x = self.embedding(x)  # [B, T, emb]
         x = x.transpose(1, 2)  # [B, emb, T]
         m = m.to(input_lengths.device).unsqueeze(1)
@@ -48,12 +48,12 @@ class TextEncoder(nn.Module):
             x, input_lengths, batch_first=True, enforce_sorted=False
         )
 
-        if exteral_lstm is None:
+        if external_lstm is None:
             self.lstm.flatten_parameters()
             x, _ = self.lstm(x)
         else:
-            exteral_lstm.flatten_parameters()
-            x, _ = exteral_lstm(x)
+            external_lstm.flatten_parameters()
+            x, _ = external_lstm(x)
         x, _ = nn.utils.rnn.pad_packed_sequence(x, batch_first=True)
 
         x = x.transpose(-1, -2)
