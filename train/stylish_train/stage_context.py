@@ -106,7 +106,7 @@ stages = {
         train_models=[
             "prosody_lstm",
             "prosody_style_lstm",
-            "prosody_style_avg_pooling" "textual_prosody_encoder",
+            "textual_prosody_encoder",
             "duration_predictor",
             "pitch_energy_predictor",
             "bert",
@@ -140,7 +140,7 @@ stages = {
         train_models=[
             "prosody_lstm",
             "prosody_style_lstm",
-            "prosody_style_avg_pooling" "textual_prosody_encoder",
+            "textual_prosody_encoder",
             "duration_predictor",
             "pitch_energy_predictor",
             "bert",
