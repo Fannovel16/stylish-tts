@@ -154,6 +154,13 @@ def build_model(model_config: ModelConfig, sbert_output_dim):
         nets.prosody_lstm = nn.LSTM(
             channels, channels // 2, 1, batch_first=True, bidirectional=True
         )
+        nets.prosody_style_lstm = nn.LSTM(
+            channels, channels // 2, 1, batch_first=True, bidirectional=True
+        )
+        nets.prosody_style_avg_pooling = nn.AdaptiveAvgPool1d(1)
+        nets.textual_prosody_encoder = TextualStyleEncoder(
+            channels, model_config.style_dim
+        )
     return nets  # , kdiffusion
 
 

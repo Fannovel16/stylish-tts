@@ -105,7 +105,8 @@ stages = {
         validate_fn=validate_textual,
         train_models=[
             "prosody_lstm",
-            "textual_prosody_encoder",
+            "prosody_style_lstm",
+            "prosody_style_avg_pooling" "textual_prosody_encoder",
             "duration_predictor",
             "pitch_energy_predictor",
             "bert",
@@ -138,7 +139,8 @@ stages = {
         validate_fn=validate_textual,
         train_models=[
             "prosody_lstm",
-            "textual_prosody_encoder",
+            "prosody_style_lstm",
+            "prosody_style_avg_pooling" "textual_prosody_encoder",
             "duration_predictor",
             "pitch_energy_predictor",
             "bert",
