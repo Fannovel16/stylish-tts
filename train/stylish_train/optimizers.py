@@ -35,6 +35,8 @@ class MultiOptimizer:
 
     def reset_lr(self, stage_name, train):
         for key in train.model.keys():
+            if "pool" in key:
+                continue
             if key not in discriminators:
                 lr, _, _ = calculate_lr(key, stage_name, train=train)
                 for param_group in self.optimizers[key].param_groups:
