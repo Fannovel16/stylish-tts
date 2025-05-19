@@ -158,7 +158,7 @@ def build_model(model_config: ModelConfig, sbert_output_dim):
             channels, channels // 2, 1, batch_first=True, bidirectional=True
         )
         nets.textual_prosody_encoder = TextualStyleEncoder(
-            channels, model_config.style_dim
+            channels * 2, model_config.style_dim
         )
     return nets  # , kdiffusion
 
