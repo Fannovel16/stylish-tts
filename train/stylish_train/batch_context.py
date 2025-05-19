@@ -115,7 +115,7 @@ class BatchContext:
             batch,
         )
         energy = self.acoustic_energy(batch.mel)
-        style_embedding = self.acoustic_style_embedding(batch.mel)
+        style_embedding = self.textual_style_embedding(batch.mel)
         pitch = self.calculate_pitch(batch).detach()
         prediction = self.decoding_single(
             text_encoding,
@@ -131,8 +131,8 @@ class BatchContext:
         duration = self.acoustic_duration(
             batch,
         )
-        style_embedding = self.acoustic_style_embedding(batch.mel)
-        prosody_embedding = self.acoustic_prosody_embedding(batch.mel)
+        style_embedding = self.textual_style_embedding(batch.mel)
+        prosody_embedding = self.textual_prosody_embedding(batch.mel)
         duration_encoding = self.duration_encoding(batch.text, batch.text_lengths)
         self.duration_prediction, prosody = self.model.duration_predictor(
             duration_encoding,
@@ -186,7 +186,7 @@ class BatchContext:
         _ = self.acoustic_duration(
             batch,
         )
-        prosody_embedding = self.acoustic_prosody_embedding(batch.mel)
+        prosody_embedding = self.textual_prosody_embedding(batch.mel)
         duration_encoding = self.duration_encoding(batch.text, batch.text_lengths)
         self.duration_prediction, prosody = self.model.duration_predictor(
             duration_encoding,
