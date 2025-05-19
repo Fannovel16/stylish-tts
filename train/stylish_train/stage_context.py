@@ -79,7 +79,8 @@ stages = {
         validate_fn=validate_acoustic,
         train_models=[
             "text_encoder",
-            "acoustic_style_encoder",
+            "textual_style_encoder",
+            # "acoustic_style_encoder",
             "decoder",
             "generator",
         ],
@@ -104,7 +105,7 @@ stages = {
         validate_fn=validate_textual,
         train_models=[
             "prosody_lstm",
-            "acoustic_prosody_encoder",
+            "textual_prosody_encoder",
             "duration_predictor",
             "pitch_energy_predictor",
             "bert",
@@ -207,8 +208,8 @@ stages = {
         eval_models=[
             "textual_style_encoder",
             "textual_prosody_encoder",
-            "acoustic_style_encoder",
-            "acoustic_prosody_encoder",
+            # "acoustic_style_encoder",
+            # "acoustic_prosody_encoder",
             "duration_predictor",
             "pitch_energy_predictor",
             "bert",
