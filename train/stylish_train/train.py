@@ -214,10 +214,7 @@ def main(config_path, model_config_path, out_dir, stage, checkpoint, reset_stage
 
     assert train.stage is not None
     if checkpoint:
-        try:
-            train.accelerator.load_state(checkpoint)
-        except:
-            pass
+        train.accelerator.load_state(checkpoint)
         train.config = config
         # if we are not loading on a epoch boundary we need to resume the loader and skip to the correct step
         if train.manifest.stage == stage:
