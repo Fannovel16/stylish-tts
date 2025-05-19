@@ -38,7 +38,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class TextualStyleEncoder(nn.Linear):
+class TextualStyleEncoder(nn.Module):
     """Linear layer with merciful load_state_dict."""
 
     def __init__(self, sbert_output_dim, style_dim):
