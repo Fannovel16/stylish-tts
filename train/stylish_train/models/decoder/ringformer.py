@@ -523,8 +523,8 @@ class RingformerGenerator(torch.nn.Module):
 
             x = self.ups[i](x)
 
-            if i == self.num_upsamples - 1:
-                x = self.reflection_pad(x)
+            """if i == self.num_upsamples - 1:
+                x = self.reflection_pad(x)"""
             x = x + x_source
 
             xs = None
