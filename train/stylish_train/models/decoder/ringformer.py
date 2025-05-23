@@ -473,7 +473,7 @@ class RingformerGenerator(torch.nn.Module):
                 # )
                 Conformer(
                     dim=ch,
-                    depth=2,
+                    depth=8,
                     dim_head=64,
                     heads=8,
                     ff_mult=4,
