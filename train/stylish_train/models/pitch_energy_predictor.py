@@ -5,6 +5,7 @@ from torch.nn import functional as F
 from torch.nn.utils import weight_norm
 from einops import rearrange
 from .common import InstanceNorm1d
+from .duration_predictor import AdaLNTransformer
 
 
 class PitchEnergyPredictor(torch.nn.Module):
@@ -62,6 +63,43 @@ class PitchEnergyPredictor(torch.nn.Module):
         N = self.N_proj(N)
 
         return F0.squeeze(1), N.squeeze(1)
+
+
+class ProsodicFeaturePredictor(torch.nn.Module):
+    def __init__(self, style_dim, d_hid, nlayers, dropout=0.1):
+        super().__init__()
+        self.encoder = AdaLNTransformer(style_dim, d_hid, nlayers, dropout)
+        self.lstm = nn.LSTM(
+            d_hid + style_dim, d_hid // 2, 1, batch_first=True, bidirectional=True
+        )
+        self.convs = nn.ModuleList()
+        self.convs.append(AdainResBlk1d(d_hid, d_hid, style_dim, dropout_p=dropout))
+        self.convs.append(
+            AdainResBlk1d(
+                d_hid, d_hid // 2, style_dim, upsample=True, dropout_p=dropout
+            )
+        )
+        self.convs.append(
+            AdainResBlk1d(d_hid // 2, d_hid // 2, style_dim, dropout_p=dropout)
+        )
+
+        self.proj = nn.Conv1d(d_hid // 2, 1, 1, 1, 0)
+
+    def forward(self, text, style, text_lengths, alignment):
+        prosody = self.encoder(text, style, text_lengths).transpose(-1, -2) @ alignment
+        style = style @ alignment
+        upstyle = torch.nn.functional.interpolate(style, scale_factor=2, mode="nearest")
+        # x = torch.cat([prosody, style], dim=1)
+        x, _ = self.lstm(prosody.transpose(-1, -2))
+
+        s = style
+        x = x.transpose(-1, -2)
+        for block in self.convs:
+            x = block(x, s)
+            if block.upsample_type == True:
+                s = upstyle
+        x = self.proj(x)
+        return x.squeeze(1)
 
 
 class AdainResBlk1d(nn.Module):

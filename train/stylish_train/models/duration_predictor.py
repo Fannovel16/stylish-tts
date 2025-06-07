@@ -46,13 +46,13 @@ class DurationPredictor(nn.Module):
         self, style_dim, d_hid, nlayers, max_dur=50, dropout=0.1, has_duration_proj=True
     ):
         super().__init__()
-        self.text_encoder = DurationEncoder(
+        self.encoder = AdaLNTransformer(
             sty_dim=style_dim, d_model=d_hid, nlayers=nlayers, dropout=dropout
         )
         self.duration_proj = LinearNorm(d_hid + style_dim, max_dur)
 
     def forward(self, texts, style, text_lengths):
-        d = self.text_encoder(texts, style, text_lengths)
+        d = self.encoder(texts, style, text_lengths)
         duration = self.duration_proj(d)
         return duration.squeeze(-1)
 
@@ -137,7 +137,7 @@ class DurationPredictor(nn.Module):
 #         return rearrange(x, "b c t -> b t c")
 
 
-class DurationEncoder(nn.Module):
+class AdaLNTransformer(nn.Module):
     def __init__(
         self,
         sty_dim,
