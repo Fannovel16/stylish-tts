@@ -79,7 +79,7 @@ def build_model(model_config: ModelConfig):
     )
 
     spectral_config = model_config.text_spectral_extractor
-    text_spectral_extractor = TextFeatureExtractor(
+    text_pitch_extractor = TextFeatureExtractor(
         tokens=model_config.tokens,
         inter_dim=spectral_config.inter_dim,
         style_dim=spectral_config.style_dim,
@@ -88,7 +88,21 @@ def build_model(model_config: ModelConfig):
         feature_encoder_config=spectral_config.feature_encoder,
         encode_feature=True,
     )
-    pitch_energy_predictor = PitchEnergyPredictor(
+    pitch_predictor = PitchEnergyPredictor(
+        style_dim=spectral_config.style_dim,
+        d_hid=spectral_config.inter_dim,
+        dropout=model_config.pitch_energy_predictor.dropout,
+    )
+    text_energy_extractor = TextFeatureExtractor(
+        tokens=model_config.tokens,
+        inter_dim=spectral_config.inter_dim,
+        style_dim=spectral_config.style_dim,
+        text_encoder_config=spectral_config.text_encoder,
+        style_encoder_config=spectral_config.style_encoder,
+        feature_encoder_config=spectral_config.feature_encoder,
+        encode_feature=True,
+    )
+    energy_predictor = PitchEnergyPredictor(
         style_dim=spectral_config.style_dim,
         d_hid=spectral_config.inter_dim,
         dropout=model_config.pitch_energy_predictor.dropout,
@@ -97,9 +111,11 @@ def build_model(model_config: ModelConfig):
     nets = Munch(
         text_acoustic_extractor=text_acoustic_extractor,
         text_duration_extractor=text_duration_extractor,
-        text_spectral_extractor=text_spectral_extractor,
+        text_pitch_extractor=text_pitch_extractor,
+        text_energy_extractor=text_energy_extractor,
         duration_predictor=duration_predictor,
-        pitch_energy_predictor=pitch_energy_predictor,
+        pitch_predictor=pitch_predictor,
+        energy_predictor=energy_predictor,
         generator=generator,
         text_aligner=text_aligner,
         mpd=MultiPeriodDiscriminator(),

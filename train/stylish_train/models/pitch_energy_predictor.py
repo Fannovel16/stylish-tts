@@ -15,53 +15,32 @@ class PitchEnergyPredictor(torch.nn.Module):
         self.shared = nn.LSTM(
             d_hid + style_dim, d_hid // 2, 1, batch_first=True, bidirectional=True
         )
-        self.F0 = nn.ModuleList()
-        self.F0.append(AdainResBlk1d(d_hid, d_hid, style_dim, dropout_p=dropout))
-        self.F0.append(
+        self.head = nn.ModuleList()
+        self.head.append(AdainResBlk1d(d_hid, d_hid, style_dim, dropout_p=dropout))
+        self.head.append(
             AdainResBlk1d(
                 d_hid, d_hid // 2, style_dim, upsample=True, dropout_p=dropout
             )
         )
-        self.F0.append(
+        self.head.append(
             AdainResBlk1d(d_hid // 2, d_hid // 2, style_dim, dropout_p=dropout)
         )
 
-        self.N = nn.ModuleList()
-        self.N.append(AdainResBlk1d(d_hid, d_hid, style_dim, dropout_p=dropout))
-        self.N.append(
-            AdainResBlk1d(
-                d_hid, d_hid // 2, style_dim, upsample=True, dropout_p=dropout
-            )
-        )
-        self.N.append(
-            AdainResBlk1d(d_hid // 2, d_hid // 2, style_dim, dropout_p=dropout)
-        )
-
-        self.F0_proj = nn.Conv1d(d_hid // 2, 1, 1, 1, 0)
-        self.N_proj = nn.Conv1d(d_hid // 2, 1, 1, 1, 0)
+        self.proj = nn.Conv1d(d_hid // 2, 1, 1, 1, 0)
 
     def forward(self, spectral, style):
         upstyle = torch.nn.functional.interpolate(style, scale_factor=2, mode="nearest")
         x, _ = self.shared(spectral.transpose(-1, -2))
 
         s = style
-        F0 = x.transpose(-1, -2)
-        for block in self.F0:
-            F0 = block(F0, s)
+        x = x.transpose(-1, -2)
+        for block in self.head:
+            x = block(x, s)
             if block.upsample_type == True:
                 s = upstyle
-        F0 = self.F0_proj(F0)
+        x = self.proj(x)
 
-        s = style
-        N = x.transpose(-1, -2)
-        for block in self.N:
-            N = block(N, s)
-            if block.upsample_type == True:
-                s = upstyle
-        N = self.N_proj(N)
-
-        return F0.squeeze(1), N.squeeze(1)
-
+        return x.squeeze(1)
 
 class AdainResBlk1d(nn.Module):
     def __init__(

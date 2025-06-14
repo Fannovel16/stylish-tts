@@ -58,18 +58,25 @@ class BatchContext:
         duration_features, _ = self.model.text_duration_extractor(
             batch.text, batch.text_length
         )
-        spectral_features, spectral_styles = self.model.text_spectral_extractor(
+        pitch_features, pitch_styles = self.model.text_pitch_extractor(
+            batch.text, batch.text_length
+        )
+        energy_features, energy_styles =  self.model.text_energy_extractor(
             batch.text, batch.text_length
         )
         self.duration_prediction = self.model.duration_predictor(
             duration_features,
         )
-        self.pitch_prediction, self.energy_prediction = (
-            self.model.pitch_energy_predictor(
-                spectral_features.transpose(-1, -2) @ batch.alignment,
-                spectral_styles @ batch.alignment,
-            )
+        self.pitch_prediction = self.model.pitch_predictor(
+            pitch_features.transpose(-1, -2) @ batch.alignment,
+            pitch_styles @ batch.alignment,
         )
+        
+        self.energy_prediction = self.model.energy_predictor(
+            energy_features.transpose(-1, -2) @ batch.alignment,
+            energy_styles @ batch.alignment,
+        )
+        
         pitch = self.calculate_pitch(batch, self.pitch_prediction)
         prediction = self.model.generator(
             acoustic_features @ batch.alignment,
