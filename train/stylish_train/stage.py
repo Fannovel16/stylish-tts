@@ -91,9 +91,11 @@ stages = {
         validate_fn=validate_textual,
         train_models=[
             "text_duration_extractor",
-            "text_spectral_extractor",
+            "text_pitch_extractor",
+            "text_energy_extractor",
             "duration_predictor",
-            "pitch_energy_predictor",
+            "pitch_predictor",
+            "energy_predictor",
         ],
         eval_models=[
             "text_acoustic_extractor",
