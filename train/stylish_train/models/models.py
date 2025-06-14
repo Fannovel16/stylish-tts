@@ -112,15 +112,15 @@ def build_model(model_config: ModelConfig):
         text_acoustic_extractor=text_acoustic_extractor,
         text_duration_extractor=text_duration_extractor,
         text_pitch_extractor=text_pitch_extractor,
-        text_energy_extractor=text_energy_extractor,
         duration_predictor=duration_predictor,
         pitch_predictor=pitch_predictor,
-        energy_predictor=energy_predictor,
         generator=generator,
         text_aligner=text_aligner,
         mpd=MultiPeriodDiscriminator(),
         msbd=MultiScaleSubbandCQTDiscriminator(sample_rate=model_config.sample_rate),
         mrd=MultiResolutionDiscriminator(),
+        text_energy_extractor=text_energy_extractor,
+        energy_predictor=energy_predictor,
     )
 
     return nets
