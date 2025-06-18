@@ -76,26 +76,20 @@ class ExportModel(torch.nn.Module):
 
         pred_dur = torch.round(duration).clamp(min=1).long().squeeze()
         indices = torch.repeat_interleave(
-            torch.arange(duration_encoding.shape[2], device=self.device), pred_dur
+            torch.arange(duration.shape[2], device=self.device), pred_dur
         )
         pred_aln_trg = torch.zeros(
-            (duration_encoding.shape[2], indices.shape[0]), device=self.device
+            (duration.shape[2], indices.shape[0]), device=self.device
         )
         pred_aln_trg[indices, torch.arange(indices.shape[0])] = 1
         pred_aln_trg = pred_aln_trg.unsqueeze(0).to(self.device)
 
         return pred_aln_trg
 
-    def pe_predict(self, pe_encoding, pe_embedding, pred_aln_trg):
-        d = self.pe_duration_encoder.text_encoder.infer(pe_encoding, pe_embedding)
-        pe = d.permute(0, 2, 1) @ pred_aln_trg
-        return pe
-
     def forward(self, texts, text_lengths):
         text_encoding, _, _ = self.text_encoder(texts, text_lengths)
         duration_encoding, _, _ = self.text_duration_encoder(texts, text_lengths)
         pe_encoding, _, _ = self.text_pe_encoder(texts, text_lengths)
-
         style_embedding = self.textual_style_encoder(text_encoding)
         prosody_embedding = self.textual_prosody_encoder(duration_encoding)
         pe_embedding = self.textual_pe_encoder(pe_encoding)
@@ -110,15 +104,14 @@ class ExportModel(torch.nn.Module):
             pe_embedding,
             text_lengths,
         )
-        pitch_prediction, energy_prediction = self.pitch_energy_predictor(
+        pitch, energy = self.pitch_energy_predictor(
             pe.transpose(-1, -2) @ duration_prediction,
             pe_embedding @ duration_prediction,
         )
-        prediction = self.decoding_single(
+        prediction = self.decoding(
             text_encoding,
             duration_prediction,
-            pitch_prediction,
-            energy_prediction,
+            pitch,
+            energy,
             style_embedding,
         )
-        return prediction.audio.squeeze()
