@@ -25,7 +25,7 @@ def count_parameters(model):
     total_params = 0
 
     for name, parameter in model.named_parameters():
-        module = ".".join(name.split(".")[:2])
+        module = ".".join(name.split(".")[:1])
         summary[module] += parameter.numel() / 1_000_000
         total_params += parameter.numel() / 1_000_000
 
