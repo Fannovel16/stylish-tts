@@ -51,8 +51,8 @@ text_duration_extractor:
     kernel_size: 1
 
 text_spectral_extractor:
-  inter_dim: 512
-  style_dim: 128
+  inter_dim: 128
+  style_dim: 64
   text_encoder:
     hidden_dim: 192
     filter_channels: 768
