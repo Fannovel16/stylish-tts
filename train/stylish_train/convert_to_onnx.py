@@ -7,6 +7,8 @@ from models.export_model import ExportModel
 from models.stft import STFT
 from utils import length_to_mask
 import onnx
+from collections import defaultdict
+from prettytable import PrettyTable
 
 
 def add_meta_data_onnx(filename, key, value):
@@ -15,6 +17,24 @@ def add_meta_data_onnx(filename, key, value):
     meta.key = key
     meta.value = value
     onnx.save(model, filename)
+
+
+def count_parameters(model):
+    table = PrettyTable(["Module", "Parameters (M)"])
+    summary = defaultdict(float)
+    total_params = 0
+
+    for name, parameter in model.named_parameters():
+        module = ".".join(name.split(".")[:2])
+        summary[module] += parameter.numel() / 1_000_000
+        total_params += parameter.numel() / 1_000_000
+
+    for module, params in summary.items():
+        table.add_row([module, f"{params:.3}M"])
+
+    print(table)
+    print(f"Total Trainable Params: {total_params:,.2f}M")
+    return total_params
 
 
 def convert_to_onnx(model_config: ModelConfig, out_dir, model_in, device):
@@ -26,6 +46,8 @@ def convert_to_onnx(model_config: ModelConfig, out_dir, model_in, device):
         win_length=model.generator.gen_istft_n_fft,
     )
     model.generator.stft = stft.to(device).eval()
+    print("The model's inference-only modules")
+    count_parameters(model)
 
     tokens = (
         torch.tensor(
