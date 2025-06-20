@@ -116,20 +116,20 @@ class Decoder(nn.Module):
 
         self.decode = nn.ModuleList()
 
-        self.encode = AdainResBlk1d(dim_in + 2, hidden_dim, style_dim)
+        self.encode = AdainResBlk1d(dim_in + 1, hidden_dim, style_dim)
 
         self.decode.append(
-            AdainResBlk1d(hidden_dim + 2 + residual_dim, hidden_dim, style_dim)
+            AdainResBlk1d(hidden_dim + 1 + residual_dim, hidden_dim, style_dim)
         )
         self.decode.append(
-            AdainResBlk1d(hidden_dim + 2 + residual_dim, hidden_dim, style_dim)
+            AdainResBlk1d(hidden_dim + 1 + residual_dim, hidden_dim, style_dim)
         )
         self.decode.append(
-            AdainResBlk1d(hidden_dim + 2 + residual_dim, hidden_dim, style_dim)
+            AdainResBlk1d(hidden_dim + 1 + residual_dim, hidden_dim, style_dim)
         )
         self.decode.append(
             AdainResBlk1d(
-                hidden_dim + 2 + residual_dim, dim_out, style_dim, upsample=True
+                hidden_dim + 1 + residual_dim, dim_out, style_dim, upsample=True
             )
         )
 
@@ -170,7 +170,8 @@ class Decoder(nn.Module):
         F0 = self.F0_conv(F0_curve.unsqueeze(1))
         N = self.N_conv(N.unsqueeze(1))
 
-        x = torch.cat([asr, F0, N], axis=1)
+        # x = torch.cat([asr, F0, N], axis=1)
+        x = torch.cat([asr, N], axis=1)
         x = self.encode(x, s)
 
         asr_res = self.asr_res(asr)
@@ -178,7 +179,8 @@ class Decoder(nn.Module):
         res = True
         for block in self.decode:
             if res:
-                x = torch.cat([x, asr_res, F0, N], axis=1)
+                # x = torch.cat([x, asr_res, F0, N], axis=1)
+                x = torch.cat([x, asr_res, N], axis=1)
             x = block(x, s)
             if block.upsample_type != "none":
                 res = False
