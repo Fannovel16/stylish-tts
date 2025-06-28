@@ -14,12 +14,14 @@ from stage_train import (
     train_alignment,
     train_acoustic,
     train_textual,
+    train_vc,
 )
 
 from stage_validate import (
     validate_alignment,
     validate_acoustic,
     validate_textual,
+    validate_vc,
 )
 
 from optimizers import build_optimizer
@@ -97,6 +99,29 @@ stages = {
         ],
         eval_models=[
             "text_acoustic_extractor",
+            "generator",
+        ],
+        discriminators=[],
+        inputs=[
+            "text",
+            "text_length",
+            "mel",
+            "mel_length",
+            "audio_gt",
+            "pitch",
+            "alignment",
+        ],
+    ),
+    "vc": StageConfig(
+        next_stage=None,
+        train_fn=train_vc,
+        validate_fn=validate_vc,
+        train_models=[
+            "hubert_acoustic_extractor",
+            "hubert_spectral_extractor",
+        ],
+        eval_models=[
+            "pitch_energy_predictor",
             "generator",
         ],
         discriminators=[],

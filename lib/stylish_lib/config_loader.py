@@ -221,6 +221,7 @@ class AdaptiveFeatureEncoderConfig(BaseModel):
     heads: int = Field(..., description="Number of attention heads")
     kernel_size: int = Field(...)
 
+
 class TextFeatureExtractorConfig(BaseModel):
     """
     Text feature extractor configuration parameters.
@@ -239,6 +240,7 @@ class TextFeatureExtractorConfig(BaseModel):
     feature_encoder: AdaptiveFeatureEncoderConfig = Field(
         ..., description="Shared feature encoder configuration parameters for feature."
     )
+
 
 class DurationPredictorConfig(BaseModel):
     """
@@ -263,6 +265,11 @@ class SlmConfig(BaseModel):
 
     model: str = Field(..., description="Identifier or path for the SLM model.")
     sr: int = Field(..., description="Sampling rate used by the SLM.")
+
+
+class HubertConfig(BaseModel):
+    model: str = Field(..., description="Identifier or path for HuBERT model.")
+    sr: int = Field(..., description="Sampling rate used by HuBERT.")
 
 
 class Config(BaseModel):
@@ -303,7 +310,7 @@ class ModelConfig(BaseModel):
     )
     hop_length: int = Field(..., description="Hop length for spectrogram computation.")
     tokens: int = Field(..., description="Number of phoneme tokens.")
-    
+
     text_aligner: TextAlignerConfig = Field(
         ..., description="Configuration for the text aligner component."
     )
@@ -311,9 +318,15 @@ class ModelConfig(BaseModel):
     generator: Union[RingformerGeneratorConfig,] = Field(
         ..., description="Generator (vocoder) configuration parameters."
     )
-    text_acoustic_extractor: TextFeatureExtractorConfig = Field(..., description="Configuration for acoustic branch extractor.")
-    text_duration_extractor: TextFeatureExtractorConfig = Field(..., description="Configuration for duration branch extractor.")
-    text_spectral_extractor: TextFeatureExtractorConfig = Field(..., description="Configuration for spectral branch extractor.")
+    text_acoustic_extractor: TextFeatureExtractorConfig = Field(
+        ..., description="Configuration for acoustic branch extractor."
+    )
+    text_duration_extractor: TextFeatureExtractorConfig = Field(
+        ..., description="Configuration for duration branch extractor."
+    )
+    text_spectral_extractor: TextFeatureExtractorConfig = Field(
+        ..., description="Configuration for spectral branch extractor."
+    )
     duration_predictor: DurationPredictorConfig = Field(
         ..., description="Duration predictor configuration parameters."
     )
@@ -323,6 +336,7 @@ class ModelConfig(BaseModel):
     slm: SlmConfig = Field(
         ..., description="Speech Language Model (SLM) configuration parameters."
     )
+    hubert: HubertConfig = Field(..., description="HuBERT configuration parameters.")
     symbol: SymbolConfig = Field(..., description="Text processing symbols.")
 
     def state_dict(self) -> dict:

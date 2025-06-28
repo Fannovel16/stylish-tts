@@ -115,3 +115,42 @@ def train_textual(
         )
 
     return log.detach(), pred.audio.detach()
+
+
+def train_vc(batch, model, train, probing) -> Tuple[LossLog, Optional[torch.Tensor]]:
+    state = BatchContext(train=train, model=model)
+    with train.accelerator.autocast():
+        pred = state.vc_prediction_single(batch)
+        energy = state.acoustic_energy(batch.mel)
+        pitch = state.calculate_pitch(batch)
+        train.stage.optimizer.zero_grad()
+        log = build_loss_log(train)
+        train.stft_loss(pred.audio.squeeze(1), batch.audio_gt, log)
+        # log.add_loss(
+        #     "generator",
+        #     train.generator_loss(
+        #         batch.audio_gt.detach().unsqueeze(1).float(), pred.audio, ["msbd"]
+        #     ).mean(),
+        # )
+        log.add_loss(
+            "slm",
+            train.wavlm_loss(batch.audio_gt.detach(), pred.audio),
+        )
+        if pred.magnitude is not None and pred.phase is not None:
+            log.add_loss(
+                "magphase",
+                train.magphase_loss(pred.magnitude, pred.phase, batch.audio_gt),
+            )
+        log.add_loss(
+            "pitch",
+            torch.nn.functional.smooth_l1_loss(pitch, state.pitch_prediction),
+        )
+        log.add_loss(
+            "energy",
+            torch.nn.functional.smooth_l1_loss(energy, state.energy_prediction),
+        )
+        train.accelerator.backward(
+            log.backwards_loss() * math.sqrt(batch.text.shape[0])
+        )
+
+    return log.detach(), pred.audio.detach()

@@ -71,3 +71,20 @@ def validate_textual(batch, train):
     log.add_loss("duration_ce", loss_ce)
     log.add_loss("duration", loss_dur)
     return log, batch.alignment[0], pred.audio, batch.audio_gt
+
+
+@torch.no_grad()
+def validate_vc(batch, train):
+    state = BatchContext(train=train, model=train.model)
+    pred = state.textual_prediction_single(batch)
+    energy = state.acoustic_energy(batch.mel)
+    log = build_loss_log(train)
+    train.stft_loss(pred.audio.squeeze(1), batch.audio_gt, log)
+    log.add_loss(
+        "pitch",
+        torch.nn.functional.smooth_l1_loss(batch.pitch, state.pitch_prediction),
+    )
+    log.add_loss(
+        "energy", torch.nn.functional.smooth_l1_loss(energy, state.energy_prediction)
+    )
+    return log, batch.alignment[0], pred.audio, batch.audio_gt
