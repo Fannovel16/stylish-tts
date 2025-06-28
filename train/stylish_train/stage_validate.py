@@ -76,7 +76,7 @@ def validate_textual(batch, train):
 @torch.no_grad()
 def validate_vc(batch, train):
     state = BatchContext(train=train, model=train.model)
-    pred = state.textual_prediction_single(batch)
+    pred = state.vc_prediction_single(batch)
     energy = state.acoustic_energy(batch.mel)
     log = build_loss_log(train)
     train.stft_loss(pred.audio.squeeze(1), batch.audio_gt, log)
