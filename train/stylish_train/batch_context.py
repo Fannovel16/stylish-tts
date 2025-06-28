@@ -108,8 +108,8 @@ class BatchContext:
         )
         pitch = self.calculate_pitch(batch, self.pitch_prediction)
         print(
-            acoustic_features.shape,
-            acoustic_styles.shape,
+            (acoustic_features @ batch.alignment).shape,
+            (acoustic_styles @ batch.alignment).shape,
             pitch.shape,
             self.energy_prediction.shape,
         )
