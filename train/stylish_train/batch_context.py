@@ -24,12 +24,12 @@ class AdaptiveHubert(nn.Module):
         self.hubert = hubert
         self.resample = torchaudio.transforms.Resample(model_sr, hubert_sr)
 
-    def forward(self, wave, mel):
+    def forward(self, wave, time_dim):
         wave = self.resample(wave)
         x = self.hubert(wave)["last_hidden_state"].transpose(-1, -2)
         x = torch.nn.functional.interpolate(
             x,
-            size=mel.shape[-1] // 2,
+            size=time_dim,
             mode="linear",
             align_corners=True,
         ).transpose(-1, -2)
@@ -117,12 +117,12 @@ class BatchContext:
         return prediction
 
     def vc_prediction_single(self, batch):
-        phones = self.hubert(batch.audio_gt, batch.mel)
+        phones = self.hubert(batch.audio_gt, batch.alignment.shape[-1])
         acoustic_features, acoustic_styles = self.model.hubert_acoustic_extractor(
-            phones, batch.mel_length
+            phones, batch.mel_length // 2
         )
         spectral_features, spectral_styles = self.model.hubert_spectral_extractor(
-            phones, batch.mel_length
+            phones, batch.mel_length // 2
         )
         self.pitch_prediction, self.energy_prediction = (
             self.model.pitch_energy_predictor(
