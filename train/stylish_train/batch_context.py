@@ -51,6 +51,7 @@ class BatchContext:
         self.hubert = (
             AdaptiveHubert(
                 HubertModelWithFinalProj.from_pretrained(hubert_config.model),
+                self.train.model_config.sample_rate,
                 hubert_config.sr,
             )
             .to(self.config.training.device)
