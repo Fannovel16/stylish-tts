@@ -29,7 +29,7 @@ class AdaptiveHubert(nn.Module):
         x = self.hubert(wave)["last_hidden_state"].transpose(-1, -2)
         x = torch.nn.functional.interpolate(
             x,
-            size=mel.shape[-1],
+            size=mel.shape[-1] // 2,
             mode="linear",
             align_corners=True,
         ).transpose(-1, -2)

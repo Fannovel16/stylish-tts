@@ -70,7 +70,7 @@ def build_model(model_config: ModelConfig):
             encode_feature=True,
         )
         hubert_acoustic_extractor.text_encoder.emb = nn.Linear(
-            768, acoustic_config.text_encoder.hidden_dim
+            768, acoustic_config.inter_dim
         )
 
     duration_config = model_config.text_duration_extractor
@@ -115,7 +115,7 @@ def build_model(model_config: ModelConfig):
         encode_feature=True,
     )
     hubert_spectral_extractor.text_encoder.emb = nn.Linear(
-        768, spectral_config.text_encoder.hidden_dim
+        768, spectral_config.inter_dim
     )
 
     nets = Munch(
