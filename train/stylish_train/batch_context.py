@@ -117,7 +117,7 @@ class BatchContext:
         return prediction
 
     def vc_prediction_single(self, batch):
-        phones = self.hubert(batch.audio_gt)
+        phones = self.hubert(batch.audio_gt, batch.mel)
         acoustic_features, acoustic_styles = self.model.hubert_acoustic_extractor(
             phones, batch.mel_length
         )
