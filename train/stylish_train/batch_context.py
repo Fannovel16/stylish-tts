@@ -27,6 +27,7 @@ class AdaptiveHubert(nn.Module):
     def forward(self, wave, time_dim):
         wave = self.resample(wave)
         x = self.hubert(wave)["last_hidden_state"].transpose(-1, -2)
+        print(time_dim / x.shape[-1])
         x = torch.nn.functional.interpolate(
             x,
             size=time_dim,
