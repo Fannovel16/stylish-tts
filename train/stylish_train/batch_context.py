@@ -127,18 +127,6 @@ class BatchContext:
         acoustic_features, acoustic_styles = self.model.hubert_acoustic_extractor(
             phones, batch.mel_length
         )
-        acoustic_features = torch.nn.functional.interpolate(
-            acoustic_features.transpose(-1, -2),
-            scale_factor=2,
-            mode="linear",
-            align_corners=True,
-        ).transpose(-1, -2)
-        acoustic_styles = torch.nn.functional.interpolate(
-            acoustic_styles,
-            scale_factor=2,
-            mode="linear",
-            align_corners=True,
-        )
         spectral_features, spectral_styles = self.model.hubert_spectral_extractor(
             phones, batch.mel_length
         )
