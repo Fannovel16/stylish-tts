@@ -64,6 +64,10 @@ class TrainingPlanConfig(BaseModel):
         default_factory=TrainingStageConfig,
         description="Configuration for training of textual models stage (fourth stage).",
     )
+    vc: TrainingStageConfig = Field(
+        default_factory=TrainingStageConfig,
+        description="Configuration for training of voice-conversion.",
+    )
 
     def get_stage(self, name: str) -> TrainingStageConfig:
         try:
