@@ -107,12 +107,6 @@ class BatchContext:
             )
         )
         pitch = self.calculate_pitch(batch, self.pitch_prediction)
-        print(
-            (acoustic_features @ batch.alignment).shape,
-            (acoustic_styles @ batch.alignment).shape,
-            pitch.shape,
-            self.energy_prediction.shape,
-        )
         prediction = self.model.generator(
             acoustic_features @ batch.alignment,
             acoustic_styles @ batch.alignment,
@@ -137,12 +131,6 @@ class BatchContext:
             )
         )
         pitch = self.calculate_pitch(batch, self.pitch_prediction)
-        print(
-            acoustic_features.shape,
-            acoustic_styles.shape,
-            pitch.shape,
-            self.energy_prediction.shape,
-        )
         prediction = self.model.generator(
             acoustic_features,
             acoustic_styles,
