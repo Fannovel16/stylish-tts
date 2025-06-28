@@ -32,7 +32,7 @@ class AdaptiveHubert(nn.Module):
             size=mel.shape[-1],
             mode="linear",
             align_corners=True,
-        )
+        ).transpose(-1, -2)
         return x
 
 
