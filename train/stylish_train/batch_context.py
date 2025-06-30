@@ -150,12 +150,7 @@ class FeatureDistilLoss(nn.Module):
 
 
 class BatchContext:
-    def __init__(
-        self,
-        *,
-        train: train_context.TrainContext,
-        model,
-    ):
+    def __init__(self, *, train: train_context.TrainContext, model, distil=False):
         self.train: train_context.TrainContext = train
         self.config: Config = train.config
         # This is a subset containing only those models used this batch
@@ -165,12 +160,13 @@ class BatchContext:
         self.energy_prediction = None
         self.duration_prediction = None
 
-        self.acoustic_feature_loss = FeatureDistilLoss(
-            self.model.text_acoustic_extractor, self.model.hubert_acoustic_extractor
-        )
-        self.spectral_feature_loss = FeatureDistilLoss(
-            self.model.text_spectral_extractor, self.model.hubert_spectral_extractor
-        )
+        if distil:
+            self.acoustic_feature_loss = FeatureDistilLoss(
+                self.model.text_acoustic_extractor, self.model.hubert_acoustic_extractor
+            )
+            self.spectral_feature_loss = FeatureDistilLoss(
+                self.model.text_spectral_extractor, self.model.hubert_spectral_extractor
+            )
 
     def acoustic_energy(self, mels: torch.Tensor):
         with torch.no_grad():
