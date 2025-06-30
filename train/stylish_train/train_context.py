@@ -56,8 +56,8 @@ class AdaptiveHubert(nn.Module):
     def forward(self, wave, time_dim):
         xs = []
         with torch.autocast("cuda", torch.float16):
-            print(wave.shape, wave[i : i + 1, :])
             for i in range(wave.shape[0]):
+                print(wave.shape, wave[i : i + 1, :])
                 wave = self.resample(wave[i : i + 1, :])
                 x = self.model(wave)["last_hidden_state"].transpose(-1, -2)
                 x = torch.nn.functional.interpolate(
