@@ -5,7 +5,6 @@ from torch.nn import functional as F
 from torch.nn.utils import weight_norm
 from einops import rearrange
 from .common import InstanceNorm1d
-from .text_feature_extractor import TextFeatureExtractor
 
 
 class PitchEnergyPredictor(torch.nn.Module):

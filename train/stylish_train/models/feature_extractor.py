@@ -1,7 +1,13 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .text_encoder import TextEncoder, MultiHeadAttention, FFN, sequence_mask
+from .text_encoder import (
+    TextEncoder,
+    MultiHeadAttention,
+    FFN,
+    sequence_mask,
+    HubertEncoder,
+)
 from .fine_style_encoder import FineStyleEncoder
 from stylish_lib.config_loader import (
     TextEncoderConfig,
@@ -40,6 +46,44 @@ class TextFeatureExtractor(nn.Module):
 
     def forward(self, x, x_lengths):
         x, _, _ = self.text_encoder(x, x_lengths)
+        style = self.style_encoder(x)
+        if self.encode_feature:
+            x = self.feature_encoder(x, x_lengths, style)
+        return x, style
+
+
+class HubertFeatureExtractor(nn.Module):
+    def __init__(
+        self,
+        hubert_dim,
+        inter_dim,
+        style_dim,
+        text_encoder_config: TextEncoderConfig,
+        style_encoder_config: StyleEncoderConfig,
+        feature_encoder_config: AdaptiveFeatureEncoderConfig,
+        encode_feature=True,
+        f0=False,
+    ):
+        super().__init__()
+        self.encode_feature = encode_feature
+        self.text_encoder = HubertEncoder(
+            hubert_dim, inter_dim, config=text_encoder_config
+        )
+        self.style_encoder = FineStyleEncoder(
+            inter_dim, style_dim, style_encoder_config.layers
+        )
+        if self.encode_feature:
+            self.feature_encoder = AdaptiveFeatureEncoder(
+                sty_dim=style_dim,
+                d_model=inter_dim,
+                layers=feature_encoder_config.layers,
+                dropout=feature_encoder_config.dropout,
+                heads=feature_encoder_config.heads,
+                kernel_size=feature_encoder_config.kernel_size,
+            )
+
+    def forward(self, x, x_lengths, pitch=None):
+        x, _, _ = self.text_encoder(x, x_lengths, pitch)
         style = self.style_encoder(x)
         if self.encode_feature:
             x = self.feature_encoder(x, x_lengths, style)

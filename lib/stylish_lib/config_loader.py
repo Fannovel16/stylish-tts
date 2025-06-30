@@ -273,6 +273,9 @@ class SlmConfig(BaseModel):
 
 class HubertConfig(BaseModel):
     model: str = Field(..., description="Identifier or path for HuBERT model.")
+    hidden_dim: int = Field(
+        ..., description="Dimension of the last hidden layer in HuBERT."
+    )
     sr: int = Field(..., description="Sampling rate used by HuBERT.")
 
 

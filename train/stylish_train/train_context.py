@@ -16,7 +16,9 @@ from losses import (
 )
 from torch.utils.tensorboard.writer import SummaryWriter
 from stylish_lib.text_utils import TextCleaner
-import torchaudio
+import torchaudio, torch
+import torch.nn as nn
+from transformers import HubertModel
 
 
 class Manifest:
@@ -37,6 +39,34 @@ class Manifest:
         for key, value in state.items():
             if hasattr(self, key):
                 setattr(self, key, value)
+
+
+class HubertModelWithFinalProj(HubertModel):
+    def __init__(self, config):
+        super().__init__(config)
+        self.final_proj = nn.Linear(config.hidden_size, config.classifier_proj_size)
+
+
+class AdaptiveHubert(nn.Module):
+    def __init__(self, hubert_path: str, model_sr: int, hubert_sr: int):
+        super().__init__()
+        self.model = HubertModelWithFinalProj.from_pretrained(hubert_path)
+        self.resample = torchaudio.transforms.Resample(model_sr, hubert_sr)
+
+    def forward(self, wave, time_dim):
+        xs = []
+        with torch.autocast("cuda", torch.float16):
+            for i in range(wave.shape[0]):
+                wave = self.resample(wave[i : i + 1, ...])
+                x = self.model(wave)["last_hidden_state"].transpose(-1, -2)
+                x = torch.nn.functional.interpolate(
+                    x,
+                    size=time_dim,
+                    mode="linear",
+                    align_corners=True,
+                ).transpose(-1, -2)
+                xs.append(x)
+        return torch.cat(xs, 0)
 
 
 class TrainContext:
@@ -112,6 +142,17 @@ class TrainContext:
             hop_length=self.model_config.hop_length,
             sample_rate=self.model_config.sample_rate,
         ).to(self.config.training.device)
+
+        hubert_config = self.model_config.hubert
+        self.hubert = (
+            AdaptiveHubert(
+                hubert_config.model,
+                self.model_config.sample_rate,
+                hubert_config.sr,
+            )
+            .to(self.config.training.device)
+            .eval()
+        )
 
     def reset_out_dir(self, stage_name):
         self.out_dir = osp.join(self.base_output_dir, stage_name)

@@ -16,7 +16,6 @@ from scipy.signal import get_window
 from utils import DecoderPrediction, clamped_exp, leaky_clamp
 from .common import InstanceNorm1d
 from .decoder import Decoder
-from .text_feature_extractor import TextFeatureExtractor
 
 
 import numpy as np

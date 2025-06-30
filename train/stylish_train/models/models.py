@@ -12,7 +12,7 @@ from .discriminators.multi_subband import MultiScaleSubbandCQTDiscriminator
 from .duration_predictor import DurationPredictor
 from .pitch_energy_predictor import PitchEnergyPredictor
 
-from .text_feature_extractor import TextFeatureExtractor
+from .feature_extractor import TextFeatureExtractor, HubertFeatureExtractor
 from .decoder import Decoder
 from .ringformer import RingformerGenerator
 import torch.nn as nn
@@ -60,17 +60,14 @@ def build_model(model_config: ModelConfig):
             sample_rate=model_config.sample_rate,
             mel_decoder=mel_decoder,
         )
-        hubert_acoustic_extractor = TextFeatureExtractor(
-            tokens=model_config.tokens,
+        hubert_acoustic_extractor = HubertFeatureExtractor(
+            hubert_dim=model_config.hubert.hidden_dim,
             inter_dim=acoustic_config.inter_dim,
             style_dim=acoustic_config.style_dim,
             text_encoder_config=acoustic_config.text_encoder,
             style_encoder_config=acoustic_config.style_encoder,
             feature_encoder_config=acoustic_config.feature_encoder,
             encode_feature=False,
-        )
-        hubert_acoustic_extractor.text_encoder.emb = nn.Linear(
-            768, acoustic_config.text_encoder.hidden_dim
         )
 
     duration_config = model_config.text_duration_extractor
@@ -105,17 +102,15 @@ def build_model(model_config: ModelConfig):
         dropout=model_config.pitch_energy_predictor.dropout,
     )
 
-    hubert_spectral_extractor = TextFeatureExtractor(
-        tokens=model_config.tokens,
+    hubert_spectral_extractor = HubertFeatureExtractor(
+        hubert_dim=model_config.hubert.hidden_dim,
         inter_dim=spectral_config.inter_dim,
         style_dim=spectral_config.style_dim,
         text_encoder_config=spectral_config.text_encoder,
         style_encoder_config=spectral_config.style_encoder,
         feature_encoder_config=spectral_config.feature_encoder,
         encode_feature=True,
-    )
-    hubert_spectral_extractor.text_encoder.emb = nn.Linear(
-        768, acoustic_config.text_encoder.hidden_dim
+        f0=True,
     )
 
     nets = Munch(

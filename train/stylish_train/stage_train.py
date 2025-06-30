@@ -36,6 +36,8 @@ def train_acoustic(
     with train.accelerator.autocast():
         print_gpu_vram("init")
         pred = state.acoustic_prediction_single(batch)
+        energy = state.acoustic_energy(batch.mel)
+        pitch = state.calculate_pitch(batch)
         print_gpu_vram("predicted")
         train.stage.optimizer.zero_grad()
 
@@ -60,7 +62,14 @@ def train_acoustic(
                 train.magphase_loss(pred.magnitude, pred.phase, batch.audio_gt),
             )
         print_gpu_vram("magphase_loss")
-
+        log.add_loss(
+            "pitch",
+            torch.nn.functional.smooth_l1_loss(pitch, state.pitch_prediction),
+        )
+        log.add_loss(
+            "energy",
+            torch.nn.functional.smooth_l1_loss(energy, state.energy_prediction),
+        )
         train.accelerator.backward(
             log.backwards_loss() * math.sqrt(batch.text.shape[0])
         )
@@ -86,6 +95,8 @@ def train_textual(
         #         batch.audio_gt.detach().unsqueeze(1).float(), pred.audio, ["msbd"]
         #     ).mean(),
         # )
+        log.add_loss("acoustic_distil", state.acoustic_feature_loss(batch.alignment))
+        log.add_loss("spectral_distil", state.spectral_feature_loss(batch.alignment))
         log.add_loss(
             "slm",
             train.wavlm_loss(batch.audio_gt.detach(), pred.audio),
