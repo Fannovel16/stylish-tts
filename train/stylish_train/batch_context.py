@@ -142,9 +142,7 @@ class FeatureDistilLoss(nn.Module):
         features_loss = 0.0
         for s_feat, t_feat in zip(self._student_features, self._teacher_features):
             t_feat = t_feat.detach()
-            features_loss += self.feature_loss_fn(
-                (s_feat @ alignment).transpose(1, 2), t_feat
-            )
+            features_loss += self.feature_loss_fn(s_feat @ alignment, t_feat)
 
         self._clear_buffers()
         self.remove_hooks()
