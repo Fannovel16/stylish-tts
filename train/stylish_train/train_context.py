@@ -71,8 +71,7 @@ class AdaptiveHubert(nn.Module):
                     x = torch.nn.functional.interpolate(
                         x,
                         size=time_dim // 2,
-                        mode="linear",
-                        align_corners=True,
+                        mode="nearest",
                     ).transpose(-1, -2)
                     segment_outputs.append(x)
 
@@ -84,8 +83,7 @@ class AdaptiveHubert(nn.Module):
                 x = torch.nn.functional.interpolate(
                     x,
                     size=time_dim,
-                    mode="linear",
-                    align_corners=True,
+                    mode="nearest",
                 ).transpose(-1, -2)
 
             xs.append(x)
