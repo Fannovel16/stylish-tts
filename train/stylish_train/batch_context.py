@@ -205,11 +205,6 @@ class BatchContext:
             energy = log_norm(mels.unsqueeze(1)).squeeze(1)
         return energy
 
-    def calculate_pitch(self, batch, prediction=None):
-        if prediction is None:
-            prediction = batch.pitch
-        return prediction
-
     """def acoustic_prediction_single(self, batch, use_random_mono=True):
         acoustic_features, acoustic_styles = self.model.text_acoustic_extractor(
             batch.text, batch.text_length
@@ -225,37 +220,29 @@ class BatchContext:
         )
         return prediction"""
 
-    def extract_features_from_hubert(self, batch):
+    def acoustic_prediction_single(self, batch, use_random_mono=True):
+        phones = self.train.hubert(batch.audio_gt, batch.alignment.shape[-1])
+        acoustic_features, acoustic_styles = self.model.hubert_acoustic_extractor(
+            phones, batch.mel_length // 2
+        )
+        energy = self.acoustic_energy(batch.mel)
+        pitch = batch.pitch
+        prediction = self.model.generator(
+            acoustic_features,
+            acoustic_styles,
+            pitch,
+            energy,
+        )
+        print_gpu_vram("generator")
+        return prediction
+
+    def spectral_prediction_single(self, batch, use_random_mono=True):
         phones = self.train.hubert(batch.audio_gt, batch.alignment.shape[-1])
         acoustic_features, acoustic_styles = self.model.hubert_acoustic_extractor(
             phones, batch.mel_length // 2
         )
         spectral_features, spectral_styles = self.model.hubert_spectral_extractor(
-            phones, batch.mel_length // 2, quantize_f0(batch.pitch)
-        )
-        return acoustic_features, acoustic_styles, spectral_features, spectral_styles
-
-    def extract_features_from_text(self, batch):
-        acoustic_features, acoustic_styles = self.model.text_acoustic_extractor(
-            batch.text, batch.text_length
-        )
-        duration_features, _ = self.model.text_duration_extractor(
-            batch.text, batch.text_length
-        )
-        spectral_features, spectral_styles = self.model.text_spectral_extractor(
-            batch.text, batch.text_length
-        )
-        return (
-            acoustic_features,
-            acoustic_styles,
-            spectral_features,
-            spectral_styles,
-            duration_features,
-        )
-
-    def acoustic_prediction_single(self, batch, use_random_mono=True):
-        acoustic_features, acoustic_styles, spectral_features, spectral_styles = (
-            self.extract_features_from_hubert(batch)
+            phones, batch.mel_length // 2, quantize_f0(batch.pitch).detach()
         )
         self.pitch_prediction, self.energy_prediction = (
             self.model.pitch_energy_predictor(
@@ -263,11 +250,10 @@ class BatchContext:
                 spectral_styles,
             )
         )
-        pitch = self.calculate_pitch(batch, self.pitch_prediction)
         prediction = self.model.generator(
             acoustic_features,
             acoustic_styles,
-            pitch,
+            self.pitch_prediction,
             self.energy_prediction,
         )
         print_gpu_vram("generator")
@@ -303,14 +289,23 @@ class BatchContext:
         return prediction"""
 
     def textual_prediction_single(self, batch):
-        self.extract_features_from_hubert(batch)
-        (
-            acoustic_features,
-            acoustic_styles,
-            spectral_features,
-            spectral_styles,
-            duration_features,
-        ) = self.extract_features_from_text(batch)
+        # Invoke to only get hidden features
+        phones = self.train.hubert(batch.audio_gt, batch.alignment.shape[-1])
+        self.model.hubert_acoustic_extractor(phones, batch.mel_length // 2)
+        self.model.hubert_spectral_extractor(
+            phones, batch.mel_length // 2, quantize_f0(batch.pitch).detach()
+        )
+
+        # Textual
+        acoustic_features, acoustic_styles = self.model.text_acoustic_extractor(
+            batch.text, batch.text_length
+        )
+        duration_features, _ = self.model.text_duration_extractor(
+            batch.text, batch.text_length
+        )
+        spectral_features, spectral_styles = self.model.text_spectral_extractor(
+            batch.text, batch.text_length
+        )
 
         self.duration_prediction = self.model.duration_predictor(
             duration_features,
@@ -321,35 +316,10 @@ class BatchContext:
                 spectral_styles @ batch.alignment,
             )
         )
-        pitch = self.calculate_pitch(batch, self.pitch_prediction)
         prediction = self.model.generator(
             acoustic_features @ batch.alignment,
             acoustic_styles @ batch.alignment,
-            pitch,
-            self.energy_prediction,
-        )
-        print_gpu_vram("generator")
-        return prediction
-
-    def vc_prediction_single(self, batch):
-        phones = self.hubert(batch.audio_gt, batch.alignment.shape[-1])
-        acoustic_features, acoustic_styles = self.model.hubert_acoustic_extractor(
-            phones, batch.mel_length // 2
-        )
-        spectral_features, spectral_styles = self.model.hubert_spectral_extractor(
-            phones, batch.mel_length // 2
-        )
-        self.pitch_prediction, self.energy_prediction = (
-            self.model.pitch_energy_predictor(
-                spectral_features.transpose(-1, -2),
-                spectral_styles,
-            )
-        )
-        pitch = self.calculate_pitch(batch, self.pitch_prediction)
-        prediction = self.model.generator(
-            acoustic_features,
-            acoustic_styles,
-            pitch,
+            self.pitch_prediction,
             self.energy_prediction,
         )
         print_gpu_vram("generator")

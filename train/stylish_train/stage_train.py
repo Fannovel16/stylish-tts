@@ -36,8 +36,6 @@ def train_acoustic(
     with train.accelerator.autocast():
         print_gpu_vram("init")
         pred = state.acoustic_prediction_single(batch)
-        energy = state.acoustic_energy(batch.mel)
-        pitch = state.calculate_pitch(batch)
         print_gpu_vram("predicted")
         train.stage.optimizer.zero_grad()
 
@@ -62,6 +60,29 @@ def train_acoustic(
                 train.magphase_loss(pred.magnitude, pred.phase, batch.audio_gt),
             )
         print_gpu_vram("magphase_loss")
+        train.accelerator.backward(
+            log.backwards_loss() * math.sqrt(batch.text.shape[0])
+        )
+        print_gpu_vram("backward")
+
+    return log.detach(), pred.audio.detach()
+
+
+def train_spectral(
+    batch, model, train, probing
+) -> Tuple[LossLog, Optional[torch.Tensor]]:
+    state = BatchContext(train=train, model=model)
+    with train.accelerator.autocast():
+        print_gpu_vram("init")
+        pred = state.acoustic_prediction_single(batch)
+        energy = state.acoustic_energy(batch.mel)
+        pitch = state.calculate_pitch(batch)
+        print_gpu_vram("predicted")
+        train.stage.optimizer.zero_grad()
+
+        log = build_loss_log(train)
+        train.stft_loss(pred.audio.squeeze(1), batch.audio_gt, log)
+        print_gpu_vram("stft_loss")
         log.add_loss(
             "pitch",
             torch.nn.functional.smooth_l1_loss(pitch, state.pitch_prediction),
@@ -70,6 +91,18 @@ def train_acoustic(
             "energy",
             torch.nn.functional.smooth_l1_loss(energy, state.energy_prediction),
         )
+        print_gpu_vram("generator_loss")
+        log.add_loss(
+            "slm",
+            train.wavlm_loss(batch.audio_gt.detach(), pred.audio),
+        )
+        print_gpu_vram("slm_loss")
+        if pred.magnitude is not None and pred.phase is not None:
+            log.add_loss(
+                "magphase",
+                train.magphase_loss(pred.magnitude, pred.phase, batch.audio_gt),
+            )
+        print_gpu_vram("magphase_loss")
         train.accelerator.backward(
             log.backwards_loss() * math.sqrt(batch.text.shape[0])
         )
@@ -89,12 +122,6 @@ def train_textual(
         train.stage.optimizer.zero_grad()
         log = build_loss_log(train)
         train.stft_loss(pred.audio.squeeze(1), batch.audio_gt, log)
-        # log.add_loss(
-        #     "generator",
-        #     train.generator_loss(
-        #         batch.audio_gt.detach().unsqueeze(1).float(), pred.audio, ["msbd"]
-        #     ).mean(),
-        # )
         log.add_loss("acoustic_distil", state.acoustic_feature_loss(batch.alignment))
         log.add_loss("spectral_distil", state.spectral_feature_loss(batch.alignment))
         log.add_loss(
@@ -128,10 +155,12 @@ def train_textual(
     return log.detach(), pred.audio.detach()
 
 
-def train_vc(batch, model, train, probing) -> Tuple[LossLog, Optional[torch.Tensor]]:
+def train_spectral(
+    batch, model, train, probing
+) -> Tuple[LossLog, Optional[torch.Tensor]]:
     state = BatchContext(train=train, model=model)
     with train.accelerator.autocast():
-        pred = state.vc_prediction_single(batch)
+        pred = state.spectral_prediction_single(batch)
         energy = state.acoustic_energy(batch.mel)
         pitch = state.calculate_pitch(batch)
         train.stage.optimizer.zero_grad()

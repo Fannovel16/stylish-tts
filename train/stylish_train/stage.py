@@ -14,14 +14,14 @@ from stage_train import (
     train_alignment,
     train_acoustic,
     train_textual,
-    train_vc,
+    train_spectral,
 )
 
 from stage_validate import (
     validate_alignment,
     validate_acoustic,
     validate_textual,
-    validate_vc,
+    validate_spectral,
 )
 
 from optimizers import build_optimizer
@@ -68,17 +68,38 @@ stages = {
         ],
     ),
     "acoustic": StageConfig(
-        next_stage="textual",
+        next_stage="spectral",
         train_fn=train_acoustic,
         validate_fn=validate_acoustic,
         train_models=[
             "hubert_acoustic_extractor",
-            "hubert_spectral_extractor",
-            "pitch_energy_predictor",
             "generator",
         ],
         eval_models=[],
         discriminators=["mpd", "mrd"],
+        inputs=[
+            "text",
+            "text_length",
+            "mel",
+            "mel_length",
+            "audio_gt",
+            "pitch",
+            "alignment",
+        ],
+    ),
+    "spectral": StageConfig(
+        next_stage="textual",
+        train_fn=train_spectral,
+        validate_fn=validate_spectral,
+        train_models=[
+            "hubert_spectral_extractor",
+            "pitch_energy_predictor",
+        ],
+        eval_models=[
+            "hubert_acoustic_extractor",
+            "generator",
+        ],
+        discriminators=[],
         inputs=[
             "text",
             "text_length",
@@ -101,29 +122,6 @@ stages = {
         eval_models=[
             "hubert_acoustic_extractor",
             "hubert_spectral_extractor",
-            "pitch_energy_predictor",
-            "generator",
-        ],
-        discriminators=[],
-        inputs=[
-            "text",
-            "text_length",
-            "mel",
-            "mel_length",
-            "audio_gt",
-            "pitch",
-            "alignment",
-        ],
-    ),
-    "vc": StageConfig(
-        next_stage=None,
-        train_fn=train_vc,
-        validate_fn=validate_vc,
-        train_models=[
-            "hubert_acoustic_extractor",
-            "hubert_spectral_extractor",
-        ],
-        eval_models=[
             "pitch_energy_predictor",
             "generator",
         ],

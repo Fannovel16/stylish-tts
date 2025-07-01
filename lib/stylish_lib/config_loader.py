@@ -60,13 +60,13 @@ class TrainingPlanConfig(BaseModel):
         default_factory=TrainingStageConfig,
         description="Configuration for joint training of acoustic models stage (second stage).",
     )
+    spectral: TrainingStageConfig = Field(
+        default_factory=TrainingStageConfig,
+        description="Configuration for training of spectral models stage.",
+    )
     textual: TrainingStageConfig = Field(
         default_factory=TrainingStageConfig,
-        description="Configuration for training of textual models stage (fourth stage).",
-    )
-    vc: TrainingStageConfig = Field(
-        default_factory=TrainingStageConfig,
-        description="Configuration for training of voice-conversion.",
+        description="Configuration for training of textual models stage.",
     )
 
     def get_stage(self, name: str) -> TrainingStageConfig:
