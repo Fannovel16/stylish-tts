@@ -148,7 +148,7 @@ class FeatureDistilLoss(nn.Module):
 
         self._clear_buffers()
         self.remove_hooks()
-        return hidden_states_loss, features_loss
+        return hidden_states_loss + features_loss
 
 
 def quantize_f0(f0, f0_bin=256, f0_min=50.0, f0_max=1100.0):
