@@ -57,39 +57,38 @@ class AdaptiveHubert(nn.Module):
     def forward(self, wave, time_dim):
         xs = []
         wave = self.resample(wave)
-        with torch.autocast("cuda", torch.float16):
-            for i in range(wave.shape[0]):
-                audio = wave[i : i + 1, :]  # (1, time)
+        for i in range(wave.shape[0]):
+            audio = wave[i : i + 1, :]  # (1, time)
 
-                if audio.shape[1] > self.sr * 5:
-                    # Split the audio into two halves
-                    mid = audio.shape[1] // 2
-                    segments = [audio[:, :mid], audio[:, mid:]]
-                    segment_outputs = []
+            if audio.shape[1] >= self.sr * 5:
+                # Split the audio into two halves
+                mid = audio.shape[1] // 2
+                segments = [audio[:, :mid], audio[:, mid:]]
+                segment_outputs = []
 
-                    for segment in segments:
-                        x = self.model(segment)["last_hidden_state"].transpose(-1, -2)
-                        x = torch.nn.functional.interpolate(
-                            x,
-                            size=time_dim // 2,
-                            mode="linear",
-                            align_corners=True,
-                        ).transpose(-1, -2)
-                        segment_outputs.append(x)
-
-                    # Concatenate the two halves along the time dimension
-                    x = torch.cat(segment_outputs, dim=1)
-
-                else:
-                    x = self.model(audio)["last_hidden_state"].transpose(-1, -2)
+                for segment in segments:
+                    x = self.model(segment)["last_hidden_state"].transpose(-1, -2)
                     x = torch.nn.functional.interpolate(
                         x,
-                        size=time_dim,
+                        size=time_dim // 2,
                         mode="linear",
                         align_corners=True,
                     ).transpose(-1, -2)
+                    segment_outputs.append(x)
 
-                xs.append(x)
+                # Concatenate the two halves along the time dimension
+                x = torch.cat(segment_outputs, dim=1)
+
+            else:
+                x = self.model(audio)["last_hidden_state"].transpose(-1, -2)
+                x = torch.nn.functional.interpolate(
+                    x,
+                    size=time_dim,
+                    mode="linear",
+                    align_corners=True,
+                ).transpose(-1, -2)
+
+            xs.append(x)
 
         return torch.cat(xs, 0)
 
