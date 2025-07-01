@@ -51,6 +51,7 @@ class AdaptiveHubert(nn.Module):
     def __init__(self, hubert_path: str, model_sr: int, hubert_sr: int):
         super().__init__()
         self.model = HubertModelWithFinalProj.from_pretrained(hubert_path)
+        self.sr = hubert_sr
         self.resample = torchaudio.transforms.Resample(model_sr, hubert_sr)
 
     def forward(self, wave, time_dim):
@@ -58,16 +59,38 @@ class AdaptiveHubert(nn.Module):
         wave = self.resample(wave)
         with torch.autocast("cuda", torch.float16):
             for i in range(wave.shape[0]):
-                x = self.model(wave[i : i + 1, :])["last_hidden_state"].transpose(
-                    -1, -2
-                )
-                x = torch.nn.functional.interpolate(
-                    x,
-                    size=time_dim,
-                    mode="linear",
-                    align_corners=True,
-                ).transpose(-1, -2)
+                audio = wave[i : i + 1, :]  # (1, time)
+
+                if audio.shape[1] > self.sr * 5:
+                    # Split the audio into two halves
+                    mid = audio.shape[1] // 2
+                    segments = [audio[:, :mid], audio[:, mid:]]
+                    segment_outputs = []
+
+                    for segment in segments:
+                        x = self.model(segment)["last_hidden_state"].transpose(-1, -2)
+                        x = torch.nn.functional.interpolate(
+                            x,
+                            size=time_dim // 2,
+                            mode="linear",
+                            align_corners=True,
+                        ).transpose(-1, -2)
+                        segment_outputs.append(x)
+
+                    # Concatenate the two halves along the time dimension
+                    x = torch.cat(segment_outputs, dim=1)
+
+                else:
+                    x = self.model(audio)["last_hidden_state"].transpose(-1, -2)
+                    x = torch.nn.functional.interpolate(
+                        x,
+                        size=time_dim,
+                        mode="linear",
+                        align_corners=True,
+                    ).transpose(-1, -2)
+
                 xs.append(x)
+
         return torch.cat(xs, 0)
 
 
