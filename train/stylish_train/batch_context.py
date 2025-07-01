@@ -114,7 +114,6 @@ class FeatureDistilLoss(nn.Module):
         """Removes all hooks from the models. Call this after training."""
         for handle in self.student_handles + self.teacher_handles:
             handle.remove()
-        print("Distillation hooks removed.")
 
     def forward(self, alignment: torch.Tensor):
         """
