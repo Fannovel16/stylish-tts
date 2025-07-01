@@ -76,7 +76,7 @@ def train_spectral(
         print_gpu_vram("init")
         pred = state.acoustic_prediction_single(batch)
         energy = state.acoustic_energy(batch.mel)
-        pitch = state.calculate_pitch(batch)
+        pitch = batch.pitch
         print_gpu_vram("predicted")
         train.stage.optimizer.zero_grad()
 
@@ -118,7 +118,7 @@ def train_textual(
     with train.accelerator.autocast():
         pred = state.textual_prediction_single(batch)
         energy = state.acoustic_energy(batch.mel)
-        pitch = state.calculate_pitch(batch)
+        pitch = batch.pitch
         train.stage.optimizer.zero_grad()
         log = build_loss_log(train)
         train.stft_loss(pred.audio.squeeze(1), batch.audio_gt, log)
@@ -162,7 +162,7 @@ def train_spectral(
     with train.accelerator.autocast():
         pred = state.spectral_prediction_single(batch)
         energy = state.acoustic_energy(batch.mel)
-        pitch = state.calculate_pitch(batch)
+        pitch = batch.pitch
         train.stage.optimizer.zero_grad()
         log = build_loss_log(train)
         train.stft_loss(pred.audio.squeeze(1), batch.audio_gt, log)
