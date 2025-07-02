@@ -164,7 +164,7 @@ def quantize_f0(f0, f0_bin=256, f0_min=50.0, f0_max=1100.0):
     f0_mel_max = 1127.0 * torch.log1p(torch.tensor(f0_max / 700.0))
 
     # Initialize output
-    f0 = f0.clone()
+    f0 = F.interpolate(f0, scale_factor=0.5, mode="linear")
     mel_bins = torch.zeros_like(f0, dtype=torch.float32)
 
     # Voiced mask
