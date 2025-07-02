@@ -118,6 +118,7 @@ stages = {
             "text_acoustic_extractor",
             "text_spectral_extractor",
             "text_duration_extractor",
+            "duration_predictor",
         ],
         eval_models=[
             "hubert_acoustic_extractor",
