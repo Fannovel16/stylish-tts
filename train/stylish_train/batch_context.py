@@ -31,7 +31,7 @@ class FeatureDistilLoss(nn.Module):
         self,
         student_model: TextFeatureExtractor,
         teacher_model: HubertFeatureExtractor,
-        feature_loss_type: str = "mse",
+        feature_loss_type: str = "l1",
     ):
         """
         Initializes the DistillationManager.
