@@ -71,7 +71,9 @@ def train_acoustic(
 def train_textual(
     batch, model, train, probing
 ) -> Tuple[LossLog, Optional[torch.Tensor]]:
-    state = BatchContext(train=train, model=model, distil=True)
+    state = BatchContext(
+        train=train, model=model, distil_acoustic=True, distil_spectral=False
+    )
     with train.accelerator.autocast():
         pred = state.textual_prediction_single(batch)
         energy = state.acoustic_energy(batch.mel)
