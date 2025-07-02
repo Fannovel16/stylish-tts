@@ -110,7 +110,7 @@ def build_model(model_config: ModelConfig):
         style_encoder_config=spectral_config.style_encoder,
         feature_encoder_config=spectral_config.feature_encoder,
         encode_feature=True,
-        f0=True,
+        f0=False,
     )
 
     nets = Munch(
