@@ -198,8 +198,7 @@ class BatchContext:
         *,
         train: train_context.TrainContext,
         model,
-        distil_acoustic=False,
-        distil_spectral=False,
+        distil=False,
     ):
         self.train: train_context.TrainContext = train
         self.config: Config = train.config
@@ -209,6 +208,14 @@ class BatchContext:
         self.pitch_prediction = None
         self.energy_prediction = None
         self.duration_prediction = None
+
+        if distil:
+            self.acoustic_feature_loss = FeatureDistilLoss(
+                self.model.text_acoustic_extractor, self.model.hubert_acoustic_extractor
+            )
+            self.spectral_feature_loss = FeatureDistilLoss(
+                self.model.text_spectral_extractor, self.model.hubert_spectral_extractor
+            )
 
     def acoustic_energy(self, mels: torch.Tensor):
         with torch.no_grad():

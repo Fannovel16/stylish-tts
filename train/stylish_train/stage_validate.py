@@ -75,9 +75,7 @@ def validate_textual(batch, train):
 
 @torch.no_grad()
 def validate_spectral(batch, train):
-    state = BatchContext(
-        train=train, model=train.model, distil_acoustic=True, distil_spectral=False
-    )
+    state = BatchContext(train=train, model=train.model, distil=True)
     pred = state.spectral_prediction_single(batch)
     energy = state.acoustic_energy(batch.mel)
     log = build_loss_log(train)
