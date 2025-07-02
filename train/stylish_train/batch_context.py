@@ -210,15 +210,6 @@ class BatchContext:
         self.energy_prediction = None
         self.duration_prediction = None
 
-        if distil_acoustic:
-            self.acoustic_feature_loss = FeatureDistilLoss(
-                self.model.text_acoustic_extractor, self.model.hubert_acoustic_extractor
-            )
-        if distil_spectral:
-            self.spectral_feature_loss = FeatureDistilLoss(
-                self.model.text_spectral_extractor, self.model.hubert_spectral_extractor
-            )
-
     def acoustic_energy(self, mels: torch.Tensor):
         with torch.no_grad():
             energy = log_norm(mels.unsqueeze(1)).squeeze(1)
