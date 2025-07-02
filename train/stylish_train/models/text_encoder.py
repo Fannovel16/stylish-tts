@@ -386,7 +386,8 @@ class HubertEncoder(nn.Module):
         self.n_channels = config.hidden_dim
 
         self.emb = torch.nn.Linear(hubert_dim, self.n_channels)
-        if f0:
+        self.use_f0 = f0
+        if self.use_f0:
             self.emb_pitch = nn.Embedding(256, self.n_channels)
             torch.nn.init.normal_(self.emb_pitch.weight, 0.0, self.n_channels**-0.5)
 
@@ -432,7 +433,7 @@ class HubertEncoder(nn.Module):
                 shape: (batch_size, 1, max_text_length)
         """
         x = self.emb(x)
-        if pitch:
+        if self.use_f0:
             x += self.emb_pitch(pitch)
         x *= math.sqrt(self.n_channels)
         x = torch.transpose(x, 1, -1)

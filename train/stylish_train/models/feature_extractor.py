@@ -67,7 +67,7 @@ class HubertFeatureExtractor(nn.Module):
         super().__init__()
         self.encode_feature = encode_feature
         self.text_encoder = HubertEncoder(
-            hubert_dim, inter_dim, config=text_encoder_config
+            hubert_dim, inter_dim, config=text_encoder_config, f0=f0
         )
         self.style_encoder = FineStyleEncoder(
             inter_dim, style_dim, style_encoder_config.layers
