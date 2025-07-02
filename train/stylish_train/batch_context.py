@@ -127,7 +127,7 @@ class FeatureDistilLoss(nn.Module):
             - total_distill_loss: The final distillation loss (which is just the feature loss).
             - feature_loss_for_logging: The feature loss component (for logging).
         """
-        num_layers = len(self._student_hidden_states)
+        """num_layers = len(self._student_hidden_states)
         if num_layers == 0:
             # This can happen on the first pass if hooks haven't run yet.
             return torch.tensor(0.0, device=alignment.device)
@@ -136,7 +136,7 @@ class FeatureDistilLoss(nn.Module):
         for s_h, t_h in zip(self._student_hidden_states, self._teacher_hidden_states):
             t_h = t_h.detach()
             hidden_states_loss += self.feature_loss_fn(s_h @ alignment, t_h)
-        hidden_states_loss = hidden_states_loss / num_layers
+        hidden_states_loss = hidden_states_loss / num_layers"""
 
         features_loss = 0.0
         for s_feat, t_feat in zip(self._student_features, self._teacher_features):
@@ -155,7 +155,7 @@ class FeatureDistilLoss(nn.Module):
 
         self._clear_buffers()
         self.remove_hooks()
-        return hidden_states_loss + features_loss
+        return features_loss
 
 
 # def quantize_f0(f0, f0_bin=256, f0_min=50.0, f0_max=1100.0):
