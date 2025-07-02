@@ -92,24 +92,24 @@ def train_textual(
                 "magphase",
                 train.magphase_loss(pred.magnitude, pred.phase, batch.audio_gt),
             )
-        # log.add_loss(
-        #     "pitch",
-        #     torch.nn.functional.smooth_l1_loss(pitch, state.pitch_prediction),
-        # )
-        # log.add_loss(
-        #     "energy",
-        #     torch.nn.functional.smooth_l1_loss(energy, state.energy_prediction),
-        # )
-        # loss_ce, loss_dur = compute_duration_ce_loss(
-        #     state.duration_prediction,
-        #     batch.alignment.sum(dim=-1),
-        #     batch.text_length,
-        # )
-        # log.add_loss("duration_ce", loss_ce)
-        # log.add_loss("duration", loss_dur)
-        # train.accelerator.backward(
-        #     log.backwards_loss() * math.sqrt(batch.text.shape[0])
-        # )
+        log.add_loss(
+            "pitch",
+            torch.nn.functional.smooth_l1_loss(pitch, state.pitch_prediction),
+        )
+        log.add_loss(
+            "energy",
+            torch.nn.functional.smooth_l1_loss(energy, state.energy_prediction),
+        )
+        loss_ce, loss_dur = compute_duration_ce_loss(
+            state.duration_prediction,
+            batch.alignment.sum(dim=-1),
+            batch.text_length,
+        )
+        log.add_loss("duration_ce", loss_ce)
+        log.add_loss("duration", loss_dur)
+        train.accelerator.backward(
+            log.backwards_loss() * math.sqrt(batch.text.shape[0])
+        )
 
     return log.detach(), pred.audio.detach()
 

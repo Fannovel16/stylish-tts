@@ -114,7 +114,11 @@ stages = {
         next_stage=None,
         train_fn=train_textual,
         validate_fn=validate_textual,
-        train_models=["text_acoustic_extractor", "text_spectral_extractor"],
+        train_models=[
+            "text_acoustic_extractor",
+            "text_spectral_extractor",
+            "text_duration_extractor",
+        ],
         eval_models=[
             "hubert_acoustic_extractor",
             "hubert_spectral_extractor",
