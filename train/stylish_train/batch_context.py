@@ -152,38 +152,38 @@ class FeatureDistilLoss(nn.Module):
         return hidden_states_loss + features_loss
 
 
-def quantize_f0(f0, f0_bin=256, f0_min=50.0, f0_max=1100.0):
-    """
-    Quantize raw F0 into mel bins.
-    f0: Tensor (N,) or (B, T)
-    Returns: Tensor of same shape with int bins in [0, f0_bin - 1]
-    """
+# def quantize_f0(f0, f0_bin=256, f0_min=50.0, f0_max=1100.0):
+#     """
+#     Quantize raw F0 into mel bins.
+#     f0: Tensor (N,) or (B, T)
+#     Returns: Tensor of same shape with int bins in [0, f0_bin - 1]
+#     """
 
-    # Mel scale range
-    f0_mel_min = 1127.0 * torch.log1p(torch.tensor(f0_min / 700.0))
-    f0_mel_max = 1127.0 * torch.log1p(torch.tensor(f0_max / 700.0))
+#     # Mel scale range
+#     f0_mel_min = 1127.0 * torch.log1p(torch.tensor(f0_min / 700.0))
+#     f0_mel_max = 1127.0 * torch.log1p(torch.tensor(f0_max / 700.0))
 
-    # Initialize output
-    f0 = F.interpolate(
-        rearrange(f0, "n t -> n 1 t"), scale_factor=0.5, mode="linear"
-    ).squeeze(1)
-    mel_bins = torch.zeros_like(f0, dtype=torch.float32)
+#     # Initialize output
+#     f0 = F.interpolate(
+#         rearrange(f0, "n t -> n 1 t"), scale_factor=0.5, mode="linear"
+#     ).squeeze(1)
+#     mel_bins = torch.zeros_like(f0, dtype=torch.float32)
 
-    # Voiced mask
-    voiced = f0 > 0
+#     # Voiced mask
+#     voiced = f0 > 0
 
-    # Convert to mel scale
-    f0_voiced = f0[voiced]
-    f0_mel = 1127.0 * torch.log1p(f0_voiced / 700.0)
+#     # Convert to mel scale
+#     f0_voiced = f0[voiced]
+#     f0_mel = 1127.0 * torch.log1p(f0_voiced / 700.0)
 
-    # Normalize and scale to [1, f0_bin - 1]
-    f0_mel = (f0_mel - f0_mel_min) * (f0_bin - 2) / (f0_mel_max - f0_mel_min) + 1
-    f0_mel = torch.clamp(f0_mel, 1, f0_bin - 1)
+#     # Normalize and scale to [1, f0_bin - 1]
+#     f0_mel = (f0_mel - f0_mel_min) * (f0_bin - 2) / (f0_mel_max - f0_mel_min) + 1
+#     f0_mel = torch.clamp(f0_mel, 1, f0_bin - 1)
 
-    # Store result
-    mel_bins[voiced] = torch.round(f0_mel)
+#     # Store result
+#     mel_bins[voiced] = torch.round(f0_mel)
 
-    return mel_bins.to(dtype=torch.int)
+#     return mel_bins.to(dtype=torch.int)
 
 
 class BatchContext:
@@ -247,7 +247,7 @@ class BatchContext:
             phones, batch.mel_length // 2
         )
         spectral_features, spectral_styles = self.model.hubert_spectral_extractor(
-            phones, batch.mel_length // 2, quantize_f0(batch.pitch).detach()
+            phones, batch.mel_length // 2
         )
         self.pitch_prediction, self.energy_prediction = (
             self.model.pitch_energy_predictor(
