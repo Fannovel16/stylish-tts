@@ -142,6 +142,7 @@ class FeatureDistilLoss(nn.Module):
         for s_feat, t_feat in zip(self._student_features, self._teacher_features):
             t_feat = t_feat.detach()
             if s_feat.shape[1] == alignment.shape[1]:
+                aligned_s_feat = s_feat.transpose(-1, -2) @ alignment
                 features_loss += self.feature_loss_fn(aligned_s_feat, t_feat)
             else:
                 aligned_s_feat = s_feat @ alignment
