@@ -334,21 +334,36 @@ class BatchContext:
         return prediction """
 
     def textual_prediction_single(self, batch):
-        # Invoke to only get hidden features
+        """# Invoke to only get hidden features
         phones = self.train.hubert(batch.audio_gt, batch.alignment.shape[-1])
         self.model.hubert_acoustic_extractor(phones, batch.mel_length // 2)
+        self.model.hubert_spectral_extractor(phones, batch.mel_length // 2)"""
 
         # Textual
         acoustic_features, acoustic_styles = self.model.text_acoustic_extractor(
             batch.text, batch.text_length
         )
-        energy = self.acoustic_energy(batch.mel)
-        pitch = batch.pitch
+        duration_features, _ = self.model.text_duration_extractor(
+            batch.text, batch.text_length
+        )
+        spectral_features, spectral_styles = self.model.text_spectral_extractor(
+            batch.text, batch.text_length
+        )
+
+        self.duration_prediction = self.model.duration_predictor(
+            duration_features,
+        )
+        self.pitch_prediction, self.energy_prediction = (
+            self.model.pitch_energy_predictor(
+                spectral_features.transpose(-1, -2) @ batch.alignment,
+                spectral_styles @ batch.alignment,
+            )
+        )
         prediction = self.model.generator(
             acoustic_features @ batch.alignment,
             acoustic_styles @ batch.alignment,
-            energy,
-            pitch,
+            self.pitch_prediction,
+            self.energy_prediction,
         )
         print_gpu_vram("generator")
         return prediction
