@@ -79,8 +79,8 @@ def train_textual(
         train.stage.optimizer.zero_grad()
         log = build_loss_log(train)
         train.stft_loss(pred.audio.squeeze(1), batch.audio_gt, log)
-        # log.add_loss("acoustic_distil", state.acoustic_feature_loss(batch.alignment))
-        # log.add_loss("spectral_distil", state.spectral_feature_loss(batch.alignment))
+        log.add_loss("acoustic_distil", state.acoustic_feature_loss(batch.alignment))
+        log.add_loss("spectral_distil", state.spectral_feature_loss(batch.alignment))
         log.add_loss(
             "slm",
             train.wavlm_loss(batch.audio_gt.detach(), pred.audio),
