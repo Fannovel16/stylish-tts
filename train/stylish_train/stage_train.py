@@ -80,7 +80,7 @@ def train_textual(
         log = build_loss_log(train)
         train.stft_loss(pred.audio.squeeze(1), batch.audio_gt, log)
         log.add_loss("acoustic_distil", state.acoustic_feature_loss(batch.alignment))
-        log.add_loss("spectral_distil", state.spectral_feature_loss(batch.alignment))
+        # log.add_loss("spectral_distil", state.spectral_feature_loss(batch.alignment))
         log.add_loss(
             "slm",
             train.wavlm_loss(batch.audio_gt.detach(), pred.audio),
@@ -90,24 +90,24 @@ def train_textual(
                 "magphase",
                 train.magphase_loss(pred.magnitude, pred.phase, batch.audio_gt),
             )
-        log.add_loss(
-            "pitch",
-            torch.nn.functional.smooth_l1_loss(pitch, state.pitch_prediction),
-        )
-        log.add_loss(
-            "energy",
-            torch.nn.functional.smooth_l1_loss(energy, state.energy_prediction),
-        )
-        loss_ce, loss_dur = compute_duration_ce_loss(
-            state.duration_prediction,
-            batch.alignment.sum(dim=-1),
-            batch.text_length,
-        )
-        log.add_loss("duration_ce", loss_ce)
-        log.add_loss("duration", loss_dur)
-        train.accelerator.backward(
-            log.backwards_loss() * math.sqrt(batch.text.shape[0])
-        )
+        # log.add_loss(
+        #     "pitch",
+        #     torch.nn.functional.smooth_l1_loss(pitch, state.pitch_prediction),
+        # )
+        # log.add_loss(
+        #     "energy",
+        #     torch.nn.functional.smooth_l1_loss(energy, state.energy_prediction),
+        # )
+        # loss_ce, loss_dur = compute_duration_ce_loss(
+        #     state.duration_prediction,
+        #     batch.alignment.sum(dim=-1),
+        #     batch.text_length,
+        # )
+        # log.add_loss("duration_ce", loss_ce)
+        # log.add_loss("duration", loss_dur)
+        # train.accelerator.backward(
+        #     log.backwards_loss() * math.sqrt(batch.text.shape[0])
+        # )
 
     return log.detach(), pred.audio.detach()
 
