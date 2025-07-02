@@ -83,7 +83,7 @@ class HubertFeatureExtractor(nn.Module):
             )
 
     def forward(self, x, x_lengths, pitch=None):
-        x, _, _ = self.text_encoder(x, x_lengths, pitch)
+        x, _, _ = self.text_encoder(x, x_lengths, None, pitch)
         style = self.style_encoder(x)
         if self.encode_feature:
             x = self.feature_encoder(x, x_lengths, style)
