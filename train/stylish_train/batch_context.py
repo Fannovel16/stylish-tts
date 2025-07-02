@@ -297,9 +297,7 @@ class BatchContext:
         # Invoke to only get hidden features
         phones = self.train.hubert(batch.audio_gt, batch.alignment.shape[-1])
         self.model.hubert_acoustic_extractor(phones, batch.mel_length // 2)
-        self.model.hubert_spectral_extractor(
-            phones, batch.mel_length // 2, quantize_f0(batch.pitch).detach()
-        )
+        self.model.hubert_spectral_extractor(phones, batch.mel_length // 2)
 
         # Textual
         acoustic_features, acoustic_styles = self.model.text_acoustic_extractor(
