@@ -58,11 +58,9 @@ def validate_textual(batch, train):
     train.stft_loss(pred.audio.squeeze(1), batch.audio_gt, log)
     log.add_loss(
         "pitch",
-        torch.nn.functional.smooth_l1_loss(batch.pitch, state.pitch_prediction),
+        F.smooth_l1_loss(batch.pitch, state.pitch_prediction),
     )
-    log.add_loss(
-        "energy", torch.nn.functional.smooth_l1_loss(energy, state.energy_prediction)
-    )
+    log.add_loss("energy", F.smooth_l1_loss(energy, state.energy_prediction))
     loss_ce, loss_dur = compute_duration_ce_loss(
         state.duration_prediction,
         batch.alignment.sum(dim=-1),
@@ -82,9 +80,7 @@ def validate_spectral(batch, train):
     train.stft_loss(pred.audio.squeeze(1), batch.audio_gt, log)
     log.add_loss(
         "pitch",
-        torch.nn.functional.smooth_l1_loss(batch.pitch, state.pitch_prediction),
+        F.smooth_l1_loss(batch.pitch, state.pitch_prediction),
     )
-    log.add_loss(
-        "energy", torch.nn.functional.smooth_l1_loss(energy, state.energy_prediction)
-    )
+    log.add_loss("energy", F.smooth_l1_loss(energy, state.energy_prediction))
     return log, batch.alignment[0], pred.audio, batch.audio_gt

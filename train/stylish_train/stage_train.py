@@ -80,13 +80,7 @@ def train_textual(
         log = build_loss_log(train)
         train.stft_loss(pred.audio.squeeze(1), batch.audio_gt, log)
         log.add_loss(
-            "hubert_distil",
-            1
-            - F.cosine_similarity(
-                state.phones_prediction,
-                state.phones,
-                dim=-1,
-            ).mean(),
+            "hubert_distil", F.smooth_l1_loss(state.phones_prediction, state.phones)
         )
         log.add_loss(
             "slm",
@@ -99,11 +93,11 @@ def train_textual(
             )
         log.add_loss(
             "pitch",
-            torch.nn.functional.smooth_l1_loss(pitch, state.pitch_prediction),
+            F.smooth_l1_loss(pitch, state.pitch_prediction),
         )
         log.add_loss(
             "energy",
-            torch.nn.functional.smooth_l1_loss(energy, state.energy_prediction),
+            F.smooth_l1_loss(energy, state.energy_prediction),
         )
         loss_ce, loss_dur = compute_duration_ce_loss(
             state.duration_prediction,
@@ -147,11 +141,11 @@ def train_spectral(
             )
         log.add_loss(
             "pitch",
-            torch.nn.functional.smooth_l1_loss(pitch, state.pitch_prediction),
+            F.smooth_l1_loss(pitch, state.pitch_prediction),
         )
         log.add_loss(
             "energy",
-            torch.nn.functional.smooth_l1_loss(energy, state.energy_prediction),
+            F.smooth_l1_loss(energy, state.energy_prediction),
         )
         train.accelerator.backward(
             log.backwards_loss() * math.sqrt(batch.text.shape[0])
