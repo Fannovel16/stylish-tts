@@ -80,7 +80,8 @@ def train_textual(
         log = build_loss_log(train)
         train.stft_loss(pred.audio.squeeze(1), batch.audio_gt, log)
         log.add_loss(
-            "hubert_distil", F.smooth_l1_loss(state.phones_prediction, state.phones)
+            "hubert_distil",
+            F.smooth_l1_loss(state.phones_prediction, state.phones, beta=0.1) * 5.0,
         )
         log.add_loss(
             "slm",
