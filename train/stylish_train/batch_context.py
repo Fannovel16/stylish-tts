@@ -152,7 +152,6 @@ class BatchContext:
         return prediction """
 
     def textual_prediction_single(self, batch):
-        # Invoke to only get hidden features
         self.phones = self.train.hubert(batch.audio_gt, batch.alignment.shape[-1])
         self.phones_prediction, _, _ = self.model.text_hubert_distiller(
             batch.text, batch.text_length
@@ -161,7 +160,7 @@ class BatchContext:
         self.phones_prediction = self.phones_prediction.transpose(-1, -2)
 
         acoustic_features, acoustic_styles = self.model.hubert_acoustic_extractor(
-            self.phones_prediction, batch.mel_length // 2
+            self.phones, batch.mel_length // 2
         )
         duration_features, _ = self.model.text_duration_extractor(
             batch.text, batch.text_length
