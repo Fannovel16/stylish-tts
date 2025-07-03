@@ -79,20 +79,12 @@ def train_textual(
         train.stage.optimizer.zero_grad()
         log = build_loss_log(train)
         train.stft_loss(pred.audio.squeeze(1), batch.audio_gt, log)
-        print(
-            state.phones.shape,
-            F.cosine_similarity(
-                state.phones_prediction.transpose(-1, -2),
-                state.phones.transpose(-1, -2),
-                dim=-1,
-            ).shape,
-        )
         log.add_loss(
             "hubert_distil",
             1
             - F.cosine_similarity(
-                state.phones_prediction.transpose(-1, -2),
-                state.phones.transpose(-1, -2),
+                state.phones_prediction,
+                state.phones,
                 dim=-1,
             ).mean(),
         )
