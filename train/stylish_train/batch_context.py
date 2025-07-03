@@ -340,6 +340,8 @@ class BatchContext:
             batch.text, batch.text_length
         )
         self.phones_prediction = self.phones_prediction @ batch.alignment
+        self.phones_prediction = self.phones_prediction.transpose(-1, -2)
+        print(self.phones_prediction.shape, self.phones.shape)
 
         acoustic_features, acoustic_styles = self.model.hubert_acoustic_extractor(
             self.phones_prediction, batch.mel_length // 2
