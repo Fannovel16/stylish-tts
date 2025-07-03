@@ -82,7 +82,11 @@ def train_textual(
         log.add_loss(
             "hubert_distil",
             1
-            - F.cosine_similarity(state.phones_prediction, state.phones, dim=-1).mean(),
+            - F.cosine_similarity(
+                state.phones_prediction.transpose(-1, -2),
+                state.phones.transpose(-1, -2),
+                dim=-1,
+            ).mean(),
         )
         log.add_loss(
             "slm",

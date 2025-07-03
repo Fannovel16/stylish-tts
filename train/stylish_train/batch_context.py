@@ -341,13 +341,19 @@ class BatchContext:
         )
         self.phones_prediction = self.phones_prediction @ batch.alignment
         self.phones_prediction = self.phones_prediction.transpose(-1, -2)
-        print(self.phones_prediction.shape, self.phones.shape)
 
         acoustic_features, acoustic_styles = self.model.hubert_acoustic_extractor(
             self.phones_prediction, batch.mel_length // 2
         )
+        duration_features, _ = self.model.text_duration_extractor(
+            batch.text, batch.text_length
+        )
         spectral_features, spectral_styles = self.model.hubert_spectral_extractor(
             self.phones_prediction, batch.mel_length // 2
+        )
+
+        self.duration_prediction = self.model.duration_predictor(
+            duration_features,
         )
         self.pitch_prediction, self.energy_prediction = (
             self.model.pitch_energy_predictor(
