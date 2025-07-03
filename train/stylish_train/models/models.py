@@ -114,6 +114,8 @@ def build_model(model_config: ModelConfig):
     )
 
     spectral_config.text_encoder.hidden_dim = model_config.hubert.hidden_dim
+    spectral_config.text_encoder.layers = 12
+    spectral_config.text_encoder.heads = 4
     text_hubert_distiller = TextEncoder(
         model_config.tokens,
         inter_dim=model_config.hubert.hidden_dim,
