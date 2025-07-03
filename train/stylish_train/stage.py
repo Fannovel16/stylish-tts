@@ -115,8 +115,7 @@ stages = {
         train_fn=train_textual,
         validate_fn=validate_textual,
         train_models=[
-            "text_acoustic_extractor",
-            "text_spectral_extractor",
+            "text_hubert_distiller",
             "text_duration_extractor",
             "duration_predictor",
         ],

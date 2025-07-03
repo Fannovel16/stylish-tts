@@ -198,7 +198,6 @@ class BatchContext:
         *,
         train: train_context.TrainContext,
         model,
-        distil=False,
     ):
         self.train: train_context.TrainContext = train
         self.config: Config = train.config
@@ -208,14 +207,8 @@ class BatchContext:
         self.pitch_prediction = None
         self.energy_prediction = None
         self.duration_prediction = None
-
-        if distil:
-            self.acoustic_feature_loss = FeatureDistilLoss(
-                self.model.text_acoustic_extractor, self.model.hubert_acoustic_extractor
-            )
-            self.spectral_feature_loss = FeatureDistilLoss(
-                self.model.text_spectral_extractor, self.model.hubert_spectral_extractor
-            )
+        self.phones = None
+        self.phones_prediction = None
 
     def acoustic_energy(self, mels: torch.Tensor):
         with torch.no_grad():
@@ -342,33 +335,27 @@ class BatchContext:
 
     def textual_prediction_single(self, batch):
         # Invoke to only get hidden features
-        phones = self.train.hubert(batch.audio_gt, batch.alignment.shape[-1])
-        self.model.hubert_acoustic_extractor(phones, batch.mel_length // 2)
-        self.model.hubert_spectral_extractor(phones, batch.mel_length // 2)
+        self.phones = self.train.hubert(batch.audio_gt, batch.alignment.shape[-1])
+        self.phones_prediction = self.model.text_hubert_distiller(
+            batch.text, batch.text_length
+        )
+        self.phones_prediction = self.phones_prediction @ batch.alignment
 
-        # Textual
-        acoustic_features, acoustic_styles = self.model.text_acoustic_extractor(
-            batch.text, batch.text_length
+        acoustic_features, acoustic_styles = self.model.hubert_acoustic_extractor(
+            self.phones_prediction, batch.mel_length // 2
         )
-        duration_features, _ = self.model.text_duration_extractor(
-            batch.text, batch.text_length
-        )
-        spectral_features, spectral_styles = self.model.text_spectral_extractor(
-            batch.text, batch.text_length
-        )
-
-        self.duration_prediction = self.model.duration_predictor(
-            duration_features,
+        spectral_features, spectral_styles = self.model.hubert_spectral_extractor(
+            self.phones_prediction, batch.mel_length // 2
         )
         self.pitch_prediction, self.energy_prediction = (
             self.model.pitch_energy_predictor(
-                spectral_features.transpose(-1, -2) @ batch.alignment,
-                spectral_styles @ batch.alignment,
+                spectral_features.transpose(-1, -2),
+                spectral_styles,
             )
         )
         prediction = self.model.generator(
-            acoustic_features @ batch.alignment,
-            acoustic_styles @ batch.alignment,
+            acoustic_features,
+            acoustic_styles,
             self.pitch_prediction,
             self.energy_prediction,
         )

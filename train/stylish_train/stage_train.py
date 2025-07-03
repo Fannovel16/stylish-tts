@@ -71,7 +71,7 @@ def train_acoustic(
 def train_textual(
     batch, model, train, probing
 ) -> Tuple[LossLog, Optional[torch.Tensor]]:
-    state = BatchContext(train=train, model=model, distil=True)
+    state = BatchContext(train=train, model=model)
     with train.accelerator.autocast():
         pred = state.textual_prediction_single(batch)
         energy = state.acoustic_energy(batch.mel)
@@ -79,8 +79,11 @@ def train_textual(
         train.stage.optimizer.zero_grad()
         log = build_loss_log(train)
         train.stft_loss(pred.audio.squeeze(1), batch.audio_gt, log)
-        log.add_loss("acoustic_distil", state.acoustic_feature_loss(batch.alignment))
-        log.add_loss("spectral_distil", state.spectral_feature_loss(batch.alignment))
+        log.add_loss(
+            "hubert_distil",
+            1
+            - F.cosine_similarity(state.phones_prediction, state.phones, dim=-1).mean(),
+        )
         log.add_loss(
             "slm",
             train.wavlm_loss(batch.audio_gt.detach(), pred.audio),

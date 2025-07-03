@@ -12,7 +12,7 @@ from .discriminators.multi_subband import MultiScaleSubbandCQTDiscriminator
 from .duration_predictor import DurationPredictor
 from .pitch_energy_predictor import PitchEnergyPredictor
 
-from .feature_extractor import TextFeatureExtractor, HubertFeatureExtractor
+from .feature_extractor import TextFeatureExtractor, HubertFeatureExtractor, TextEncoder
 from .decoder import Decoder
 from .ringformer import RingformerGenerator
 import torch.nn as nn
@@ -113,6 +113,13 @@ def build_model(model_config: ModelConfig):
         f0=False,
     )
 
+    spectral_config.text_encoder.hidden_dim = model_config.hubert.hidden_dim
+    text_hubert_distiller = TextEncoder(
+        model_config.tokens,
+        inter_dim=model_config.hubert.hidden_dim,
+        config=spectral_config.text_encoder,
+    )
+
     nets = Munch(
         text_acoustic_extractor=text_acoustic_extractor,
         text_duration_extractor=text_duration_extractor,
@@ -126,6 +133,7 @@ def build_model(model_config: ModelConfig):
         mrd=MultiResolutionDiscriminator(),
         hubert_acoustic_extractor=hubert_acoustic_extractor,
         hubert_spectral_extractor=hubert_spectral_extractor,
+        text_hubert_distiller=text_hubert_distiller,
     )
 
     return nets
