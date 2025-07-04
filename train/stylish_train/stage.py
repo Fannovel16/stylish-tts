@@ -15,6 +15,7 @@ from stage_train import (
     train_acoustic,
     train_textual,
     train_spectral,
+    train_textual_acoustic,
 )
 
 from stage_validate import (
@@ -22,6 +23,7 @@ from stage_validate import (
     validate_acoustic,
     validate_textual,
     validate_spectral,
+    validate_textual_acoustic,
 )
 
 from optimizers import build_optimizer
@@ -111,7 +113,7 @@ stages = {
         ],
     ),
     "textual": StageConfig(
-        next_stage=None,
+        next_stage="textual_acoustic",
         train_fn=train_textual,
         validate_fn=validate_textual,
         train_models=[
@@ -120,6 +122,31 @@ stages = {
             "duration_predictor",
         ],
         eval_models=[
+            "hubert_acoustic_extractor",
+            "hubert_spectral_extractor",
+            "pitch_energy_predictor",
+            "generator",
+        ],
+        discriminators=[],
+        inputs=[
+            "text",
+            "text_length",
+            "mel",
+            "mel_length",
+            "audio_gt",
+            "pitch",
+            "alignment",
+        ],
+    ),
+    "textual_acoustic": StageConfig(
+        next_stage=None,
+        train_fn=train_textual_acoustic,
+        validate_fn=validate_textual_acoustic,
+        train_models=["text_acoustic_hubert_distiller"],
+        eval_models=[
+            "text_hubert_distiller",
+            "text_duration_extractor",
+            "duration_predictor",
             "hubert_acoustic_extractor",
             "hubert_spectral_extractor",
             "pitch_energy_predictor",

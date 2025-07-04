@@ -68,6 +68,10 @@ class TrainingPlanConfig(BaseModel):
         default_factory=TrainingStageConfig,
         description="Configuration for training of textual models stage.",
     )
+    textual_acoustic: TrainingStageConfig = Field(
+        default_factory=TrainingStageConfig,
+        description="Configuration for training of textual acoustic models stage.",
+    )
 
     def get_stage(self, name: str) -> TrainingStageConfig:
         try:

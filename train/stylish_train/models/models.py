@@ -69,6 +69,12 @@ def build_model(model_config: ModelConfig):
             feature_encoder_config=acoustic_config.feature_encoder,
             encode_feature=False,
         )
+        acoustic_config.text_encoder.hidden_dim = model_config.hubert.hidden_dim
+        text_acoustic_hubert_distiller = TextEncoder(
+            model_config.tokens,
+            inter_dim=model_config.hubert.hidden_dim,
+            config=acoustic_config.text_encoder,
+        )
 
     duration_config = model_config.text_duration_extractor
     text_duration_extractor = TextFeatureExtractor(
@@ -134,6 +140,7 @@ def build_model(model_config: ModelConfig):
         hubert_acoustic_extractor=hubert_acoustic_extractor,
         hubert_spectral_extractor=hubert_spectral_extractor,
         text_hubert_distiller=text_hubert_distiller,
+        text_acoustic_hubert_distiller=text_acoustic_hubert_distiller,
     )
 
     return nets

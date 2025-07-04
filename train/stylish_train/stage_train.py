@@ -114,6 +114,35 @@ def train_textual(
     return log.detach(), pred.audio.detach()
 
 
+def train_textual_acoustic(
+    batch, model, train, probing
+) -> Tuple[LossLog, Optional[torch.Tensor]]:
+    state = BatchContext(train=train, model=model)
+    with train.accelerator.autocast():
+        pred = state.textual_acoustic_prediction_single(batch)
+        train.stage.optimizer.zero_grad()
+        log = build_loss_log(train)
+        train.stft_loss(pred.audio.squeeze(1), batch.audio_gt, log)
+        log.add_loss(
+            "hubert_distil",
+            F.smooth_l1_loss(state.phones_prediction, state.phones, beta=0.1) * 5.0,
+        )
+        log.add_loss(
+            "slm",
+            train.wavlm_loss(batch.audio_gt.detach(), pred.audio),
+        )
+        if pred.magnitude is not None and pred.phase is not None:
+            log.add_loss(
+                "magphase",
+                train.magphase_loss(pred.magnitude, pred.phase, batch.audio_gt),
+            )
+        train.accelerator.backward(
+            log.backwards_loss() * math.sqrt(batch.text.shape[0])
+        )
+
+    return log.detach(), pred.audio.detach()
+
+
 def train_spectral(
     batch, model, train, probing
 ) -> Tuple[LossLog, Optional[torch.Tensor]]:
