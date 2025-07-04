@@ -38,6 +38,8 @@ class ExportModel(torch.nn.Module):
         self.text_acoustic_hubert_distiller = text_acoustic_hubert_distiller
         self.duration_predictor = duration_predictor
         self.pitch_energy_predictor = pitch_energy_predictor
+        self.hubert_acoustic_extractor = hubert_acoustic_extractor
+        self.hubert_spectral_extractor = hubert_spectral_extractor
         self.generator = generator
 
     def duration_to_alignment(self, duration):
