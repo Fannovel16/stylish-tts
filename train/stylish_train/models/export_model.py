@@ -63,9 +63,6 @@ class ExportModel(torch.nn.Module):
             duration_features,
         )
         alignment = self.duration_to_alignment(duration)
-        half_mel_lengths = (
-            torch.ones([texts.shape[0]], device=texts.device) * alignment.shape[0]
-        )
 
         spectral_phones, _, _ = self.text_hubert_distiller(texts, text_lengths)
         spectral_phones = spectral_phones @ alignment
@@ -74,6 +71,10 @@ class ExportModel(torch.nn.Module):
         acoustic_phones, _, _ = self.text_acoustic_hubert_distiller(texts, text_lengths)
         acoustic_phones = acoustic_phones @ alignment
         acoustic_phones = acoustic_phones.transpose(-1, -2)
+
+        half_mel_lengths = (
+            torch.ones([texts.shape[0]], device=texts.device) * acoustic_phones.shape[1]
+        )
 
         acoustic_features, acoustic_styles = self.hubert_acoustic_extractor(
             acoustic_phones, half_mel_lengths
