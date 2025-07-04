@@ -63,7 +63,9 @@ class ExportModel(torch.nn.Module):
             duration_features,
         )
         alignment = self.duration_to_alignment(duration)
-        half_mel_lengths = torch.ones([texts.shape[0]]) * alignment.shape[1]
+        half_mel_lengths = (
+            torch.ones([texts.shape[0]], device=texts.device) * alignment.shape[1]
+        )
 
         spectral_phones, _, _ = self.text_hubert_distiller(texts, text_lengths)
         spectral_phones = spectral_phones @ alignment
