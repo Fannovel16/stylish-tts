@@ -202,6 +202,7 @@ def train_pre_cvpl_bert(
             - F.cosine_similarity(
                 F.normalize(state.phones_prediction, dim=-1),
                 F.normalize(state.phones, dim=-1),
+                dim=-1,
             ),
         )
         train.accelerator.backward(
