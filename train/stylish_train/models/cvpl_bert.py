@@ -25,4 +25,4 @@ class CVPLBERT(nn.Module):
         x = self.encoder(
             x, attention_mask=sequence_mask(x_lengths, x.shape[1]).float()
         ).last_hidden_state
-        return self.refine(x @ alignment)
+        return self.refine(x.transpose(-1, -2) @ alignment).transpose(-1, -2)
