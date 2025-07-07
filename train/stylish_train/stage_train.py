@@ -203,7 +203,7 @@ def train_pre_cvpl_bert(
                 F.normalize(state.phones_prediction, dim=-1),
                 F.normalize(state.phones, dim=-1),
                 dim=-1,
-            ),
+            ).mean(),
         )
         train.accelerator.backward(
             log.backwards_loss() * math.sqrt(batch.text.shape[0])
