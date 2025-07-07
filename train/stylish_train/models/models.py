@@ -16,6 +16,7 @@ from .feature_extractor import TextFeatureExtractor, HubertFeatureExtractor, Tex
 from .decoder import Decoder
 from .ringformer import RingformerGenerator
 import torch.nn as nn
+from .cvpl_bert import CVPLBERT
 
 from munch import Munch
 
@@ -139,8 +140,7 @@ def build_model(model_config: ModelConfig):
         mrd=MultiResolutionDiscriminator(),
         hubert_acoustic_extractor=hubert_acoustic_extractor,
         hubert_spectral_extractor=hubert_spectral_extractor,
-        text_hubert_distiller=text_hubert_distiller,
-        text_acoustic_hubert_distiller=text_acoustic_hubert_distiller,
+        cvpl_bert=CVPLBERT(model_config.tokens, model_config.hubert.hidden_dim),
     )
 
     return nets

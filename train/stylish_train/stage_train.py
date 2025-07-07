@@ -182,3 +182,22 @@ def train_spectral(
         )
 
     return log.detach(), pred.audio.detach()
+
+
+def train_pre_cvpl_bert(
+    batch, model, train, probing
+) -> Tuple[LossLog, Optional[torch.Tensor]]:
+    state = BatchContext(train=train, model=model)
+    with train.accelerator.autocast():
+        state.pre_cvpl_bert(batch)
+        train.stage.optimizer.zero_grad()
+        log = build_loss_log(train)
+        log.add_loss(
+            "hubert_distil",
+            F.smooth_l1_loss(state.phones_prediction, state.phones, beta=0.1) * 5.0,
+        )
+        train.accelerator.backward(
+            log.backwards_loss() * math.sqrt(batch.text.shape[0])
+        )
+
+    return log.detach(), None

@@ -72,6 +72,10 @@ class TrainingPlanConfig(BaseModel):
         default_factory=TrainingStageConfig,
         description="Configuration for training of textual acoustic models stage.",
     )
+    pre_cvpl_bert: TrainingStageConfig = Field(
+        default_factory=TrainingStageConfig,
+        description="Configuration for training of CVPL-BERT pretraining stage.",
+    )
 
     def get_stage(self, name: str) -> TrainingStageConfig:
         try:

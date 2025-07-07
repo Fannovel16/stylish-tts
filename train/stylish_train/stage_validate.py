@@ -93,3 +93,16 @@ def validate_spectral(batch, train):
     )
     log.add_loss("energy", F.smooth_l1_loss(energy, state.energy_prediction))
     return log, batch.alignment[0], pred.audio, batch.audio_gt
+
+
+@torch.no_grad()
+def validate_pre_cvpl_bert(batch, train):
+    state = BatchContext(train=train, model=train.model)
+    state.pre_cvpl_bert(batch)
+    train.stage.optimizer.zero_grad()
+    log = build_loss_log(train)
+    log.add_loss(
+        "hubert_distil",
+        F.smooth_l1_loss(state.phones_prediction, state.phones, beta=0.1) * 5.0,
+    )
+    return log, None, None, None

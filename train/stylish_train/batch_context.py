@@ -228,3 +228,9 @@ class BatchContext:
         )
         print_gpu_vram("generator")
         return prediction
+
+    def pre_cvpl_bert(self, batch):
+        self.phones = self.train.hubert(batch.audio_gt, batch.alignment.shape[-1])
+        self.phones_prediction = self.model.cvpl_bert(
+            batch.text, batch.text_length, batch.alignment
+        )
