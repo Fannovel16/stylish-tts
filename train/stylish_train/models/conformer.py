@@ -119,31 +119,30 @@ class Attention(nn.Module):
         q, k, v = map(lambda t: rearrange(t, "b n (h d) -> b h n d", h=h), (q, k, v))
 
         if self.use_sdpa:
-            q_ = rearrange(q, "b h n d -> b n h d")
-            k_ = rearrange(k, "b h n d -> b n h d")
-            v_ = rearrange(v, "b h n d -> b n h d")
-
             if mask is not None or context_mask is not None:
                 attn_mask = self._get_combined_mask(mask, context_mask, x, context)
+                # F.sdpa expects a "keep" mask
                 attn_mask = attn_mask.to(torch.bool)
             else:
                 attn_mask = None
 
             out = F.scaled_dot_product_attention(
-                q_, k_, v_, attn_mask=attn_mask, dropout_p=0.0
+                q, k, v, attn_mask=attn_mask, dropout_p=0.0, scale=self.scale
             )
-            out = rearrange(out, "b n h d -> b n (h d)")
+            out = rearrange(out, "b h n d -> b n (h d)")
         else:
             dots = einsum("b h i d, b h j d -> b h i j", q, k) * self.scale
-
             if mask is not None or context_mask is not None:
                 attn_mask = self._get_combined_mask(mask, context_mask, x, context)
+                # masked_fill_ expects a "mask out" mask.
+                fill_mask = ~attn_mask.to(torch.bool)
                 mask_value = -torch.finfo(dots.dtype).max
-                dots.masked_fill_(~attn_mask, mask_value)
+                dots.masked_fill_(fill_mask, mask_value)
 
             attn = dots.softmax(dim=-1)
             out = einsum("b h i j, b h j d -> b h i d", attn, v)
             out = rearrange(out, "b h n d -> b n (h d)")
+
         return self.dropout(self.to_out(out))
 
     def _get_combined_mask(self, mask, context_mask, x, context):
