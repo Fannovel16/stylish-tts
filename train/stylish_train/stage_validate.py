@@ -102,7 +102,16 @@ def validate_pre_cvpl_bert(batch, train):
     train.stage.optimizer.zero_grad()
     log = build_loss_log(train)
     log.add_loss(
-        "hubert_distil",
-        F.smooth_l1_loss(state.phones_prediction, state.phones, beta=0.1) * 5.0,
+        "hubert_distil_l1",
+        F.smooth_l1_loss(state.phones_prediction, state.phones),
+    )
+    log.add_loss(
+        "hubert_distil_cosine",
+        1
+        - F.cosine_similarity(
+            F.normalize(state.phones_prediction, dim=-1),
+            F.normalize(state.phones, dim=-1),
+            dim=-1,
+        ).mean(),
     )
     return log, None, None, None

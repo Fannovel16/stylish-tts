@@ -49,7 +49,7 @@ class BatchContext:
         return prediction"""
 
     def acoustic_prediction_single(self, batch, use_random_mono=True):
-        phones = self.train.hubert(batch.audio_gt, batch.alignment.shape[-1])
+        phones = self.model.cvpl_bert(batch.text, batch.text_length, batch.alignment)
         acoustic_features, acoustic_styles = self.model.hubert_acoustic_extractor(
             phones, batch.mel_length // 2
         )
@@ -65,7 +65,7 @@ class BatchContext:
         return prediction
 
     def spectral_prediction_single(self, batch, use_random_mono=True):
-        phones = self.train.hubert(batch.audio_gt, batch.alignment.shape[-1])
+        phones = self.model.cvpl_bert(batch.text, batch.text_length, batch.alignment)
         acoustic_features, acoustic_styles = self.model.hubert_acoustic_extractor(
             phones, batch.mel_length // 2
         )
