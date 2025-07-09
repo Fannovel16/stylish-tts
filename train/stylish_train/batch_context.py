@@ -259,7 +259,7 @@ class BatchContext:
 
         # Print
         if self.train.manifest.current_step % print_every == 0:
-            print(f"\n[Step {self.codebook_train_steps}] --- Codebook Stats ---")
+            print(f"\n--- Codebook Stats ---")
             print(f"Used Codes: {num_used}/{codebook_size} ({usage_ratio:.2%})")
             print(f"Dead Codes: {dead_codes}")
             print(
