@@ -61,9 +61,6 @@ class CVPLBERT(nn.Module):
             stochastic_sample_codes=rq_stochastic_sample_codes,
             rotation_trick=rq_rotation_trick,
             kmeans_iters=500,
-            codebook_diversity_loss_weight=0.1,
-            codebook_diversity_temperature=1.0,
-            sample_codebook_temp=1.5,
         )
         self.up = nn.Linear(hidden_dim, hubert_dim)
         self.decoder = Conformer(
