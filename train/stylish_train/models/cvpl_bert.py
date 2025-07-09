@@ -36,7 +36,12 @@ class CVPLBERT(nn.Module):
             )
         )
         self.encoder = Conformer(
-            dim=hubert_dim, depth=4, heads=8, dim_head=hubert_dim // 8
+            dim=hubert_dim,
+            depth=4,
+            heads=8,
+            dim_head=hubert_dim // 8,
+            conv_kernel_size=9,
+            ff_mult=2,
         )
         self.down = nn.Linear(hubert_dim, hidden_dim)
         self.quantizer = GroupedResidualVQ(
@@ -56,7 +61,12 @@ class CVPLBERT(nn.Module):
         )
         self.up = nn.Linear(hidden_dim, hubert_dim)
         self.decoder = Conformer(
-            dim=hubert_dim, depth=4, heads=8, dim_head=hubert_dim // 8
+            dim=hubert_dim,
+            depth=4,
+            heads=8,
+            dim_head=hubert_dim // 8,
+            conv_kernel_size=9,
+            ff_mult=2,
         )
 
     def forward(self, texts, text_lengths, alignment):
