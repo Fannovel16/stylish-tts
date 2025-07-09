@@ -251,8 +251,8 @@ class BatchContext:
 
         # Entropy of code usage (how uniform the distribution is)
         probs = counts.float() / total
-        entropy = -torch.sum(probs * torch.log2(probs + 1e-8)).item()
-        max_entropy = torch.log2(codebook_size)
+        entropy = -torch.sum(probs * torch.log2(probs + 1e-8))
+        max_entropy = torch.log2(torch.tensor([codebook_size]))
         entropy_ratio = entropy / max_entropy
 
         # Dead entries
@@ -263,7 +263,9 @@ class BatchContext:
             print(f"\n[Step {self.codebook_train_steps}] --- Codebook Stats ---")
             print(f"Used Codes: {num_used}/{codebook_size} ({usage_ratio:.2%})")
             print(f"Dead Codes: {dead_codes}")
-            print(f"Entropy: {entropy:.4f} / {max_entropy:.4f} ({entropy_ratio:.2%})")
+            print(
+                f"Entropy: {entropy.item():.4f} / {max_entropy.item():.4f} ({entropy_ratio.item():.2%})"
+            )
             print("-" * 40)
 
             # Optional: Visual histogram (top-k codes)
