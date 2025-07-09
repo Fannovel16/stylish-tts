@@ -258,7 +258,10 @@ class BatchContext:
         dead_codes = codebook_size - num_used
 
         # Print
-        if self.train.manifest.current_step % print_every == 0:
+        if (
+            self.train.manifest.current_step >= 500
+            and self.train.manifest.current_step % print_every == 0
+        ):
             print(f"\n--- Codebook Stats ---")
             print(f"Used Codes: {num_used}/{codebook_size} ({usage_ratio:.2%})")
             print(f"Dead Codes: {dead_codes}")
@@ -277,7 +280,11 @@ class BatchContext:
                 )
 
     def pre_cvpl_bert(self, batch):
-        self.phones = self.train.hubert(batch.audio_gt, batch.alignment.shape[-1])
+        self.phones = self.train.hubert(
+            batch.audio_gt,
+            batch.alignment.shape[-1],
+            global_step=self.train.manifest.current_step,
+        )
         self.phones_prediction, self.codebook_indices, self.cmt_loss = (
             self.model.cvpl_bert(
                 batch.text, batch.text_length, batch.mel_length // 2, batch.alignment

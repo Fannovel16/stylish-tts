@@ -194,7 +194,7 @@ def train_pre_cvpl_bert(
         log = build_loss_log(train)
         log.add_loss(
             "hubert_distil_l1",
-            F.smooth_l1_loss(state.phones_prediction, state.phones, beta=0.1),
+            F.smooth_l1_loss(state.phones_prediction, state.phones, beta=0.5),
         )
         """log.add_loss(
             "hubert_distil_cosine",
@@ -205,7 +205,7 @@ def train_pre_cvpl_bert(
                 dim=-1,
             ).mean(),
         )"""
-        log.add_loss("hubert_distil_commit", state.cmt_loss * 10)
+        log.add_loss("hubert_distil_commit", state.cmt_loss)
         log.add_codebook_indices(
             state.codebook_indices, state.codebook_indices.shape[2]
         )

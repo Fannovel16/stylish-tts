@@ -75,13 +75,17 @@ class CVPLBERT(nn.Module):
             ff_mult=4,
         )
 
-    def forward(self, texts, text_lengths, mel_lengths, alignment):
+    def forward(self, texts, text_lengths, mel_lengths, alignment, global_step=99999):
         text_mask = sequence_mask(text_lengths, texts.shape[1])
         mel_mask = sequence_mask(mel_lengths, alignment.shape[2])
         x = self.text_encoder(texts, attention_mask=text_mask.float()).last_hidden_state
         x = self.down(x)
         x = self.encoder((x.transpose(-1, -2) @ alignment).transpose(-1, -2), mel_mask)
-        x, indices, cmt_loss = self.quantizer(x, mask=mel_mask)
+        if global_step < 500:
+            indices = torch.full_like(x[..., 0], -1, dtype=torch.long)  # dummy
+            cmt_loss = torch.tensor(0.0)
+        else:
+            x, indices, cmt_loss = self.quantizer(x, mask=mel_mask)
         x = self.up(x)
         x = self.decoder(x, mel_mask)
         if self.training:
