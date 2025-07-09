@@ -60,7 +60,7 @@ class CVPLBERT(nn.Module):
         )
 
     def forward(self, texts, text_lengths, alignment):
-        x, _, _ = self.text_encoder(
+        x = self.text_encoder(
             texts, attention_mask=sequence_mask(text_lengths, texts.shape[1]).float()
         )
         x = self.encoder((x @ alignment).transpose(-1, -2))
