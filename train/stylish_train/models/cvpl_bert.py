@@ -58,16 +58,15 @@ class CVPLBERT(nn.Module):
             dim=hubert_dim, depth=4, heads=8, dim_head=hubert_dim // 8
         )
 
-    def forward(self, texts, text_lengths, alignment, mel_lengths):
-        text_mask = sequence_mask(text_lengths, x.shape[1])
-        mel_mask = sequence_mask(mel_lengths, mel_lengths.shape[-1])
+    def forward(self, texts, text_lengths, alignment):
+        text_mask = sequence_mask(text_lengths, texts.shape[1])
         x = self.text_encoder(texts, attention_mask=text_mask.float()).last_hidden_state
-        x = self.encoder((x.transpose(-1, -2) @ alignment).transpose(-1, -2), mel_mask)
+        x = self.encoder((x.transpose(-1, -2) @ alignment).transpose(-1, -2))
         x = self.down(x)
-        x, _, cmt_loss = self.quantizer(x, mask=mel_mask)
+        x, _, cmt_loss = self.quantizer(x)
         if self.training:
             x = self.up(x)
-            x = self.decoder(x, mel_mask)
+            x = self.decoder(x)
             return x, cmt_loss.sum()
         else:
             return x
