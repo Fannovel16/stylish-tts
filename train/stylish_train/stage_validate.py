@@ -114,8 +114,4 @@ def validate_pre_cvpl_bert(batch, train):
             dim=-1,
         ).mean(),
     )
-    log.add_loss(
-        "hubert_distil_raw_l1", F.l1_loss(state.phones_prediction, state.phones)
-    )
-    log.add_loss("hubert_distil_mse", F.mse_loss(state.phones_prediction, state.phones))
     return log, None, None, None
