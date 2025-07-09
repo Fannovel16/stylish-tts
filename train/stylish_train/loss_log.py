@@ -19,6 +19,8 @@ class LossLog:
         self.weight_dict = loss_weight.model_dump()
         self.metrics = {}
         self.total_loss = None
+        self.codebook_indices = None
+        self.codebook_size = None
 
     def total(self):
         if self.total_loss is None:
@@ -43,9 +45,13 @@ class LossLog:
         else:
             writer_type = "train"
             if stage == "acoustic":
-                lr = stage.optimizer.optimizers["text_acoustic_extractor"].param_groups[0]["lr"]
+                lr = stage.optimizer.optimizers["text_acoustic_extractor"].param_groups[
+                    0
+                ]["lr"]
             else:
-                lr = stage.optimizer.optimizers["text_duration_extractor"].param_groups[0]["lr"]
+                lr = stage.optimizer.optimizers["text_duration_extractor"].param_groups[
+                    0
+                ]["lr"]
             lr_string = f", lr: {lr:.7f}"
             self.logger.info(
                 f"Epoch [{manifest.current_epoch}/{stage.max_epoch}], "
@@ -60,6 +66,55 @@ class LossLog:
             self.writer.add_scalar(
                 f"{writer_type}/{key}", value, manifest.current_total_step
             )
+
+        if (
+            stage == "pre_cvpl_bert"
+            and self.codebook_indices is not None
+            and self.codebook_size is not None
+        ):
+            step = manifest.current_total_step
+            groups, B, T, Q = self.codebook_indices.shape
+
+            for g in range(groups):
+                for q in range(Q):
+                    ids = self.codebook_indices[g, :, :, q].reshape(-1)
+                    ids = ids[ids != -1]  # exclude dropped positions
+
+                    if ids.numel() == 0:
+                        continue
+
+                    # Histogram
+                    hist = torch.bincount(ids, minlength=self.codebook_size).float()
+                    self.writer.add_histogram(
+                        f"{writer_type}/codebook_hist/group_{g}_q_{q}",
+                        hist,
+                        step,
+                    )
+
+                    # Number of codes used
+                    num_used = (hist > 0).sum().item()
+                    self.writer.add_scalar(
+                        f"{writer_type}/codebook_used/group_{g}_q_{q}",
+                        num_used,
+                        step,
+                    )
+
+                    # Entropy
+                    probs = hist / hist.sum()
+                    ent = -(probs * torch.log(probs + 1e-9)).sum().item()
+                    self.writer.add_scalar(
+                        f"{writer_type}/codebook_entropy/group_{g}_q_{q}",
+                        ent,
+                        step,
+                    )
+
+                    self.logger.info(
+                        f"[Codebook] group_{g}_q_{q} used={num_used}, entropy={ent:.2f}"
+                    )
+
+            # Clear codebook state after logging
+            self.codebook_indices = None
+            self.codebook_size = None
 
     def weight(self, key: str):
         if key in self.weight_dict:
@@ -77,7 +132,7 @@ class LossLog:
             loss = value * weight
             total += loss
             total_weight += weight
-        self.total_loss = total  # / total_weight
+        self.total_loss = total
 
     def backwards_loss(self):
         total = 0
@@ -101,6 +156,10 @@ class LossLog:
     def add_loss(self, key, value):
         self.metrics[key] = value
         self.total_loss = None
+
+    def add_codebook_indices(self, indices, codebook_size):
+        self.codebook_indices = indices
+        self.codebook_size = codebook_size
 
 
 def combine_logs(loglist) -> Optional[LossLog]:

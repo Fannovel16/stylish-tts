@@ -53,10 +53,10 @@ class CVPLBERT(nn.Module):
         x, _, _ = self.text_encoder(texts, text_lengths)
         x = self.encoder((x @ alignment).transpose(-1, -2))
         x = self.down(x)
-        x, _, cmt_loss = self.quantizer(x)
+        x, indices, cmt_loss = self.quantizer(x)
         x = self.up(x)
         x = self.decoder(x)
         if self.training:
-            return x, cmt_loss.mean()
+            return x, indices, cmt_loss.mean()
         else:
-            return x
+            return x, indices
