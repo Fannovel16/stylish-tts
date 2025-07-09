@@ -66,7 +66,7 @@ class CVPLBERT(nn.Module):
             heads=8,
             dim_head=hubert_dim // 8,
             conv_kernel_size=9,
-            ff_mult=2,
+            ff_mult=4,
         )
 
     def forward(self, texts, text_lengths, alignment):
