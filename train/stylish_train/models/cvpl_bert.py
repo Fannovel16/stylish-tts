@@ -28,22 +28,22 @@ class CVPLBERT(nn.Module):
             AlbertConfig(
                 vocab_size=tokens,
                 hidden_size=hubert_dim,
-                num_attention_heads=12,
-                intermediate_size=2048,
+                num_attention_heads=8,
+                intermediate_size=hubert_dim * 2,
                 max_position_embeddings=512,
                 num_hidden_layers=12,
                 dropout=0.1,
             )
         )
+        self.down = nn.Linear(hubert_dim, hidden_dim)
         self.encoder = Conformer(
-            dim=hubert_dim,
+            dim=hidden_dim,
             depth=4,
             heads=8,
-            dim_head=hubert_dim // 8,
+            dim_head=hidden_dim // 8,
             conv_kernel_size=9,
-            ff_mult=2,
+            ff_mult=4,
         )
-        self.down = nn.Linear(hubert_dim, hidden_dim)
         self.quantizer = GroupedResidualVQ(
             dim=hidden_dim,
             num_quantizers=rq_num_quantizers,
@@ -73,8 +73,8 @@ class CVPLBERT(nn.Module):
         x = self.text_encoder(
             texts, attention_mask=sequence_mask(text_lengths, texts.shape[1]).float()
         ).last_hidden_state
-        x = self.encoder((x.transpose(-1, -2) @ alignment).transpose(-1, -2))
         x = self.down(x)
+        x = self.encoder((x.transpose(-1, -2) @ alignment).transpose(-1, -2))
         x, indices, cmt_loss = self.quantizer(x)
         x = self.up(x)
         x = self.decoder(x)
