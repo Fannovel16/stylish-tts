@@ -29,6 +29,7 @@ class BatchContext:
         self.phones_prediction = None
         self.cmt_loss = None
         self.codebook_indices = None
+        self.codebook_train_steps = 0
 
     def acoustic_energy(self, mels: torch.Tensor):
         with torch.no_grad():
@@ -231,8 +232,53 @@ class BatchContext:
         print_gpu_vram("generator")
         return prediction
 
+    def track_codebook_metrics(self, print_every=100):
+        """
+        Args:
+            quantized_indices: LongTensor of shape (B, T) or (B, T, ...)
+            codebook_size: int, number of entries in codebook
+            print_every: int, how often to print stats
+            step: int, current step or epoch
+        """
+        codebook_size = self.codebook_indices.shape[2]
+        flat_idx = self.codebook_indices.view(-1)
+        total = flat_idx.numel()
+
+        # Codebook usage
+        unique_codes, counts = torch.unique(flat_idx, return_counts=True)
+        num_used = unique_codes.numel()
+        usage_ratio = num_used / codebook_size
+
+        # Entropy of code usage (how uniform the distribution is)
+        probs = counts.float() / total
+        entropy = -torch.sum(probs * torch.log2(probs + 1e-8)).item()
+        max_entropy = torch.log2(codebook_size)
+        entropy_ratio = entropy / max_entropy
+
+        # Dead entries
+        dead_codes = codebook_size - num_used
+
+        # Print summary
+        if self.codebook_train_steps % print_every == 0:
+            print(f"\n[Step {self.codebook_train_steps}] --- Codebook Stats ---")
+            print(f"Used Codes: {num_used}/{codebook_size} ({usage_ratio:.2%})")
+            print(f"Dead Codes: {dead_codes}")
+            print(f"Entropy: {entropy:.4f} / {max_entropy:.4f} ({entropy_ratio:.2%})")
+            print("-" * 40)
+
+            # Optional: Visual histogram (top-k codes)
+            topk = min(10, len(counts))
+            top_counts, top_ids = counts.topk(topk)
+            print("Top Used Codes:")
+            for i in range(topk):
+                print(
+                    f"  Code {unique_codes[top_ids[i]].item():4d}: {top_counts[i].item()}"
+                )
+        self.codebook_train_steps += 1
+
     def pre_cvpl_bert(self, batch):
         self.phones = self.train.hubert(batch.audio_gt, batch.alignment.shape[-1])
         self.phones_prediction, self.codebook_indices, self.cmt_loss = (
             self.model.cvpl_bert(batch.text, batch.text_length, batch.alignment)
         )
+        self.track_codebook_metrics()
