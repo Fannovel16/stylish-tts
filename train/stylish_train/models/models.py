@@ -144,7 +144,7 @@ def build_model(model_config: ModelConfig):
         cvpl_bert=CVPLBERT(
             model_config.tokens,
             model_config.hubert.hidden_dim,
-            512,
+            model_config.hubert.hidden_dim // 2,
             spectral_config.text_encoder,
         ),
     )
