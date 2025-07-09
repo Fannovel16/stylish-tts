@@ -283,11 +283,14 @@ class BatchContext:
         self.phones = self.train.hubert(
             batch.audio_gt,
             batch.alignment.shape[-1],
-            global_step=self.train.manifest.current_step,
         )
         self.phones_prediction, self.codebook_indices, self.cmt_loss = (
             self.model.cvpl_bert(
-                batch.text, batch.text_length, batch.mel_length // 2, batch.alignment
+                batch.text,
+                batch.text_length,
+                batch.mel_length // 2,
+                batch.alignment,
+                global_step=self.train.manifest.current_step,
             )
         )
         self.track_codebook_metrics()
