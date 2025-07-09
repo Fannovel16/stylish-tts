@@ -62,7 +62,7 @@ class CVPLBERT(nn.Module):
     def forward(self, texts, text_lengths, alignment):
         x = self.text_encoder(
             texts, attention_mask=sequence_mask(text_lengths, texts.shape[1]).float()
-        )
+        ).last_hidden_state
         x = self.encoder((x.transpose(-1, -2) @ alignment).transpose(-1, -2))
         x = self.down(x)
         x, indices, cmt_loss = self.quantizer(x)
