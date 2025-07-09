@@ -240,6 +240,7 @@ class BatchContext:
             print_every: int, how often to print stats
             step: int, current step or epoch
         """
+        self.codebook_indices = self.codebook_indices.cpu()
         codebook_size = self.codebook_indices.shape[2]
         flat_idx = self.codebook_indices.view(-1)
         total = flat_idx.numel()
