@@ -232,16 +232,15 @@ class BatchContext:
         print_gpu_vram("generator")
         return prediction
 
-    def track_codebook_metrics(self, print_every=100):
+    def track_codebook_metrics(self, codebook_size=1024, print_every=100):
         """
+        Tracks codebook usage stats.
+
         Args:
-            quantized_indices: LongTensor of shape (B, T) or (B, T, ...)
-            codebook_size: int, number of entries in codebook
-            print_every: int, how often to print stats
-            step: int, current step or epoch
+            codebook_size (int): total number of codebook entries
+            print_every (int): how often to print
         """
         self.codebook_indices = self.codebook_indices.cpu()
-        codebook_size = self.codebook_indices.shape[2]
         flat_idx = self.codebook_indices.view(-1)
         total = flat_idx.numel()
 
@@ -250,16 +249,16 @@ class BatchContext:
         num_used = unique_codes.numel()
         usage_ratio = num_used / codebook_size
 
-        # Entropy of code usage (how uniform the distribution is)
+        # Entropy
         probs = counts.float() / total
         entropy = -torch.sum(probs * torch.log2(probs + 1e-8))
-        max_entropy = torch.log2(torch.tensor([codebook_size]))
+        max_entropy = torch.log2(torch.tensor(codebook_size, dtype=torch.float))
         entropy_ratio = entropy / max_entropy
 
         # Dead entries
         dead_codes = codebook_size - num_used
 
-        # Print summary
+        # Print
         if self.codebook_train_steps % print_every == 0:
             print(f"\n[Step {self.codebook_train_steps}] --- Codebook Stats ---")
             print(f"Used Codes: {num_used}/{codebook_size} ({usage_ratio:.2%})")
@@ -269,7 +268,7 @@ class BatchContext:
             )
             print("-" * 40)
 
-            # Optional: Visual histogram (top-k codes)
+            # Top-used codes
             topk = min(10, len(counts))
             top_counts, top_ids = counts.topk(topk)
             print("Top Used Codes:")
@@ -277,6 +276,7 @@ class BatchContext:
                 print(
                     f"  Code {unique_codes[top_ids[i]].item():4d}: {top_counts[i].item()}"
                 )
+
         self.codebook_train_steps += 1
 
     def pre_cvpl_bert(self, batch):
