@@ -63,7 +63,7 @@ class CVPLBERT(nn.Module):
         x = self.text_encoder(
             texts, attention_mask=sequence_mask(text_lengths, texts.shape[1]).float()
         )
-        x = self.encoder((x @ alignment).transpose(-1, -2))
+        x = self.encoder((x.transpose(-1, -2) @ alignment).transpose(-1, -2))
         x = self.down(x)
         x, indices, cmt_loss = self.quantizer(x)
         x = self.up(x)
