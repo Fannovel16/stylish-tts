@@ -140,7 +140,7 @@ def build_model(model_config: ModelConfig):
         mrd=MultiResolutionDiscriminator(),
         hubert_acoustic_extractor=hubert_acoustic_extractor,
         hubert_spectral_extractor=hubert_spectral_extractor,
-        cvpl_bert=CVPLBERT(model_config.tokens, model_config.hubert.hidden_dim),
+        cvpl_bert=CVPLBERT(model_config.tokens, model_config.hubert.hidden_dim, 512),
     )
 
     return nets
