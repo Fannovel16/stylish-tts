@@ -196,7 +196,7 @@ def train_pre_cvpl_bert(
             "hubert_distil_l1",
             F.smooth_l1_loss(state.phones_prediction, state.phones),
         )
-        log.add_loss(
+        """log.add_loss(
             "hubert_distil_cosine",
             1
             - F.cosine_similarity(
@@ -204,7 +204,7 @@ def train_pre_cvpl_bert(
                 F.normalize(state.phones, dim=-1),
                 dim=-1,
             ).mean(),
-        )
+        )"""
         log.add_loss("hubert_distil_commit", state.cmt_loss * 10)
         train.accelerator.backward(
             log.backwards_loss() * math.sqrt(batch.text.shape[0])
