@@ -121,6 +121,7 @@ def build_model(model_config: ModelConfig):
     )
 
     spectral_config.text_encoder.hidden_dim = model_config.hubert.hidden_dim
+    spectral_config.text_encoder.filter_channels = model_config.hubert.hidden_dim * 4
     text_hubert_distiller = TextEncoder(
         model_config.tokens,
         inter_dim=model_config.hubert.hidden_dim,
@@ -140,7 +141,12 @@ def build_model(model_config: ModelConfig):
         mrd=MultiResolutionDiscriminator(),
         hubert_acoustic_extractor=hubert_acoustic_extractor,
         hubert_spectral_extractor=hubert_spectral_extractor,
-        cvpl_bert=CVPLBERT(model_config.tokens, model_config.hubert.hidden_dim, 512),
+        cvpl_bert=CVPLBERT(
+            model_config.tokens,
+            model_config.hubert.hidden_dim,
+            512,
+            spectral_config.text_encoder,
+        ),
     )
 
     return nets
