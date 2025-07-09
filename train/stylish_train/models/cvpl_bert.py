@@ -52,7 +52,7 @@ class CVPLBERT(nn.Module):
     def forward(self, texts, text_lengths, alignment):
         x, _, _ = self.text_encoder(texts, text_lengths)
         x = self.encoder((x @ alignment).transpose(-1, -2))
-        x = self.down(x)
+        # x = self.down(x)
         x, _, cmt_loss = self.quantizer(x)
         if self.training:
             # x = self.up(x)
