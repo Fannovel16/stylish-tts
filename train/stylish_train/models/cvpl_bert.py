@@ -71,15 +71,15 @@ class CVPLBERT(nn.Module):
             ff_mult=4,
         )
 
-    def forward(self, texts, text_lengths, alignment):
-        x = self.text_encoder(
-            texts, attention_mask=sequence_mask(text_lengths, texts.shape[1]).float()
-        ).last_hidden_state
+    def forward(self, texts, text_lengths, mel_lengths, alignment):
+        text_mask = sequence_mask(text_lengths, texts.shape[1])
+        mel_mask = sequence_mask(mel_lengths, alignment.shape[2])
+        x = self.text_encoder(texts, attention_mask=text_mask.float()).last_hidden_state
         x = self.down(x)
-        x = self.encoder((x.transpose(-1, -2) @ alignment).transpose(-1, -2))
-        x, indices, cmt_loss = self.quantizer(x)
+        x = self.encoder((x.transpose(-1, -2) @ alignment).transpose(-1, -2), mel_mask)
+        x, indices, cmt_loss = self.quantizer(x, mask=mel_mask)
         x = self.up(x)
-        x = self.decoder(x)
+        x = self.decoder(x, mel_mask)
         if self.training:
             return x, indices, cmt_loss.mean()
         else:

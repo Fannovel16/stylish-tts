@@ -232,7 +232,7 @@ class BatchContext:
         print_gpu_vram("generator")
         return prediction
 
-    def track_codebook_metrics(self, codebook_size=1024, print_every=100):
+    def track_codebook_metrics(self, codebook_size=1024, print_every=1000):
         """
         Tracks codebook usage stats.
 
@@ -282,6 +282,8 @@ class BatchContext:
     def pre_cvpl_bert(self, batch):
         self.phones = self.train.hubert(batch.audio_gt, batch.alignment.shape[-1])
         self.phones_prediction, self.codebook_indices, self.cmt_loss = (
-            self.model.cvpl_bert(batch.text, batch.text_length, batch.alignment)
+            self.model.cvpl_bert(
+                batch.text, batch.text_length, batch.mel_length // 2, batch.alignment
+            )
         )
         self.track_codebook_metrics()
