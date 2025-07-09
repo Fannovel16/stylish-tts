@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from transformers import AlbertModel, AlbertConfig
 from utils import sequence_mask
-from conformer import Conformer
+from .conformer import Conformer
 from vector_quantize_pytorch import GroupedResidualVQ
 
 
