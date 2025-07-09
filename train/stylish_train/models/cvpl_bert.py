@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from utils import sequence_mask
 from .conformer import Conformer
-from .text_encoder import TextEncoder
+from transformers import AlbertConfig, AlbertModel
 from vector_quantize_pytorch import GroupedResidualVQ
 
 
@@ -24,7 +24,17 @@ class CVPLBERT(nn.Module):
         quantize_dropout_cutoff_index=1,
     ):
         super().__init__()
-        self.text_encoder = TextEncoder(tokens, hubert_dim, text_encoder_config)
+        self.text_encoder = AlbertModel(
+            AlbertConfig(
+                vocab_size=tokens,
+                hidden_size=hubert_dim,
+                num_attention_heads=12,
+                intermediate_size=2048,
+                max_position_embeddings=512,
+                num_hidden_layers=12,
+                dropout=0.1,
+            )
+        )
         self.encoder = Conformer(
             dim=hubert_dim, depth=4, heads=8, dim_head=hubert_dim // 8
         )
@@ -50,7 +60,9 @@ class CVPLBERT(nn.Module):
         )
 
     def forward(self, texts, text_lengths, alignment):
-        x, _, _ = self.text_encoder(texts, text_lengths)
+        x, _, _ = self.text_encoder(
+            texts, attention_mask=sequence_mask(text_lengths, texts.shape[1]).float()
+        )
         x = self.encoder((x @ alignment).transpose(-1, -2))
         x = self.down(x)
         x, indices, cmt_loss = self.quantizer(x)
