@@ -27,6 +27,7 @@ class BatchContext:
         self.duration_prediction = None
         self.phones = None
         self.phones_prediction = None
+        self.cmt_loss = None
 
     def acoustic_energy(self, mels: torch.Tensor):
         with torch.no_grad():
@@ -230,7 +231,9 @@ class BatchContext:
         return prediction
 
     def pre_cvpl_bert(self, batch):
-        self.phones = self.train.hubert(batch.audio_gt, batch.alignment.shape[-1])
+        self.phones, self.cmt_loss = self.train.hubert(
+            batch.audio_gt, batch.alignment.shape[-1]
+        )
         self.phones_prediction = self.model.cvpl_bert(
             batch.text, batch.text_length, batch.alignment
         )

@@ -193,18 +193,10 @@ def train_pre_cvpl_bert(
         train.stage.optimizer.zero_grad()
         log = build_loss_log(train)
         log.add_loss(
-            "hubert_distil_l1",
+            "hubert_distil",
             F.smooth_l1_loss(state.phones_prediction, state.phones),
         )
-        log.add_loss(
-            "hubert_distil_cosine",
-            1
-            - F.cosine_similarity(
-                F.normalize(state.phones_prediction, dim=-1),
-                F.normalize(state.phones, dim=-1),
-                dim=-1,
-            ).mean(),
-        )
+        log.add_loss("hubert_distil_commit", state.cmt_loss * 10)
         train.accelerator.backward(
             log.backwards_loss() * math.sqrt(batch.text.shape[0])
         )

@@ -1,17 +1,32 @@
 import torch
 import torch.nn as nn
-from .conv_next import BasicConvNeXtBlock
 from transformers import AlbertModel, AlbertConfig
 from utils import sequence_mask
+from conformer import Conformer
+from vector_quantize_pytorch import GroupedResidualVQ
 
 
 class CVPLBERT(nn.Module):
-    def __init__(self, tokens, hidden_dim):
+    def __init__(
+        self,
+        tokens,
+        hubert_dim,
+        hidden_dim,
+        codebook_size=1024,
+        rq_num_quantizers=2,
+        rq_commitment_weight=1.0,
+        rq_ema_decay=0.95,
+        rq_quantize_dropout_multiple_of=1,
+        rq_groups=2,
+        rq_stochastic_sample_codes=False,
+        rq_rotation_trick=True,
+        quantize_dropout_cutoff_index=1,
+    ):
         super().__init__()
-        self.encoder = AlbertModel(
+        self.text_encoder = AlbertModel(
             AlbertConfig(
                 vocab_size=tokens,
-                hidden_size=hidden_dim,
+                hidden_size=hubert_dim,
                 num_attention_heads=12,
                 intermediate_size=2048,
                 max_position_embeddings=512,
@@ -19,10 +34,40 @@ class CVPLBERT(nn.Module):
                 dropout=0.1,
             )
         )
-        self.refine = BasicConvNeXtBlock(hidden_dim, hidden_dim * 4)
+        self.encoder = Conformer(
+            dim=hubert_dim, depth=4, heads=8, dim_head=hubert_dim // 8
+        )
+        self.down = nn.Linear(hubert_dim, hidden_dim)
+        self.quantizer = GroupedResidualVQ(
+            dim=hidden_dim,
+            num_quantizers=rq_num_quantizers,
+            codebook_size=codebook_size,
+            groups=rq_groups,
+            decay=rq_ema_decay,
+            commitment_weight=rq_commitment_weight,
+            quantize_dropout_multiple_of=rq_quantize_dropout_multiple_of,
+            kmeans_init=True,
+            threshold_ema_dead_code=2,
+            quantize_dropout=True,
+            quantize_dropout_cutoff_index=quantize_dropout_cutoff_index,
+            stochastic_sample_codes=rq_stochastic_sample_codes,
+            rotation_trick=rq_rotation_trick,
+        )
+        self.up = nn.Linear(hidden_dim, hubert_dim)
+        self.decoder = Conformer(
+            dim=hubert_dim, depth=4, heads=8, dim_head=hubert_dim // 8
+        )
 
-    def forward(self, x, x_lengths, alignment):
-        x = self.encoder(
-            x, attention_mask=sequence_mask(x_lengths, x.shape[1]).float()
-        ).last_hidden_state
-        return self.refine(x.transpose(-1, -2) @ alignment).transpose(-1, -2)
+    def forward(self, texts, text_lengths, alignment, mel_lengths):
+        text_mask = sequence_mask(text_lengths, x.shape[1])
+        mel_mask = sequence_mask(mel_lengths, mel_lengths.shape[-1])
+        x = self.text_encoder(texts, attention_mask=text_mask.float()).last_hidden_state
+        x = self.encoder((x.transpose(-1, -2) @ alignment).transpose(-1, -2), mel_mask)
+        x = self.down(x)
+        x, _, cmt_loss = self.quantizer(x, mask=mel_mask)
+        if self.training:
+            x = self.up(x)
+            x = self.decoder(x, mel_mask)
+            return x, cmt_loss.sum()
+        else:
+            return x

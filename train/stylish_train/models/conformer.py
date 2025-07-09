@@ -273,9 +273,7 @@ class Conformer(nn.Module):
                 )
             )
 
-    def forward(self, x):
-
+    def forward(self, x, mask=None):
         for block in self.layers:
-            x = block(x)
-
+            x = block(x, mask)
         return x
