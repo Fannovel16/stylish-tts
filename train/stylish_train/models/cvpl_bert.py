@@ -14,7 +14,7 @@ class CVPLBERT(nn.Module):
         hidden_dim,
         text_encoder_config,
         codebook_size=1024,
-        rq_num_quantizers=2,
+        rq_num_quantizers=4,
         rq_commitment_weight=1.0,
         rq_ema_decay=0.95,
         rq_quantize_dropout_multiple_of=1,
@@ -28,9 +28,9 @@ class CVPLBERT(nn.Module):
         self.encoder = Conformer(
             dim=hubert_dim, depth=4, heads=8, dim_head=hubert_dim // 8
         )
-        self.down = nn.Linear(hubert_dim, hidden_dim)
+        # self.down = nn.Linear(hubert_dim, hidden_dim)
         self.quantizer = GroupedResidualVQ(
-            dim=hidden_dim,
+            dim=hubert_dim,
             num_quantizers=rq_num_quantizers,
             codebook_size=codebook_size,
             groups=rq_groups,
@@ -44,10 +44,10 @@ class CVPLBERT(nn.Module):
             stochastic_sample_codes=rq_stochastic_sample_codes,
             rotation_trick=rq_rotation_trick,
         )
-        self.up = nn.Linear(hidden_dim, hubert_dim)
-        self.decoder = Conformer(
-            dim=hubert_dim, depth=4, heads=8, dim_head=hubert_dim // 8
-        )
+        # self.up = nn.Linear(hidden_dim, hubert_dim)
+        # self.decoder = Conformer(
+        #     dim=hubert_dim, depth=4, heads=8, dim_head=hubert_dim // 8
+        # )
 
     def forward(self, texts, text_lengths, alignment):
         x, _, _ = self.text_encoder(texts, text_lengths)
@@ -55,8 +55,8 @@ class CVPLBERT(nn.Module):
         x = self.down(x)
         x, _, cmt_loss = self.quantizer(x)
         if self.training:
-            x = self.up(x)
-            x = self.decoder(x)
+            # x = self.up(x)
+            # x = self.decoder(x)
             return x, cmt_loss.sum()
         else:
             return x

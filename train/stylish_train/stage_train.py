@@ -193,7 +193,7 @@ def train_pre_cvpl_bert(
         train.stage.optimizer.zero_grad()
         log = build_loss_log(train)
         log.add_loss(
-            "hubert_distil_l1",
+            "hubert_distil_mae",
             (state.phones_prediction - state.phones).abs().mean(),
         )
         """log.add_loss(
