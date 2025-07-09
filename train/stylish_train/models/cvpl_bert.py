@@ -29,7 +29,7 @@ class CVPLBERT(nn.Module):
                 vocab_size=tokens,
                 hidden_size=hubert_dim,
                 num_attention_heads=8,
-                intermediate_size=hubert_dim * 2,
+                intermediate_size=hubert_dim * 4,
                 max_position_embeddings=512,
                 num_hidden_layers=12,
                 dropout=0.1,
