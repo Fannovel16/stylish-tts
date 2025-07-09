@@ -83,4 +83,4 @@ class CVPLBERT(nn.Module):
         if self.training:
             return x, indices, cmt_loss.mean()
         else:
-            return x, indices
+            return x, indices, 0
