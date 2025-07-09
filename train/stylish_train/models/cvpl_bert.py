@@ -27,11 +27,13 @@ class CVPLBERT(nn.Module):
         self.text_encoder = AlbertModel(
             AlbertConfig(
                 vocab_size=tokens,
+                embedding_size=128,
                 hidden_size=hubert_dim,
                 num_attention_heads=8,
                 intermediate_size=hubert_dim * 4,
-                max_position_embeddings=512,
-                num_hidden_layers=12,
+                num_hidden_layers=9,
+                num_hidden_groups=1,
+                inner_group_num=1,
                 dropout=0.1,
             )
         )
