@@ -194,7 +194,7 @@ def train_pre_cvpl_bert(
         log = build_loss_log(train)
         log.add_loss(
             "hubert_distil_l1",
-            F.smooth_l1_loss(state.phones_prediction, state.phones),
+            (state.phones_prediction - state.phones).abs().mean(),
         )
         """log.add_loss(
             "hubert_distil_cosine",
