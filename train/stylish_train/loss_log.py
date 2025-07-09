@@ -67,11 +67,7 @@ class LossLog:
                 f"{writer_type}/{key}", value, manifest.current_total_step
             )
 
-        if (
-            stage == "pre_cvpl_bert"
-            and self.codebook_indices is not None
-            and self.codebook_size is not None
-        ):
+        if self.codebook_indices is not None and self.codebook_size is not None:
             step = manifest.current_total_step
             groups, B, T, Q = self.codebook_indices.shape
 
