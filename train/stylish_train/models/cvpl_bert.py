@@ -30,7 +30,7 @@ class CVPLBERT(nn.Module):
         )
         self.down = nn.Linear(hubert_dim, hidden_dim)
         self.quantizer = GroupedResidualVQ(
-            dim=hubert_dim,
+            dim=hidden_dim,
             num_quantizers=rq_num_quantizers,
             codebook_size=codebook_size,
             groups=rq_groups,
