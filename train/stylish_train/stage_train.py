@@ -206,9 +206,6 @@ def train_pre_cvpl_bert(
             ).mean(),
         )"""
         log.add_loss("hubert_distil_commit", state.cmt_loss)
-        log.add_codebook_indices(
-            state.codebook_indices, state.codebook_indices.shape[2]
-        )
         train.accelerator.backward(
             log.backwards_loss() * math.sqrt(batch.text.shape[0])
         )
