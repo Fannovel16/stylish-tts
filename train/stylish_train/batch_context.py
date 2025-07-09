@@ -29,7 +29,6 @@ class BatchContext:
         self.phones_prediction = None
         self.cmt_loss = None
         self.codebook_indices = None
-        self.codebook_train_steps = 0
 
     def acoustic_energy(self, mels: torch.Tensor):
         with torch.no_grad():
@@ -232,7 +231,7 @@ class BatchContext:
         print_gpu_vram("generator")
         return prediction
 
-    def track_codebook_metrics(self, codebook_size=1024, print_every=1000):
+    def track_codebook_metrics(self, codebook_size=1024, print_every=100):
         """
         Tracks codebook usage stats.
 
@@ -259,7 +258,7 @@ class BatchContext:
         dead_codes = codebook_size - num_used
 
         # Print
-        if self.codebook_train_steps % print_every == 0:
+        if self.train.manifest.current_step % print_every == 0:
             print(f"\n[Step {self.codebook_train_steps}] --- Codebook Stats ---")
             print(f"Used Codes: {num_used}/{codebook_size} ({usage_ratio:.2%})")
             print(f"Dead Codes: {dead_codes}")
@@ -276,8 +275,6 @@ class BatchContext:
                 print(
                     f"  Code {unique_codes[top_ids[i]].item():4d}: {top_counts[i].item()}"
                 )
-
-        self.codebook_train_steps += 1
 
     def pre_cvpl_bert(self, batch):
         self.phones = self.train.hubert(batch.audio_gt, batch.alignment.shape[-1])
