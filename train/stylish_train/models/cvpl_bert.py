@@ -109,7 +109,7 @@ class CVPLBERT(nn.Module):
             depth=4,
             heads=8,
             dim_head=hidden_dim // 8,
-            ff_mult=2,
+            ff_mult=4,
             conv_expansion_factor=2,
             conv_kernel_size=9,
         )

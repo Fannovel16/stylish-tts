@@ -121,8 +121,6 @@ def build_model(model_config: ModelConfig):
         f0=False,
     )
 
-    spectral_config.text_encoder.hidden_dim = model_config.hubert.hidden_dim
-    spectral_config.text_encoder.filter_channels = model_config.hubert.hidden_dim * 4
     hubert_quantizer = ResidualVQ(
         dim=model_config.hubert.hidden_dim, **model_config.hubert_quantizer.model_dump()
     )
@@ -144,7 +142,7 @@ def build_model(model_config: ModelConfig):
         hubert_spectral_extractor=hubert_spectral_extractor,
         cvpl_bert=CVPLBERT(
             model_config.tokens,
-            model_config.hubert.hidden_dim,
+            512,
             model_config.hubert_quantizer.codebook_size,
             model_config.hubert_quantizer.num_quantizers,
             spectral_config.text_encoder,
