@@ -305,9 +305,8 @@ class BatchContext:
         )
         with torch.no_grad():
             self.model.hubert_quantizer.eval()
-            self.logits_gt = rearrange(
-                self.quantize_hubert(batch, self.phones), "b t h -> (b h) t"
-            )
+            _, codebook_indices, _ = self.quantize_hubert(batch, self.phones)
+            self.logits_gt = rearrange(codebook_indices, "b t h -> (b h) t")
         self.logits_prediction = rearrange(
             self.model.cvpl_bert(
                 batch.text, batch.text_length, batch.mel_length // 2, batch.alignment
