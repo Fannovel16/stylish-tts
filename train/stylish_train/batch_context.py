@@ -317,4 +317,4 @@ class BatchContext:
 
     def generate_hubert_from_logits(self, logits):
         indices = logits.argmax(dim=-1)
-        return self.model.quantizer.get_output_from_indices(indices)
+        return self.model.hubert_quantizer.get_output_from_indices(indices)
