@@ -231,17 +231,19 @@ class BatchContext:
         print_gpu_vram("generator")
         return prediction
 
-    def track_codebook_metrics(self, codebook_size):
+    def track_codebook_metrics(self, *args):
         """
         Tracks codebook usage stats.
-
-        Args:
-            codebook_size (int): total number of codebook entries
-            print_every (int): how often to print
         """
+        codebook_size = self.model.cvpl_bert.codebook_size
         print_every = self.train.config.training.log_interval
-        self.codebook_indices = self.codebook_indices.cpu()
-        flat_idx = self.codebook_indices.view(-1)
+        with torch.no_grad():
+            self.model.cvpl_bert.eval()
+            _, codebook_indices, _ = self.model.cvpl_bert(*args)
+        self.model.cvpl_bert.train()
+
+        codebook_indices = codebook_indices.cpu()
+        flat_idx = codebook_indices.view(-1)
         total = flat_idx.numel()
 
         # Codebook usage
@@ -301,4 +303,8 @@ class BatchContext:
                 batch.mel_length // 2,
             )
         )
-        self.track_codebook_metrics(self.model.cvpl_bert.codebook_size)
+        self.track_codebook_metrics(
+            self.phones,
+            batch.alignment,
+            batch.mel_length // 2,
+        )
