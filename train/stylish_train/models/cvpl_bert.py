@@ -110,6 +110,7 @@ class CVPLBERT(nn.Module):
         quantize_dropout_cutoff_index=1,
     ):
         super().__init__()
+        self.down = nn.Linear(hubert_dim, hidden_dim)
         self.quantizer = GroupedResidualVQ(
             dim=hubert_dim,
             num_quantizers=rq_num_quantizers,
