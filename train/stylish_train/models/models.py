@@ -123,6 +123,11 @@ def build_model(model_config: ModelConfig):
 
     spectral_config.text_encoder.hidden_dim = model_config.hubert.hidden_dim
     spectral_config.text_encoder.filter_channels = model_config.hubert.hidden_dim * 4
+    hubert_quantizer = ResidualVQ(
+        dim=model_config.hubert.hidden_dim, **model_config.hubert_quantizer.model_dump()
+    )
+    # Satisfy the optimizer as RVQ uses EMA instead of gradient descent
+    hubert_quantizer.register_parameter("unused", nn.Parameter())
 
     nets = Munch(
         text_acoustic_extractor=text_acoustic_extractor,
@@ -144,10 +149,7 @@ def build_model(model_config: ModelConfig):
             model_config.hubert_quantizer.num_quantizers,
             spectral_config.text_encoder,
         ),
-        hubert_quantizer=ResidualVQ(
-            dim=model_config.hubert.hidden_dim,
-            **model_config.hubert_quantizer.model_dump()
-        ),
+        hubert_quantizer=hubert_quantizer,
     )
 
     return nets

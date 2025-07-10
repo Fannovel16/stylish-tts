@@ -115,8 +115,6 @@ def build_optimizer(stage_name: str, *, train):
     optim = {}
     schedulers = {}
     for key in train.model.keys():
-        if key == "hubert_quantizer":
-            continue
         lr, weight_decay, betas = calculate_lr(key, stage_name, train=train)
         optim[key] = AdamW(
             train.model[key].parameters(),
