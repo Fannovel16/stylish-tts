@@ -293,7 +293,7 @@ class HubertConfig(BaseModel):
 
 class HubertQuantizer(BaseModel):
     num_quantizers: int = Field(default=4, description="Number of codebooks.")
-    codebook_size: int = Field(default=256, description="Size of a codebook.")
+    codebook_size: int = Field(default=64, description="Size of a codebook.")
     kmeans_init: bool = Field(
         default=True, description="Initialization with k-means clustering."
     )
