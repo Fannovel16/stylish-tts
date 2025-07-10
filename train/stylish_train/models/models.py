@@ -123,11 +123,6 @@ def build_model(model_config: ModelConfig):
 
     spectral_config.text_encoder.hidden_dim = model_config.hubert.hidden_dim
     spectral_config.text_encoder.filter_channels = model_config.hubert.hidden_dim * 4
-    text_hubert_distiller = TextEncoder(
-        model_config.tokens,
-        inter_dim=model_config.hubert.hidden_dim,
-        config=spectral_config.text_encoder,
-    )
 
     nets = Munch(
         text_acoustic_extractor=text_acoustic_extractor,
@@ -145,7 +140,8 @@ def build_model(model_config: ModelConfig):
         cvpl_bert=CVPLBERT(
             model_config.tokens,
             model_config.hubert.hidden_dim,
-            model_config.hubert.hidden_dim // 2,
+            model_config.hubert_quantizer.codebook_size,
+            model_config.hubert_quantizer.num_quantizers,
             spectral_config.text_encoder,
         ),
         hubert_quantizer=ResidualVQ(

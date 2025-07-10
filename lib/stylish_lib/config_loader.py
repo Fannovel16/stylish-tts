@@ -74,11 +74,11 @@ class TrainingPlanConfig(BaseModel):
     )
     pre_hubert_quantizer: TrainingStageConfig = Field(
         default_factory=TrainingStageConfig,
-        description="Configuration for pretraining stage of HuBERT Residual VQ Stage.",
+        description="Configuration for pretraining stage of HuBERT Residual VQ.",
     )
     pre_cvpl_bert: TrainingStageConfig = Field(
         default_factory=TrainingStageConfig,
-        description="Configuration for training of CVPL-BERT pretraining stage.",
+        description="Configuration for pretraining stage of CVPL-BERT.",
     )
 
     def get_stage(self, name: str) -> TrainingStageConfig:

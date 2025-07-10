@@ -28,6 +28,8 @@ class BatchContext:
         self.phones = None
         self.phones_prediction = None
         self.cmt_loss = None
+        self.logits_gt = None
+        self.logits_prediction = None
 
     def acoustic_energy(self, mels: torch.Tensor):
         with torch.no_grad():
@@ -230,24 +232,18 @@ class BatchContext:
         print_gpu_vram("generator")
         return prediction
 
-    def train_hubert_quantizer(self, batch, hubert_embedding):
+    def quantize_hubert(self, batch, hubert_embedding):
         mel_mask = sequence_mask(batch.mel_length, batch.alignment.shape[2])
         x, indices, cmt_loss = self.model.hubert_quantizer(
             hubert_embedding, mask=mel_mask
         )
         return x, indices, cmt_loss
 
-    def track_codebook_metrics(self, batch, hubert_embedding):
+    def track_codebook_metrics(self, codebook_indices):
         """
         Tracks codebook usage stats.
         """
         codebook_size = self.train.model_config.hubert_quantizer.codebook_size
-        with torch.no_grad():
-            self.model.cvpl_bert.eval()
-            _, codebook_indices, _ = self.train_hubert_quantizer(
-                batch, hubert_embedding
-            )
-        self.model.cvpl_bert.train()
 
         codebook_indices = codebook_indices.cpu()
         flat_idx = codebook_indices.view(-1)
@@ -289,14 +285,37 @@ class BatchContext:
             batch.audio_gt,
             batch.alignment.shape[-1],
         )
-        self.phones_prediction, _, self.cmt_loss = self.train_hubert_quantizer(
+        self.phones_prediction, _, self.cmt_loss = self.quantize_hubert(
             batch, self.phones
         )
         global_step = self.train.manifest.current_step
         print_every = self.train.config.training.log_interval
 
-        if (
-            global_step >= print_every
-            and self.train.manifest.current_step % print_every == 0
-        ):
-            self.track_codebook_metrics(batch, self.phones)
+        if global_step >= print_every and global_step % print_every == 0:
+            with torch.no_grad():
+                self.model.hubert_quantizer.eval()
+                _, codebook_indices, _ = self.quantize_hubert(batch, self.phones)
+                self.track_codebook_metrics(codebook_indices)
+            self.model.hubert_quantizer.train()
+
+    def pre_cvpl_bert(self, batch):
+        self.phones = self.train.hubert(
+            batch.audio_gt,
+            batch.alignment.shape[-1],
+        )
+        with torch.no_grad():
+            self.model.hubert_quantizer.eval()
+            self.logits_gt = rearrange(
+                self.quantize_hubert(batch, self.phones), "b t h -> (b h) t"
+            )
+        self.logits_prediction = rearrange(
+            self.model.cvpl_bert(
+                batch.text, batch.text_length, batch.mel_length // 2, batch.alignment
+            ),
+            "b t (h c) -> (b h) c t",
+            h=self.train.model_config.hubert_quantizer.num_quantizers,
+        )
+
+    def generate_hubert_from_logits(self, logits):
+        indices = logits.argmax(dim=-1)
+        return self.model.quantizer.get_output_from_indices(indices)

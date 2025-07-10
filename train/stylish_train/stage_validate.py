@@ -114,3 +114,22 @@ def validate_pre_hubert_quantizer(batch, train):
         ).mean(),
     )
     return log, None, None, None
+
+
+@torch.no_grad()
+def validate_pre_cvpl_bert(batch, train):
+    state = BatchContext(train=train, model=train.model)
+    state.pre_cvpl_bert(batch)
+    train.stage.optimizer.zero_grad()
+    log = build_loss_log(train)
+    log.add_loss("rvq_ce", F.cross_entropy(state.logits_prediction, state.logits_gt))
+
+    log.add_loss(
+        "hubert_distil_l1",
+        F.smooth_l1_loss(
+            state.generate_hubert_from_logits(state.logits_prediction),
+            state.phones,
+            beta=0.5,
+        ),
+    )
+    return log, None, None, None

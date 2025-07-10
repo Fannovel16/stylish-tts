@@ -4,6 +4,7 @@ from utils import sequence_mask
 from .conformer import Conformer
 from transformers import AlbertConfig, AlbertModel
 from vector_quantize_pytorch import ResidualVQ
+from .text_encoder import TextEncoder
 
 
 """class CVPLBERT(nn.Module):
@@ -96,17 +97,36 @@ class CVPLBERT(nn.Module):
     def __init__(
         self,
         tokens,
-        hubert_dim,
         hidden_dim,
+        codebook_size,
+        heads,
         text_encoder_config,
     ):
         super().__init__()
-        self.down = nn.Linear(hubert_dim, hidden_dim)
-        self.codebook_size = codebook_size
+        self.text_encoder = TextEncoder(tokens, hidden_dim, text_encoder_config)
+        self.refiner = Conformer(
+            hidden_dim,
+            depth=4,
+            head=8,
+            dim_head=hidden_dim // 8,
+            ff_mult=2,
+            conv_expansion_factor=2,
+            conv_kernel_size=9,
+        )
+        self.heads = nn.ModuleList(
+            [
+                nn.Sequential(
+                    nn.Linear(hidden_dim, hidden_dim // 2),
+                    nn.ReLU(),
+                    nn.Linear(hidden_dim // 2, codebook_size),
+                )
+                for _ in heads
+            ]
+        )
 
-    def forward(self, embedding, alignment, mel_lengths):
-
-        if self.training:
-            return x, indices, cmt_loss.mean()
-        else:
-            return x, indices, 0
+    def forward(self, texts, text_lengths, mel_lengths, alignment):
+        text_mask = sequence_mask(text_lengths, texts.shape[1])
+        mel_mask = sequence_mask(mel_lengths, alignment.shape[2])
+        x, _, _ = self.text_encoder(texts, attention_mask=text_mask.float())
+        x = self.refiner((x.transpose(-1, -2) @ alignment).transpose(-1, -2), mel_mask)
+        return torch.cat([head(x) for head in self.heads], dim=-1)  # BxTx(HxC)

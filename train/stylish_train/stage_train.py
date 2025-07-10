@@ -211,3 +211,19 @@ def train_pre_hubert_quantizer(
         )
 
     return log.detach(), None
+
+
+def train_pre_cvpl_bert(
+    batch, model, train, probing
+) -> Tuple[LossLog, Optional[torch.Tensor]]:
+    state = BatchContext(train=train, model=model)
+    with train.accelerator.autocast():
+        state.pre_cvpl_bert(batch)
+        train.stage.optimizer.zero_grad()
+        log = build_loss_log(train)
+        log.add_loss(F.cross_entropy(state.logits_prediction, state.logits_gt))
+        train.accelerator.backward(
+            log.backwards_loss() * math.sqrt(batch.text.shape[0])
+        )
+
+    return log.detach(), None
