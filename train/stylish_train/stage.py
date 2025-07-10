@@ -170,10 +170,8 @@ stages = {
         next_stage=None,
         train_fn=train_pre_cvpl_bert,
         validate_fn=validate_pre_cvpl_bert,
-        train_models=[
-            "cvpl_bert",
-        ],
-        eval_models=[],
+        train_models=[],
+        eval_models=["cvpl_bert"],
         discriminators=[],
         inputs=[
             "text",
