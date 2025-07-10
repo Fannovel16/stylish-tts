@@ -3,7 +3,7 @@ import torch.nn as nn
 from utils import sequence_mask
 from .conformer import Conformer
 from transformers import AlbertConfig, AlbertModel
-from vector_quantize_pytorch import GroupedResidualVQ
+from vector_quantize_pytorch import ResidualVQ
 
 
 """class CVPLBERT(nn.Module):
@@ -99,12 +99,11 @@ class CVPLBERT(nn.Module):
         hubert_dim,
         hidden_dim,
         text_encoder_config,
-        codebook_size=256,
+        codebook_size=64,
         rq_num_quantizers=4,
         rq_commitment_weight=1.0,
         rq_ema_decay=0.95,
         rq_quantize_dropout_multiple_of=1,
-        rq_groups=2,
         rq_stochastic_sample_codes=False,
         rq_rotation_trick=True,
         quantize_dropout_cutoff_index=1,
@@ -112,11 +111,10 @@ class CVPLBERT(nn.Module):
         super().__init__()
         self.down = nn.Linear(hubert_dim, hidden_dim)
         self.codebook_size = codebook_size
-        self.quantizer = GroupedResidualVQ(
+        self.quantizer = ResidualVQ(
             dim=hubert_dim,
             num_quantizers=rq_num_quantizers,
             codebook_size=codebook_size,
-            groups=rq_groups,
             decay=rq_ema_decay,
             commitment_weight=rq_commitment_weight,
             quantize_dropout_multiple_of=rq_quantize_dropout_multiple_of,
