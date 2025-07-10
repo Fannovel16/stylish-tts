@@ -111,6 +111,7 @@ class CVPLBERT(nn.Module):
     ):
         super().__init__()
         self.down = nn.Linear(hubert_dim, hidden_dim)
+        self.codebook_size = codebook_size
         self.quantizer = GroupedResidualVQ(
             dim=hubert_dim,
             num_quantizers=rq_num_quantizers,

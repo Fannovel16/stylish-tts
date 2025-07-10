@@ -231,7 +231,7 @@ class BatchContext:
         print_gpu_vram("generator")
         return prediction
 
-    def track_codebook_metrics(self, codebook_size=1024):
+    def track_codebook_metrics(self, codebook_size):
         """
         Tracks codebook usage stats.
 
@@ -301,4 +301,4 @@ class BatchContext:
                 batch.mel_length // 2,
             )
         )
-        self.track_codebook_metrics()
+        self.track_codebook_metrics(self.model.cvpl_bert.codebook_size)
