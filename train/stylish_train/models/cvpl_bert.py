@@ -120,7 +120,7 @@ class CVPLBERT(nn.Module):
                     nn.ReLU(),
                     nn.Linear(hidden_dim // 2, codebook_size),
                 )
-                for _ in heads
+                for _ in range(heads)
             ]
         )
 
