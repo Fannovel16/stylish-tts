@@ -6,7 +6,7 @@ from transformers import AlbertConfig, AlbertModel
 from vector_quantize_pytorch import GroupedResidualVQ
 
 
-class CVPLBERT(nn.Module):
+"""class CVPLBERT(nn.Module):
     def __init__(
         self,
         tokens,
@@ -85,6 +85,51 @@ class CVPLBERT(nn.Module):
             x, indices, cmt_loss = self.quantizer(x, mask=mel_mask)
         x = self.up(x)
         x = self.decoder(x, mel_mask)
+        if self.training:
+            return x, indices, cmt_loss.mean()
+        else:
+            return x, indices, 0
+"""
+
+
+class CVPLBERT(nn.Module):
+    def __init__(
+        self,
+        tokens,
+        hubert_dim,
+        hidden_dim,
+        text_encoder_config,
+        codebook_size=256,
+        rq_num_quantizers=4,
+        rq_commitment_weight=1.0,
+        rq_ema_decay=0.95,
+        rq_quantize_dropout_multiple_of=1,
+        rq_groups=2,
+        rq_stochastic_sample_codes=False,
+        rq_rotation_trick=True,
+        quantize_dropout_cutoff_index=1,
+    ):
+        super().__init__()
+        self.quantizer = GroupedResidualVQ(
+            dim=hubert_dim,
+            num_quantizers=rq_num_quantizers,
+            codebook_size=codebook_size,
+            groups=rq_groups,
+            decay=rq_ema_decay,
+            commitment_weight=rq_commitment_weight,
+            quantize_dropout_multiple_of=rq_quantize_dropout_multiple_of,
+            kmeans_init=True,
+            threshold_ema_dead_code=2,
+            quantize_dropout=True,
+            quantize_dropout_cutoff_index=quantize_dropout_cutoff_index,
+            stochastic_sample_codes=rq_stochastic_sample_codes,
+            rotation_trick=rq_rotation_trick,
+            kmeans_iters=10,
+        )
+
+    def forward(self, embedding, alignment, mel_lengths):
+        mel_mask = sequence_mask(mel_lengths, alignment.shape[2])
+        x, indices, cmt_loss = self.quantizer(embedding, mask=mel_mask)
         if self.training:
             return x, indices, cmt_loss.mean()
         else:

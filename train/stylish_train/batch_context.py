@@ -231,7 +231,7 @@ class BatchContext:
         print_gpu_vram("generator")
         return prediction
 
-    def track_codebook_metrics(self, codebook_size=1024, print_every=100):
+    def track_codebook_metrics(self, codebook_size=1024):
         """
         Tracks codebook usage stats.
 
@@ -239,6 +239,7 @@ class BatchContext:
             codebook_size (int): total number of codebook entries
             print_every (int): how often to print
         """
+        print_every = self.train.config.training.log_interval
         self.codebook_indices = self.codebook_indices.cpu()
         flat_idx = self.codebook_indices.view(-1)
         total = flat_idx.numel()
@@ -259,7 +260,7 @@ class BatchContext:
 
         # Print
         if (
-            self.train.manifest.current_step >= 500
+            self.train.manifest.current_step >= print_every
             and self.train.manifest.current_step % print_every == 0
         ):
             print(f"\n--- Codebook Stats ---")
@@ -284,13 +285,20 @@ class BatchContext:
             batch.audio_gt,
             batch.alignment.shape[-1],
         )
-        self.phones_prediction, self.codebook_indices, self.cmt_loss = (
+        """self.phones_prediction, self.codebook_indices, self.cmt_loss = (
             self.model.cvpl_bert(
                 batch.text,
                 batch.text_length,
                 batch.mel_length // 2,
                 batch.alignment,
                 global_step=self.train.manifest.current_step,
+            )
+        )"""
+        self.phones_prediction, self.codebook_indices, self.cmt_loss = (
+            self.model.cvpl_bert(
+                self.phones,
+                batch.alignment,
+                batch.mel_length // 2,
             )
         )
         self.track_codebook_metrics()
