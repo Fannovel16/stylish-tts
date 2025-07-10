@@ -99,7 +99,7 @@ class CVPLBERT(nn.Module):
         hubert_dim,
         hidden_dim,
         text_encoder_config,
-        codebook_size=64,
+        codebook_size=128,
         rq_num_quantizers=4,
         rq_commitment_weight=1.0,
         rq_ema_decay=0.95,
