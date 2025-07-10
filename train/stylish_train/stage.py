@@ -190,7 +190,7 @@ stages = {
         train_fn=train_pre_cvpl_bert,
         validate_fn=validate_pre_cvpl_bert,
         train_models=["cvpl_bert"],
-        eval_models=[],
+        eval_models=["hubert_quantizer"],
         discriminators=[],
         inputs=[
             "text",
