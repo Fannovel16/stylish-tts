@@ -205,7 +205,7 @@ def train_pre_hubert_quantizer(
                 dim=-1,
             ).mean(),
         )"""
-        log.add_loss("hubert_distil_commit", state.cmt_loss)
+        log.add_loss("hubert_distil_commit", state.cmt_loss.mean())
         train.accelerator.backward(
             log.backwards_loss() * math.sqrt(batch.text.shape[0])
         )
