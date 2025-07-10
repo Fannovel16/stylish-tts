@@ -107,7 +107,7 @@ class CVPLBERT(nn.Module):
         self.refiner = Conformer(
             hidden_dim,
             depth=4,
-            head=8,
+            heads=8,
             dim_head=hidden_dim // 8,
             ff_mult=2,
             conv_expansion_factor=2,
