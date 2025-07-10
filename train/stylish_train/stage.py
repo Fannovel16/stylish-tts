@@ -166,11 +166,11 @@ stages = {
             "alignment",
         ],
     ),
-    "pre_cvpl_bert": StageConfig(
+    "pre_hubert_quantizer": StageConfig(
         next_stage=None,
         train_fn=train_pre_hubert_quantizer,
         validate_fn=validate_pre_hubert_quantizer,
-        train_models=["cvpl_bert"],
+        train_models=["hubert_quantizer"],
         eval_models=[],
         discriminators=[],
         inputs=[
