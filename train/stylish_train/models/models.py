@@ -145,7 +145,8 @@ def build_model(model_config: ModelConfig):
             spectral_config.text_encoder,
         ),
         hubert_quantizer=ResidualVQ(
-            dim=model_config.hubert.hidden_dim, **model_config.hubert_quantizer
+            dim=model_config.hubert.hidden_dim,
+            **model_config.hubert_quantizer.model_dump()
         ),
     )
 
