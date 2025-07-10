@@ -126,7 +126,7 @@ def build_model(model_config: ModelConfig):
     )
     # Satisfy the optimizer as RVQ uses EMA instead of gradient descent
     hubert_quantizer.register_parameter("unused", nn.Parameter())
-
+    spectral_config.text_encoder.hidden_dim = 768
     nets = Munch(
         text_acoustic_extractor=text_acoustic_extractor,
         text_duration_extractor=text_duration_extractor,
@@ -142,7 +142,7 @@ def build_model(model_config: ModelConfig):
         hubert_spectral_extractor=hubert_spectral_extractor,
         cvpl_bert=CVPLBERT(
             model_config.tokens,
-            512,
+            768,
             model_config.hubert_quantizer.codebook_size,
             model_config.hubert_quantizer.num_quantizers,
             spectral_config.text_encoder,

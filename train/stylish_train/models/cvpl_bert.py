@@ -104,8 +104,9 @@ class CVPLBERT(nn.Module):
     ):
         super().__init__()
         self.text_encoder = TextEncoder(tokens, hidden_dim, text_encoder_config)
+        self.pre_proj = nn.Linear(hidden_dim, hidden_dim // 2)
         self.refiner = Conformer(
-            hidden_dim,
+            hidden_dim // 2,
             depth=4,
             heads=8,
             dim_head=hidden_dim // 8,
@@ -116,9 +117,9 @@ class CVPLBERT(nn.Module):
         self.heads = nn.ModuleList(
             [
                 nn.Sequential(
-                    nn.Linear(hidden_dim, hidden_dim // 2),
+                    nn.Linear(hidden_dim // 2, hidden_dim // 4),
                     nn.ReLU(),
-                    nn.Linear(hidden_dim // 2, codebook_size),
+                    nn.Linear(hidden_dim // 4, codebook_size),
                 )
                 for _ in range(heads)
             ]
@@ -126,6 +127,7 @@ class CVPLBERT(nn.Module):
 
     def forward(self, texts, text_lengths, mel_lengths, alignment):
         mel_mask = sequence_mask(mel_lengths, alignment.shape[2])
-        x, _, _ = self.text_encoder(texts, text_lengths)
+        x, _, _ = self.text_encoder(texts, text_lengths)  # NCT
+        x = self.pre_proj(x.transpose(-1, -2)).transpose(-1, -2)
         x = self.refiner((x @ alignment).transpose(-1, -2), mel_mask)
         return torch.cat([head(x) for head in self.heads], dim=-1)  # BxTx(HxC)
