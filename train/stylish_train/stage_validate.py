@@ -96,9 +96,9 @@ def validate_spectral(batch, train):
 
 
 @torch.no_grad()
-def validate_pre_cvpl_bert(batch, train):
+def validate_pre_hubert_quantizer(batch, train):
     state = BatchContext(train=train, model=train.model)
-    state.pre_cvpl_bert(batch)
+    state.pre_hubert_quantizer(batch)
     train.stage.optimizer.zero_grad()
     log = build_loss_log(train)
     log.add_loss(

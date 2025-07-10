@@ -16,7 +16,7 @@ from stage_train import (
     train_textual,
     train_spectral,
     train_textual_acoustic,
-    train_pre_cvpl_bert,
+    train_pre_hubert_quantizer,
 )
 
 from stage_validate import (
@@ -25,7 +25,7 @@ from stage_validate import (
     validate_textual,
     validate_spectral,
     validate_textual_acoustic,
-    validate_pre_cvpl_bert,
+    validate_pre_hubert_quantizer,
 )
 
 from optimizers import build_optimizer
@@ -168,10 +168,10 @@ stages = {
     ),
     "pre_cvpl_bert": StageConfig(
         next_stage=None,
-        train_fn=train_pre_cvpl_bert,
-        validate_fn=validate_pre_cvpl_bert,
-        train_models=[],
-        eval_models=["cvpl_bert"],
+        train_fn=train_pre_hubert_quantizer,
+        validate_fn=validate_pre_hubert_quantizer,
+        train_models=["cvpl_bert"],
+        eval_models=[],
         discriminators=[],
         inputs=[
             "text",

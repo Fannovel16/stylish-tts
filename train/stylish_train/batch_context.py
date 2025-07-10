@@ -7,7 +7,7 @@ import torchaudio
 from einops import rearrange, reduce
 import train_context
 from stylish_lib.config_loader import Config
-from utils import length_to_mask, log_norm, print_gpu_vram
+from utils import length_to_mask, log_norm, print_gpu_vram, sequence_mask
 
 
 class BatchContext:
@@ -28,7 +28,6 @@ class BatchContext:
         self.phones = None
         self.phones_prediction = None
         self.cmt_loss = None
-        self.codebook_indices = None
 
     def acoustic_energy(self, mels: torch.Tensor):
         with torch.no_grad():
@@ -231,15 +230,23 @@ class BatchContext:
         print_gpu_vram("generator")
         return prediction
 
-    def track_codebook_metrics(self, *args):
+    def train_hubert_quantizer(self, batch, hubert_embedding):
+        mel_mask = sequence_mask(batch.mel_length, batch.alignment.shape[2])
+        x, indices, cmt_loss = self.model.hubert_quantizer(
+            hubert_embedding, mask=mel_mask
+        )
+        return x, indices, cmt_loss
+
+    def track_codebook_metrics(self, batch, hubert_embedding):
         """
         Tracks codebook usage stats.
         """
-        codebook_size = self.model.cvpl_bert.codebook_size
-        print_every = self.train.config.training.log_interval
+        codebook_size = self.train.model_config.hubert_quantizer.codebook_size
         with torch.no_grad():
             self.model.cvpl_bert.eval()
-            _, codebook_indices, _ = self.model.cvpl_bert(*args)
+            _, codebook_indices, _ = self.train_hubert_quantizer(
+                batch, hubert_embedding
+            )
         self.model.cvpl_bert.train()
 
         codebook_indices = codebook_indices.cpu()
@@ -260,51 +267,36 @@ class BatchContext:
         # Dead entries
         dead_codes = codebook_size - num_used
 
-        # Print
-        if (
-            self.train.manifest.current_step >= print_every
-            and self.train.manifest.current_step % print_every == 0
-        ):
-            print(f"\n--- Codebook Stats ---")
-            print(f"Used Codes: {num_used}/{codebook_size} ({usage_ratio:.2%})")
-            print(f"Dead Codes: {dead_codes}")
+        print(f"\n--- Codebook Stats ---")
+        print(f"Used Codes: {num_used}/{codebook_size} ({usage_ratio:.2%})")
+        print(f"Dead Codes: {dead_codes}")
+        print(
+            f"Entropy: {entropy.item():.4f} / {max_entropy.item():.4f} ({entropy_ratio.item():.2%})"
+        )
+        print("-" * 40)
+
+        # Top-used codes
+        topk = min(10, len(counts))
+        top_counts, top_ids = counts.topk(topk)
+        print("Top Used Codes:")
+        for i in range(topk):
             print(
-                f"Entropy: {entropy.item():.4f} / {max_entropy.item():.4f} ({entropy_ratio.item():.2%})"
+                f"  Code {unique_codes[top_ids[i]].item():4d}: {top_counts[i].item()}"
             )
-            print("-" * 40)
 
-            # Top-used codes
-            topk = min(10, len(counts))
-            top_counts, top_ids = counts.topk(topk)
-            print("Top Used Codes:")
-            for i in range(topk):
-                print(
-                    f"  Code {unique_codes[top_ids[i]].item():4d}: {top_counts[i].item()}"
-                )
-
-    def pre_cvpl_bert(self, batch):
+    def pre_hubert_quantizer(self, batch):
         self.phones = self.train.hubert(
             batch.audio_gt,
             batch.alignment.shape[-1],
         )
-        """self.phones_prediction, self.codebook_indices, self.cmt_loss = (
-            self.model.cvpl_bert(
-                batch.text,
-                batch.text_length,
-                batch.mel_length // 2,
-                batch.alignment,
-                global_step=self.train.manifest.current_step,
-            )
-        )"""
-        self.phones_prediction, self.codebook_indices, self.cmt_loss = (
-            self.model.cvpl_bert(
-                self.phones,
-                batch.alignment,
-                batch.mel_length // 2,
-            )
+        self.phones_prediction, _, self.cmt_loss = self.train_hubert_quantizer(
+            batch, self.phones
         )
-        self.track_codebook_metrics(
-            self.phones,
-            batch.alignment,
-            batch.mel_length // 2,
-        )
+        global_step = self.train.manifest.current_step
+        print_every = self.train.config.training.log_interval
+
+        if (
+            global_step >= print_every
+            and self.train.manifest.current_step % print_every == 0
+        ):
+            self.track_codebook_metrics(batch, self.phones)

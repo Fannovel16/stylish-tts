@@ -72,6 +72,10 @@ class TrainingPlanConfig(BaseModel):
         default_factory=TrainingStageConfig,
         description="Configuration for training of textual acoustic models stage.",
     )
+    pre_hubert_quantizer: TrainingStageConfig = Field(
+        default_factory=TrainingStageConfig,
+        description="Configuration for pretraining stage of HuBERT Residual VQ Stage.",
+    )
     pre_cvpl_bert: TrainingStageConfig = Field(
         default_factory=TrainingStageConfig,
         description="Configuration for training of CVPL-BERT pretraining stage.",
@@ -287,6 +291,37 @@ class HubertConfig(BaseModel):
     sr: int = Field(..., description="Sampling rate used by HuBERT.")
 
 
+class HubertQuantizer(BaseModel):
+    num_quantizers: int = (Field(..., default=4, description="Number of codebooks."),)
+    codebook_size: int = (Field(..., default=256, description="Size of a codebook."),)
+    kmeans_init: bool = (
+        Field(..., default=True, description="Initialization with k-means clustering."),
+    )
+    kmeans_iters: int = (
+        Field(..., default=10, description="Iteration of k-means clustering."),
+    )
+    decay: float = (Field(..., default=0.8, description="EMA decay."),)
+    commitment_weight: float = (
+        Field(..., default=1.0, description="Commitment weight."),
+    )
+    quantize_dropout: bool = (Field(..., default=True, description="Enable dropout."),)
+    quantize_dropout_cutoff_index: int = (
+        Field(
+            ...,
+            default=1,
+            description="Specify which position (0-based) to start randomly dropout.",
+        ),
+    )
+    threshold_ema_dead_code: int = (
+        Field(
+            ...,
+            default=2,
+            description="Should actively replace any codes having EMA cluster size less than.",
+        ),
+    )
+    rotation_trick: bool = (Field(..., default=True, description="Rotation trick."),)
+
+
 class Config(BaseModel):
     """
     Top-level configuration model that encompasses all settings.
@@ -352,6 +387,11 @@ class ModelConfig(BaseModel):
         ..., description="Speech Language Model (SLM) configuration parameters."
     )
     hubert: HubertConfig = Field(..., description="HuBERT configuration parameters.")
+    hubert_quantizer: HubertQuantizer = Field(
+        ...,
+        default_factory=HubertQuantizer,
+        description="HuBERT Residual VQ parameters.",
+    )
     symbol: SymbolConfig = Field(..., description="Text processing symbols.")
 
     def state_dict(self) -> dict:

@@ -17,6 +17,7 @@ from .decoder import Decoder
 from .ringformer import RingformerGenerator
 import torch.nn as nn
 from .cvpl_bert import CVPLBERT
+from vector_quantize_pytorch import ResidualVQ
 
 from munch import Munch
 
@@ -146,6 +147,9 @@ def build_model(model_config: ModelConfig):
             model_config.hubert.hidden_dim,
             model_config.hubert.hidden_dim // 2,
             spectral_config.text_encoder,
+        ),
+        hubert_quantizer=ResidualVQ(
+            dim=model_config.hubert.hidden_dim, **model_config.hubert_quantizer
         ),
     )
 
