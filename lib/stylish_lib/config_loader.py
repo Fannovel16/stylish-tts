@@ -292,34 +292,28 @@ class HubertConfig(BaseModel):
 
 
 class HubertQuantizer(BaseModel):
-    num_quantizers: int = (Field(..., default=4, description="Number of codebooks."),)
-    codebook_size: int = (Field(..., default=256, description="Size of a codebook."),)
-    kmeans_init: bool = (
-        Field(..., default=True, description="Initialization with k-means clustering."),
+    num_quantizers: int = Field(..., default=4, description="Number of codebooks.")
+    codebook_size: int = Field(..., default=256, description="Size of a codebook.")
+    kmeans_init: bool = Field(
+        ..., default=True, description="Initialization with k-means clustering."
     )
-    kmeans_iters: int = (
-        Field(..., default=10, description="Iteration of k-means clustering."),
+    kmeans_iters: int = Field(
+        ..., default=10, description="Iteration of k-means clustering."
     )
-    decay: float = (Field(..., default=0.8, description="EMA decay."),)
-    commitment_weight: float = (
-        Field(..., default=1.0, description="Commitment weight."),
+    decay: float = Field(..., default=0.8, description="EMA decay.")
+    commitment_weight: float = Field(..., default=1.0, description="Commitment weight.")
+    quantize_dropout: bool = Field(..., default=True, description="Enable dropout.")
+    quantize_dropout_cutoff_index: int = Field(
+        ...,
+        default=1,
+        description="Specify which position (0-based) to start randomly dropout.",
     )
-    quantize_dropout: bool = (Field(..., default=True, description="Enable dropout."),)
-    quantize_dropout_cutoff_index: int = (
-        Field(
-            ...,
-            default=1,
-            description="Specify which position (0-based) to start randomly dropout.",
-        ),
+    threshold_ema_dead_code: int = Field(
+        ...,
+        default=2,
+        description="Should actively replace any codes having EMA cluster size less than.",
     )
-    threshold_ema_dead_code: int = (
-        Field(
-            ...,
-            default=2,
-            description="Should actively replace any codes having EMA cluster size less than.",
-        ),
-    )
-    rotation_trick: bool = (Field(..., default=True, description="Rotation trick."),)
+    rotation_trick: bool = Field(..., default=True, description="Rotation trick.")
 
 
 class Config(BaseModel):
