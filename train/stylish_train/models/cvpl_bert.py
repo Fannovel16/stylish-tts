@@ -128,6 +128,6 @@ class CVPLBERT(nn.Module):
 
     def forward(self, texts, text_lengths, mel_lengths, alignment):
         mel_mask = sequence_mask(mel_lengths, alignment.shape[2])
-        x = self.text_encoder(texts)
+        x = self.text_encoder(texts).transpose(-1, -2)
         x = self.refiner((x @ alignment).transpose(-1, -2), mel_mask)
         return torch.cat([head(x) for head in self.heads], dim=-1)  # BxTx(HxC)
