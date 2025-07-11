@@ -127,8 +127,11 @@ def build_model(model_config: ModelConfig):
     ), "codebook_size must be divisible by hubert.hidden_dim"
     hubert_quantizer = ResidualVQ(
         dim=model_config.hubert.hidden_dim,
-        codebook_dim=model_config.hubert.hidden_dim
-        // model_config.hubert_quantizer.codebook_size,  # Prevent inner projection to maximize reconstruction
+        # Prevent inner projection to maximize reconstruction
+        codebook_dim=(
+            model_config.hubert.hidden_dim
+            // model_config.hubert_quantizer.codebook_size
+        ),
         **model_config.hubert_quantizer.model_dump()
     )
     # Satisfy the optimizer as RVQ uses EMA instead of gradient descent
