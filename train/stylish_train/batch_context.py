@@ -290,24 +290,15 @@ class BatchContext:
         )
         global_step = self.train.manifest.current_step
         print_every = self.train.config.training.log_interval
-        num = (
-            global_step
-            + (self.train.manifest.current_epoch - 1)
-            * self.train.manifest.steps_per_epoch
-        )
-        val_step = self.train.config.training.val_interval
-        do_val = (
-            num % val_step == 0
-            or self.train.manifest.current_epoch > self.train.stage.max_epoch
-        )
-        if do_val or (global_step >= print_every and global_step % print_every == 0):
+        in_val = not torch.is_grad_enabled()
+        if in_val or (global_step >= print_every and global_step % print_every == 0):
             with torch.no_grad():
                 self.model.hubert_quantizer.eval()
                 self.phones_prediction, codebook_indices, _ = self.quantize_hubert(
                     batch, self.phones
                 )
-                if not do_val:
-                    self.track_codebook_metrics(codebook_indices)
+            if not in_val:
+                self.track_codebook_metrics(codebook_indices)
             self.model.hubert_quantizer.train()
 
     def pre_vq_indexer(self, batch):
