@@ -122,17 +122,26 @@ def validate_pre_cvpl_bert(batch, train):
     state = BatchContext(train=train, model=train.model)
     state.pre_cvpl_bert(batch)
     train.stage.optimizer.zero_grad()
+    state.phones_prediction = state.text_to_hubert(batch)
     log = build_loss_log(train)
     log.add_loss(
         "hubert_code_ce", F.cross_entropy(state.logits_prediction, state.logits_gt)
     )
-
     log.add_loss(
         "hubert_distil_l1",
         F.smooth_l1_loss(
-            state.text_to_hubert(batch),
+            state.phones_prediction,
             state.phones,
             beta=0.5,
         ),
+    )
+    log.add_loss(
+        "hubert_distil_cos_dist",
+        1
+        - F.cosine_similarity(
+            state.phones_prediction,
+            state.phones,
+            dim=-1,
+        ).mean(),
     )
     return log, None, None, None
