@@ -281,7 +281,6 @@ class BatchContext:
             )
 
     def pre_hubert_quantizer(self, batch):
-        self.model.hubert_quantizer.train()
         self.phones = self.train.hubert(
             batch.audio_gt,
             batch.alignment.shape[-1],
@@ -301,16 +300,15 @@ class BatchContext:
             num % val_step == 0
             or self.train.manifest.current_epoch > self.train.stage.max_epoch
         )
-        if not do_val and global_step >= print_every and global_step % print_every == 0:
+        if do_val or (global_step >= print_every and global_step % print_every == 0):
             with torch.no_grad():
                 self.model.hubert_quantizer.eval()
                 self.phones_prediction, codebook_indices, _ = self.quantize_hubert(
                     batch, self.phones
                 )
-                self.track_codebook_metrics(codebook_indices)
+                if not do_val:
+                    self.track_codebook_metrics(codebook_indices)
             self.model.hubert_quantizer.train()
-        elif do_val:
-            self.model.hubert_quantizer.eval()
 
     def pre_vq_indexer(self, batch):
         self.phones = self.train.hubert(
