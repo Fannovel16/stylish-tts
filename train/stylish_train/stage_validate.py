@@ -130,7 +130,7 @@ def validate_pre_cvpl_bert(batch, train):
     log.add_loss(
         "hubert_distil_l1",
         F.smooth_l1_loss(
-            state.generate_hubert_from_logits(state.logits_prediction),
+            state.text_to_hubert(batch),
             state.phones,
             beta=0.5,
         ),

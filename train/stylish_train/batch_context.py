@@ -315,6 +315,9 @@ class BatchContext:
             h=self.train.model_config.hubert_quantizer.num_quantizers,
         )
 
-    def generate_hubert_from_logits(self, logits):
+    def text_to_hubert(self, batch):
+        logits = self.model.cvpl_bert(
+            batch.text, batch.text_length, batch.mel_length // 2, batch.alignment
+        )
         indices = logits.argmax(dim=-1)
         return self.model.hubert_quantizer.get_output_from_indices(indices)
