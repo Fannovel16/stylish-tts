@@ -196,15 +196,15 @@ def train_pre_hubert_quantizer(
             "hubert_distil_l1",
             F.smooth_l1_loss(state.phones_prediction, state.phones, beta=0.5),
         )
-        """log.add_loss(
-            "hubert_distil_cosine",
+        log.add_loss(
+            "hubert_distil_cos_dist",
             1
             - F.cosine_similarity(
                 F.normalize(state.phones_prediction, dim=-1),
                 F.normalize(state.phones, dim=-1),
                 dim=-1,
             ).mean(),
-        )"""
+        )
         log.add_loss("hubert_distil_commit", state.cmt_loss.mean())
         train.accelerator.backward(
             log.backwards_loss() * math.sqrt(batch.text.shape[0])
