@@ -93,6 +93,42 @@ from .text_encoder import TextEncoder
 """
 
 
+class CodePredictionHead(nn.Module):
+    def __init__(self, hidden_dim, codebook_size):
+        super().__init__()
+        self.pre_proj = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim // 2),
+            nn.LayerNorm(hidden_dim // 2),
+            Swish(),
+            nn.Dropout(0.1),
+            nn.Linear(hidden_dim // 2, hidden_dim // 4),
+            nn.LayerNorm(hidden_dim // 4),
+            Swish(),
+            nn.Dropout(0.1),
+        )
+        self.local_refiner = Conformer(
+            hidden_dim // 4,
+            depth=1,
+            heads=2,
+            dim_head=hidden_dim // 4 // 2,
+            ff_mult=4,
+            conv_expansion_factor=2,
+            conv_kernel_size=7,
+        )
+        self.post_proj = nn.Sequential(
+            nn.LayerNorm(hidden_dim // 4),
+            Swish(),
+            nn.Dropout(0.1),
+            nn.Linear(hidden_dim // 4, codebook_size),
+        )
+
+    def forward(self, x, mask):
+        x = self.pre_proj(x)
+        x = self.local_refiner(x, mask)
+        x = self.post_proj(x)
+        return x
+
+
 class CVPLBERT(nn.Module):
     def __init__(
         self,
@@ -111,23 +147,14 @@ class CVPLBERT(nn.Module):
             dim_head=hidden_dim // 4,
             ff_mult=4,
             conv_expansion_factor=2,
-            conv_kernel_size=9,
+            conv_kernel_size=31,
         )
         self.heads = nn.ModuleList(
-            [
-                nn.Sequential(
-                    nn.Linear(hidden_dim, hidden_dim // 2),
-                    Swish(),
-                    nn.Linear(hidden_dim // 2, hidden_dim // 4),
-                    Swish(),
-                    nn.Linear(hidden_dim // 4, codebook_size),
-                )
-                for _ in range(heads)
-            ]
+            [CodePredictionHead(hidden_dim, codebook_size) for _ in range(heads)]
         )
 
     def forward(self, texts, text_lengths, mel_lengths, alignment):
         mel_mask = sequence_mask(mel_lengths, alignment.shape[2])
         x = self.text_encoder(texts).transpose(-1, -2)
         x = self.refiner((x @ alignment).transpose(-1, -2), mel_mask)
-        return torch.cat([head(x) for head in self.heads], dim=-1)  # BxTx(HxC)
+        return torch.stack([head(x) for head in self.heads], dim=-2)  # BxTxHxC

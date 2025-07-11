@@ -311,8 +311,7 @@ class BatchContext:
             self.model.cvpl_bert(
                 batch.text, batch.text_length, batch.mel_length // 2, batch.alignment
             ),
-            "b t (h c) -> (b h) c t",
-            h=self.train.model_config.hubert_quantizer.num_quantizers,
+            "b t h c -> (b h) c t",
         )
 
     def text_to_hubert(self, batch):
