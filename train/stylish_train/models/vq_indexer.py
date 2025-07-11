@@ -43,6 +43,4 @@ class VQIndexer(nn.Module):
         mel_mask = sequence_mask(mel_lengths, alignment.shape[2])
         x = self.text_encoder(texts).transpose(-1, -2)
         x = self.refiner((x @ alignment).transpose(-1, -2), mel_mask)
-        return torch.stack(
-            [head(x, mel_mask) for head in self.heads], dim=-2
-        )  # BxTxHxC
+        return torch.stack([head(x) for head in self.heads], dim=-2)  # BxTxHxC
