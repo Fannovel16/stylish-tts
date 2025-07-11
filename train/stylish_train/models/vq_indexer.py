@@ -22,7 +22,7 @@ class VQIndexer(nn.Module):
             dim_head=hidden_dim // 4,
             ff_mult=4,
             conv_expansion_factor=2,
-            conv_kernel_size=7,
+            conv_kernel_size=31,
         )
         self.heads = nn.ModuleList(
             [
