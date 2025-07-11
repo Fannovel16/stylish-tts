@@ -281,6 +281,7 @@ class BatchContext:
             )
 
     def pre_hubert_quantizer(self, batch):
+        self.model.hubert_quantizer.train()
         self.phones = self.train.hubert(
             batch.audio_gt,
             batch.alignment.shape[-1],
@@ -308,6 +309,8 @@ class BatchContext:
                 )
                 self.track_codebook_metrics(codebook_indices)
             self.model.hubert_quantizer.train()
+        elif do_val:
+            self.model.hubert_quantizer.eval()
 
     def pre_vq_indexer(self, batch):
         self.phones = self.train.hubert(
