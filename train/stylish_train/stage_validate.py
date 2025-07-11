@@ -109,8 +109,8 @@ def validate_pre_hubert_quantizer(batch, train):
         "hubert_distil_cos_dist",
         1
         - F.cosine_similarity(
-            state.phones_prediction,
-            state.phones,
+            F.normalize(state.phones_prediction, dim=-1),
+            F.normalize(state.phones, dim=-1),
             dim=-1,
         ).mean(),
     )
@@ -139,8 +139,8 @@ def validate_pre_vq_indexer(batch, train):
         "hubert_distil_cos_dist",
         1
         - F.cosine_similarity(
-            state.phones_prediction,
-            state.phones,
+            F.normalize(state.phones_prediction, dim=-1),
+            F.normalize(state.phones, dim=-1),
             dim=-1,
         ).mean(),
     )
