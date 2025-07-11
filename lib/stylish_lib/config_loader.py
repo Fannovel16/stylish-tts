@@ -300,11 +300,11 @@ class HubertQuantizer(BaseModel):
     kmeans_iters: int = Field(
         default=10, description="Iteration of k-means clustering."
     )
-    decay: float = Field(default=0.8, description="EMA decay.")
-    commitment_weight: float = Field(
+    decay: float = Field(
         default=0.5,
-        description="Commitment weight, lower means the dictionary will change faster.",
+        description="EMA decay, lower means the dictionary will change faster.",
     )
+    commitment_weight: float = Field(default=1.0, description="Commitment weight.")
     quantize_dropout: bool = Field(default=True, description="Enable dropout.")
     quantize_dropout_cutoff_index: int = Field(
         default=1,
