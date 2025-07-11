@@ -76,9 +76,9 @@ class TrainingPlanConfig(BaseModel):
         default_factory=TrainingStageConfig,
         description="Configuration for pretraining stage of HuBERT Residual VQ.",
     )
-    pre_cvpl_bert: TrainingStageConfig = Field(
+    pre_vq_indexer: TrainingStageConfig = Field(
         default_factory=TrainingStageConfig,
-        description="Configuration for pretraining stage of CVPL-BERT.",
+        description="Configuration for pretraining stage of HuBERT Codebook Index Predictor.",
     )
 
     def get_stage(self, name: str) -> TrainingStageConfig:
@@ -308,7 +308,7 @@ class HubertQuantizer(BaseModel):
     quantize_dropout: bool = Field(default=True, description="Enable dropout.")
     quantize_dropout_cutoff_index: int = Field(
         default=1,
-        description="Specify which position (0-based) to start randomly dropout.",
+        description="Specify which position (0-based) of codebook to start randomly dropout.",
     )
     threshold_ema_dead_code: int = Field(
         default=2,

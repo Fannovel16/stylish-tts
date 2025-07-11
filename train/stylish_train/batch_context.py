@@ -52,7 +52,7 @@ class BatchContext:
         return prediction"""
 
     def acoustic_prediction_single(self, batch, use_random_mono=True):
-        phones = self.model.cvpl_bert(batch.text, batch.text_length, batch.alignment)
+        phones = self.model.vq_indexer(batch.text, batch.text_length, batch.alignment)
         acoustic_features, acoustic_styles = self.model.hubert_acoustic_extractor(
             phones, batch.mel_length // 2
         )
@@ -68,7 +68,7 @@ class BatchContext:
         return prediction
 
     def spectral_prediction_single(self, batch, use_random_mono=True):
-        phones = self.model.cvpl_bert(batch.text, batch.text_length, batch.alignment)
+        phones = self.model.vq_indexer(batch.text, batch.text_length, batch.alignment)
         acoustic_features, acoustic_styles = self.model.hubert_acoustic_extractor(
             phones, batch.mel_length // 2
         )
@@ -298,7 +298,7 @@ class BatchContext:
                 self.track_codebook_metrics(codebook_indices)
             self.model.hubert_quantizer.train()
 
-    def pre_cvpl_bert(self, batch):
+    def pre_vq_indexer(self, batch):
         self.phones = self.train.hubert(
             batch.audio_gt,
             batch.alignment.shape[-1],
@@ -308,14 +308,14 @@ class BatchContext:
             _, codebook_indices, _ = self.quantize_hubert(batch, self.phones)
             self.logits_gt = rearrange(codebook_indices, "b t h -> (b h) t")
         self.logits_prediction = rearrange(
-            self.model.cvpl_bert(
+            self.model.vq_indexer(
                 batch.text, batch.text_length, batch.mel_length // 2, batch.alignment
             ),
             "b t h c -> (b h) c t",
         )
 
     def text_to_hubert(self, batch):
-        logits = self.model.cvpl_bert(
+        logits = self.model.vq_indexer(
             batch.text, batch.text_length, batch.mel_length // 2, batch.alignment
         )
         indices = logits.argmax(dim=-1)

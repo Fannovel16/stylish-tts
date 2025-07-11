@@ -17,7 +17,7 @@ from stage_train import (
     train_spectral,
     train_textual_acoustic,
     train_pre_hubert_quantizer,
-    train_pre_cvpl_bert,
+    train_pre_vq_indexer,
 )
 
 from stage_validate import (
@@ -27,7 +27,7 @@ from stage_validate import (
     validate_spectral,
     validate_textual_acoustic,
     validate_pre_hubert_quantizer,
-    validate_pre_cvpl_bert,
+    validate_pre_vq_indexer,
 )
 
 from optimizers import build_optimizer
@@ -81,7 +81,7 @@ stages = {
             "hubert_acoustic_extractor",
             "generator",
         ],
-        eval_models=["cvpl_bert"],
+        eval_models=["vq_indexer"],
         discriminators=["mpd", "mrd"],
         inputs=[
             "text",
@@ -102,7 +102,7 @@ stages = {
             "pitch_energy_predictor",
         ],
         eval_models=[
-            "cvpl_bert",
+            "vq_indexer",
             "hubert_acoustic_extractor",
             "generator",
         ],
@@ -169,7 +169,7 @@ stages = {
         ],
     ),
     "pre_hubert_quantizer": StageConfig(
-        next_stage="pre_cvpl_bert",
+        next_stage="pre_vq_indexer",
         train_fn=train_pre_hubert_quantizer,
         validate_fn=validate_pre_hubert_quantizer,
         train_models=["hubert_quantizer"],
@@ -185,11 +185,11 @@ stages = {
             "alignment",
         ],
     ),
-    "pre_cvpl_bert": StageConfig(
+    "pre_vq_indexer": StageConfig(
         next_stage=None,
-        train_fn=train_pre_cvpl_bert,
-        validate_fn=validate_pre_cvpl_bert,
-        train_models=["cvpl_bert"],
+        train_fn=train_pre_vq_indexer,
+        validate_fn=validate_pre_vq_indexer,
+        train_models=["vq_indexer"],
         eval_models=["hubert_quantizer"],
         discriminators=[],
         inputs=[

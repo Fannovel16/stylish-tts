@@ -16,7 +16,7 @@ from .feature_extractor import TextFeatureExtractor, HubertFeatureExtractor, Tex
 from .decoder import Decoder
 from .ringformer import RingformerGenerator
 import torch.nn as nn
-from .cvpl_bert import CVPLBERT
+from .vq_indexer import VQIndexer
 from vector_quantize_pytorch import ResidualVQ
 
 from munch import Munch
@@ -150,7 +150,7 @@ def build_model(model_config: ModelConfig):
         mrd=MultiResolutionDiscriminator(),
         hubert_acoustic_extractor=hubert_acoustic_extractor,
         hubert_spectral_extractor=hubert_spectral_extractor,
-        cvpl_bert=CVPLBERT(
+        vq_indexer=VQIndexer(
             model_config.tokens,
             512,
             model_config.hubert_quantizer.codebook_size,

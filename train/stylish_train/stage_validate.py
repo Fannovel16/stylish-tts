@@ -118,9 +118,9 @@ def validate_pre_hubert_quantizer(batch, train):
 
 
 @torch.no_grad()
-def validate_pre_cvpl_bert(batch, train):
+def validate_pre_vq_indexer(batch, train):
     state = BatchContext(train=train, model=train.model)
-    state.pre_cvpl_bert(batch)
+    state.pre_vq_indexer(batch)
     train.stage.optimizer.zero_grad()
     state.phones_prediction = state.text_to_hubert(batch)
     log = build_loss_log(train)
