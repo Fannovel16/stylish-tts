@@ -68,10 +68,6 @@ class TrainingPlanConfig(BaseModel):
         default_factory=TrainingStageConfig,
         description="Configuration for training of textual models stage.",
     )
-    textual_acoustic: TrainingStageConfig = Field(
-        default_factory=TrainingStageConfig,
-        description="Configuration for training of textual acoustic models stage.",
-    )
     pre_hubert_quantizer: TrainingStageConfig = Field(
         default_factory=TrainingStageConfig,
         description="Configuration for pretraining stage of HuBERT Residual VQ.",

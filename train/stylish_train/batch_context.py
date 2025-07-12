@@ -52,7 +52,7 @@ class BatchContext:
         return prediction"""
 
     def acoustic_prediction_single(self, batch, use_random_mono=True):
-        phones = self.model.vq_indexer(batch.text, batch.text_length, batch.alignment)
+        phones = self.text_to_hubert(batch)
         acoustic_features, acoustic_styles = self.model.hubert_acoustic_extractor(
             phones, batch.mel_length // 2
         )
@@ -68,7 +68,7 @@ class BatchContext:
         return prediction
 
     def spectral_prediction_single(self, batch, use_random_mono=True):
-        phones = self.model.vq_indexer(batch.text, batch.text_length, batch.alignment)
+        phones = self.text_to_hubert(batch)
         acoustic_features, acoustic_styles = self.model.hubert_acoustic_extractor(
             phones, batch.mel_length // 2
         )
@@ -170,48 +170,6 @@ class BatchContext:
         )
         spectral_features, spectral_styles = self.model.hubert_spectral_extractor(
             self.phones_prediction, batch.mel_length // 2
-        )
-
-        self.duration_prediction = self.model.duration_predictor(
-            duration_features,
-        )
-        self.pitch_prediction, self.energy_prediction = (
-            self.model.pitch_energy_predictor(
-                spectral_features.transpose(-1, -2),
-                spectral_styles,
-            )
-        )
-        prediction = self.model.generator(
-            acoustic_features,
-            acoustic_styles,
-            self.pitch_prediction,
-            self.energy_prediction,
-        )
-        print_gpu_vram("generator")
-        return prediction
-
-    def textual_acoustic_prediction_single(self, batch):
-        self.phones = self.train.hubert(batch.audio_gt, batch.alignment.shape[-1])
-        spectral_phones, _, _ = self.model.text_hubert_distiller(
-            batch.text, batch.text_length
-        )
-        spectral_phones = spectral_phones @ batch.alignment
-        spectral_phones = spectral_phones.transpose(-1, -2)
-
-        self.phones_prediction, _, _ = self.model.text_acoustic_hubert_distiller(
-            batch.text, batch.text_length
-        )
-        self.phones_prediction = self.phones_prediction @ batch.alignment
-        self.phones_prediction = self.phones_prediction.transpose(-1, -2)
-
-        acoustic_features, acoustic_styles = self.model.hubert_acoustic_extractor(
-            self.phones_prediction, batch.mel_length // 2
-        )
-        duration_features, _ = self.model.text_duration_extractor(
-            batch.text, batch.text_length
-        )
-        spectral_features, spectral_styles = self.model.hubert_spectral_extractor(
-            spectral_phones, batch.mel_length // 2
         )
 
         self.duration_prediction = self.model.duration_predictor(
