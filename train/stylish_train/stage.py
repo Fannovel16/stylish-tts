@@ -189,8 +189,8 @@ stages = {
         next_stage=None,
         train_fn=train_pre_vq_indexer,
         validate_fn=validate_pre_vq_indexer,
-        train_models=["vq_indexer"],
-        eval_models=["hubert_quantizer", "bert"],
+        train_models=["vq_indexer", "bert"],
+        eval_models=["hubert_quantizer"],
         discriminators=[],
         inputs=[
             "text",
