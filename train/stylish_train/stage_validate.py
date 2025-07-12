@@ -104,7 +104,6 @@ def validate_pre_vq_indexer(batch, train):
     state = BatchContext(train=train, model=train.model)
     state.pre_vq_indexer(batch)
     train.stage.optimizer.zero_grad()
-    state.phones_prediction = state.text_to_hubert(batch)
     log = build_loss_log(train)
     log.add_loss(
         "hubert_code_ce", F.cross_entropy(state.logits_prediction, state.logits_gt)

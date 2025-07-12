@@ -52,7 +52,7 @@ class BatchContext:
         return prediction"""
 
     def acoustic_prediction_single(self, batch, use_random_mono=True):
-        phones = self.text_to_hubert(batch)
+        phones, _ = self.text_to_hubert(batch)
         acoustic_features, acoustic_styles = self.model.hubert_acoustic_extractor(
             phones, batch.mel_length // 2
         )
@@ -68,7 +68,7 @@ class BatchContext:
         return prediction
 
     def spectral_prediction_single(self, batch, use_random_mono=True):
-        phones = self.text_to_hubert(batch)
+        phones, _ = self.text_to_hubert(batch)
         acoustic_features, acoustic_styles = self.model.hubert_acoustic_extractor(
             phones, batch.mel_length // 2
         )
@@ -259,14 +259,17 @@ class BatchContext:
                 self.track_codebook_metrics(codebook_indices)
             self.model.hubert_quantizer.train()
 
-    def predict_vq_logits(self, batch):
+    def text_to_hubert(self, batch):
         bert_encoding = self.model.bert(
             batch.text,
             attention_mask=sequence_mask(batch.text_length, batch.text.shape[1]).long(),
         )
-        return self.model.vq_indexer(
+        logits = self.model.vq_indexer(
             bert_encoding, batch.text_length, batch.mel_length // 2, batch.alignment
         )
+        indices = logits.detach().argmax(dim=-1)
+        phones = self.model.hubert_quantizer.get_output_from_indices(indices)
+        return phones, logits
 
     def pre_vq_indexer(self, batch):
         self.phones = self.train.hubert(
@@ -277,12 +280,8 @@ class BatchContext:
             self.model.hubert_quantizer.eval()
             _, codebook_indices, _ = self.quantize_hubert(batch, self.phones)
             self.logits_gt = rearrange(codebook_indices, "b t h -> (b h) t")
+        self.phones_prediction, self.logits_prediction = self.text_to_hubert(batch)
         self.logits_prediction = rearrange(
-            self.predict_vq_logits(batch),
+            self.logits_prediction,
             "b t h c -> (b h) c t",
         )
-
-    def text_to_hubert(self, batch):
-        logits = self.predict_vq_logits(batch)
-        indices = logits.argmax(dim=-1)
-        return self.model.hubert_quantizer.get_output_from_indices(indices)
