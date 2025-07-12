@@ -9,6 +9,7 @@ class VQIndexer(nn.Module):
     def __init__(
         self,
         tokens,
+        plbert_dim,
         hidden_dim,
         codebook_size,
         heads,
@@ -16,7 +17,10 @@ class VQIndexer(nn.Module):
     ):
         super().__init__()
         # self.text_encoder = nn.Embedding(tokens, hidden_dim)
-        self.text_encoder = nn.Identity()
+        self.text_encoder = nn.Sequential(
+            nn.Linear(plbert_dim, hidden_dim),
+            Swish(),
+        )
         self.refiner = Conformer(
             hidden_dim,
             depth=4,

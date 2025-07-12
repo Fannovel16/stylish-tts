@@ -165,6 +165,7 @@ def build_model(model_config: ModelConfig):
         vq_indexer=VQIndexer(
             model_config.tokens,
             768,
+            512,
             model_config.hubert_quantizer.codebook_size,
             model_config.hubert_quantizer.num_quantizers,
             spectral_config.text_encoder,
