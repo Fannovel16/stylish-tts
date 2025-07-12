@@ -79,7 +79,7 @@ stages = {
             "hubert_acoustic_extractor",
             "generator",
         ],
-        eval_models=["vq_indexer", "bert"],
+        eval_models=["hubert_quantizer", "vq_indexer", "bert"],
         discriminators=["mpd", "mrd"],
         inputs=[
             "text",
@@ -100,6 +100,7 @@ stages = {
             "pitch_energy_predictor",
         ],
         eval_models=[
+            "hubert_quantizer",
             "vq_indexer",
             "bert",
             "hubert_acoustic_extractor",
