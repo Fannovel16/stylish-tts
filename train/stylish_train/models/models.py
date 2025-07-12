@@ -18,6 +18,9 @@ from .ringformer import RingformerGenerator
 import torch.nn as nn
 from .vq_indexer import VQIndexer
 from vector_quantize_pytorch import ResidualVQ
+import safetensors
+from huggingface_hub import hf_hub_download
+from .plbert import PLBERT
 
 from munch import Munch
 
@@ -134,6 +137,16 @@ def build_model(model_config: ModelConfig):
         ),
         **model_config.hubert_quantizer.model_dump()
     )
+
+    bert = PLBERT(
+        vocab_size=model_config.tokens,
+        hidden_size=768,
+        num_attention_heads=12,
+        intermediate_size=2048,
+        max_position_embeddings=512,
+        num_hidden_layers=12,
+        dropout=0.1,
+    )
     # Satisfy the optimizer as RVQ uses EMA instead of gradient descent
     hubert_quantizer.register_parameter("unused", nn.Parameter())
     nets = Munch(
@@ -151,12 +164,21 @@ def build_model(model_config: ModelConfig):
         hubert_spectral_extractor=hubert_spectral_extractor,
         vq_indexer=VQIndexer(
             model_config.tokens,
-            512,
+            768,
             model_config.hubert_quantizer.codebook_size,
             model_config.hubert_quantizer.num_quantizers,
             spectral_config.text_encoder,
         ),
         hubert_quantizer=hubert_quantizer,
+        bert=bert,
     )
 
     return nets
+
+
+def load_defaults(train, model):
+    with train.accelerator.main_process_first():
+        params = safetensors.torch.load_file(
+            hf_hub_download(repo_id="stylish-tts/plbert", filename="plbert.safetensors")
+        )
+        model.bert.load_state_dict(params, strict=False)

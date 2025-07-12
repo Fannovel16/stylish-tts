@@ -15,7 +15,8 @@ class VQIndexer(nn.Module):
         text_encoder_config,
     ):
         super().__init__()
-        self.text_encoder = nn.Embedding(tokens, hidden_dim)
+        # self.text_encoder = nn.Embedding(tokens, hidden_dim)
+        self.text_encoder = nn.Identity()
         self.refiner = Conformer(
             hidden_dim,
             depth=4,
