@@ -23,7 +23,7 @@ class VQIndexer(nn.Module):
         )
         self.refiner = Conformer(
             hidden_dim,
-            depth=4,
+            depth=8,
             heads=4,
             dim_head=hidden_dim // 4,
             ff_mult=4,
