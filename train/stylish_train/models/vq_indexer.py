@@ -35,9 +35,14 @@ class VQIndexer(nn.Module):
                 nn.Sequential(
                     nn.Linear(hidden_dim, hidden_dim // 2),
                     Swish(),
+                    nn.Dropout(0.1),
                     nn.Linear(hidden_dim // 2, hidden_dim // 4),
                     Swish(),
-                    nn.Linear(hidden_dim // 4, codebook_size),
+                    nn.Dropout(0.1),
+                    nn.Linear(hidden_dim // 4, hidden_dim // 8),
+                    Swish(),
+                    nn.Dropout(0.1),
+                    nn.Linear(hidden_dim // 8, codebook_size),
                 )
                 for _ in range(heads)
             ]
