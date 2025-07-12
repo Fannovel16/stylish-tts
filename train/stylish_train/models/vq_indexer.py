@@ -10,11 +10,9 @@ class CodePredictionHead(nn.Module):
         super().__init__()
         self.pre_proj = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim // 2),
-            nn.LayerNorm(hidden_dim // 2),
             Swish(),
             nn.Dropout(0.1),
             nn.Linear(hidden_dim // 2, hidden_dim // 4),
-            nn.LayerNorm(hidden_dim // 4),
             Swish(),
             nn.Dropout(0.1),
         )
@@ -28,7 +26,6 @@ class CodePredictionHead(nn.Module):
             conv_kernel_size=31,
         )
         self.post_proj = nn.Sequential(
-            nn.LayerNorm(hidden_dim // 4),
             Swish(),
             nn.Dropout(0.1),
             nn.Linear(hidden_dim // 4, codebook_size),
@@ -56,8 +53,8 @@ class VQIndexer(nn.Module):
         self.refiner = Conformer(
             hidden_dim,
             depth=4,
-            heads=4,
-            dim_head=hidden_dim // 4,
+            heads=8,
+            dim_head=hidden_dim // 8,
             ff_mult=4,
             conv_expansion_factor=2,
             conv_kernel_size=31,
