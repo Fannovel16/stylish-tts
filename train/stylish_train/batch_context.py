@@ -264,14 +264,14 @@ class BatchContext:
             batch.text,
             attention_mask=sequence_mask(batch.text_length, batch.text.shape[1]).long(),
         )
-        logits = self.model.vq_indexer(
+        logits = self.model.hubert_code_predictor(
             bert_encoding, batch.text_length, batch.mel_length // 2, batch.alignment
         )
         indices = logits.detach().argmax(dim=-1)
         phones = self.model.hubert_quantizer.get_output_from_indices(indices)
         return phones, logits
 
-    def pre_vq_indexer(self, batch):
+    def pre_hubert_code_predictor(self, batch):
         self.phones = self.train.hubert(
             batch.audio_gt,
             batch.alignment.shape[-1],

@@ -100,9 +100,9 @@ def validate_pre_hubert_quantizer(batch, train):
 
 
 @torch.no_grad()
-def validate_pre_vq_indexer(batch, train):
+def validate_pre_hubert_code_predictor(batch, train):
     state = BatchContext(train=train, model=train.model)
-    state.pre_vq_indexer(batch)
+    state.pre_hubert_code_predictor(batch)
     train.stage.optimizer.zero_grad()
     log = build_loss_log(train)
     log.add_loss(

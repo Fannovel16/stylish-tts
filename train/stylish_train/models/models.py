@@ -16,7 +16,7 @@ from .feature_extractor import TextFeatureExtractor, HubertFeatureExtractor, Tex
 from .decoder import Decoder
 from .ringformer import RingformerGenerator
 import torch.nn as nn
-from .vq_indexer import VQIndexer
+from .code_predictor import CodePredictor
 from vector_quantize_pytorch import ResidualVQ
 import safetensors
 from huggingface_hub import hf_hub_download
@@ -162,10 +162,8 @@ def build_model(model_config: ModelConfig):
         mrd=MultiResolutionDiscriminator(),
         hubert_acoustic_extractor=hubert_acoustic_extractor,
         hubert_spectral_extractor=hubert_spectral_extractor,
-        vq_indexer=VQIndexer(
+        hubert_code_predictor=CodePredictor(
             model_config.tokens,
-            768,
-            512,
             model_config.hubert_quantizer.codebook_size,
             model_config.hubert_quantizer.num_quantizers,
             spectral_config.text_encoder,

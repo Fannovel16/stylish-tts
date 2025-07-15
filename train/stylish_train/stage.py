@@ -16,7 +16,7 @@ from stage_train import (
     train_textual,
     train_spectral,
     train_pre_hubert_quantizer,
-    train_pre_vq_indexer,
+    train_pre_hubert_code_predictor,
 )
 
 from stage_validate import (
@@ -25,7 +25,7 @@ from stage_validate import (
     validate_textual,
     validate_spectral,
     validate_pre_hubert_quantizer,
-    validate_pre_vq_indexer,
+    validate_pre_hubert_code_predictor,
 )
 
 from optimizers import build_optimizer
@@ -79,7 +79,7 @@ stages = {
             "hubert_acoustic_extractor",
             "generator",
         ],
-        eval_models=["hubert_quantizer", "vq_indexer", "bert"],
+        eval_models=["hubert_quantizer", "hubert_code_predictor", "bert"],
         discriminators=["mpd", "mrd"],
         inputs=[
             "text",
@@ -101,7 +101,7 @@ stages = {
         ],
         eval_models=[
             "hubert_quantizer",
-            "vq_indexer",
+            "hubert_code_predictor",
             "bert",
             "hubert_acoustic_extractor",
             "generator",
@@ -144,7 +144,7 @@ stages = {
         ],
     ),
     "pre_hubert_quantizer": StageConfig(
-        next_stage="pre_vq_indexer",
+        next_stage="pre_hubert_code_predictor",
         train_fn=train_pre_hubert_quantizer,
         validate_fn=validate_pre_hubert_quantizer,
         train_models=["hubert_quantizer"],
@@ -160,11 +160,11 @@ stages = {
             "alignment",
         ],
     ),
-    "pre_vq_indexer": StageConfig(
+    "pre_hubert_code_predictor": StageConfig(
         next_stage=None,
-        train_fn=train_pre_vq_indexer,
-        validate_fn=validate_pre_vq_indexer,
-        train_models=["vq_indexer", "bert"],
+        train_fn=train_pre_hubert_code_predictor,
+        validate_fn=validate_pre_hubert_code_predictor,
+        train_models=["hubert_code_predictor", "bert"],
         eval_models=["hubert_quantizer"],
         discriminators=[],
         inputs=[

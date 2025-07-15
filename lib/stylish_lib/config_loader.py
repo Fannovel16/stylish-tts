@@ -72,7 +72,7 @@ class TrainingPlanConfig(BaseModel):
         default_factory=TrainingStageConfig,
         description="Configuration for pretraining stage of HuBERT Residual VQ.",
     )
-    pre_vq_indexer: TrainingStageConfig = Field(
+    pre_hubert_code_predictor: TrainingStageConfig = Field(
         default_factory=TrainingStageConfig,
         description="Configuration for pretraining stage of HuBERT Codebook Index Predictor.",
     )
@@ -289,7 +289,7 @@ class HubertConfig(BaseModel):
 
 class HubertQuantizer(BaseModel):
     num_quantizers: int = Field(default=4, description="Number of codebooks.")
-    codebook_size: int = Field(default=32, description="Number of rows in a codebook.")
+    codebook_size: int = Field(default=64, description="Number of rows in a codebook.")
     kmeans_init: bool = Field(
         default=True, description="Initialization with k-means clustering."
     )
