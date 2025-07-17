@@ -25,7 +25,10 @@ class CodePredictor(nn.Module):
                     nn.Linear(hidden_dim // 2, hidden_dim // 4),
                     Swish(),
                     nn.Dropout(0.1),
-                    nn.Linear(hidden_dim // 4, codebook_size),
+                    nn.Linear(hidden_dim // 4, hidden_dim // 8),
+                    Swish(),
+                    nn.Dropout(0.1),
+                    nn.Linear(hidden_dim // 8, codebook_size),
                 )
                 for _ in range(heads)
             ]
