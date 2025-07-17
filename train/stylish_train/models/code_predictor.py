@@ -16,15 +16,6 @@ class CodePredictor(nn.Module):
         super().__init__()
         hidden_dim = 256
         self.text_encoder = TextEncoder(tokens, hidden_dim, text_encoder_config)
-        self.refiner = Conformer(
-            hidden_dim,
-            depth=4,
-            heads=4,
-            dim_head=hidden_dim // 4,
-            ff_mult=4,
-            conv_expansion_factor=2,
-            conv_kernel_size=31,
-        )
         self.heads = nn.ModuleList(
             [
                 nn.Sequential(
@@ -43,5 +34,5 @@ class CodePredictor(nn.Module):
     def forward(self, texts, text_lengths, mel_lengths, alignment):
         mel_mask = sequence_mask(mel_lengths, alignment.shape[2])
         x, _, _ = self.text_encoder(texts, text_lengths)
-        x = self.refiner((x @ alignment).transpose(-1, -2), mel_mask)
+        x = (x @ alignment).transpose(-1, -2)
         return torch.stack([head(x) for head in self.heads], dim=-2)  # BxTxHxC
