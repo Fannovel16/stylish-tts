@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
-from utils import length_to_mask
+from utils import sequence_mask
 from .plbert import PLBERT
+from .conformer import Conformer
 
 
 class CodePredictor(nn.Module):
@@ -24,26 +25,34 @@ class CodePredictor(nn.Module):
             dropout=0.1,
         )
         self.project = nn.Linear(768, hidden_dim)
+        self.refiner = Conformer(
+            dim=hidden_dim,
+            depth=4,
+            heads=4,
+            dim_head=hidden_dim // 4,
+        )
         self.heads = nn.ModuleList(
             [
                 nn.Sequential(
-                    nn.Linear(hidden_dim, hidden_dim // 4),
+                    nn.Linear(hidden_dim, hidden_dim // 2),
                     nn.GELU("tanh"),
                     nn.Dropout(0.1),
-                    nn.Linear(hidden_dim // 4, hidden_dim // 8),
+                    nn.Linear(hidden_dim // 2, hidden_dim // 4),
                     nn.GELU("tanh"),
                     nn.Dropout(0.1),
-                    nn.Linear(hidden_dim // 8, codebook_size),
+                    nn.Linear(hidden_dim // 4, codebook_size),
                 )
                 for _ in range(heads)
             ]
         )
 
     def forward(self, texts, text_lengths, mel_lengths, alignment):
+        text_mask = sequence_mask(text_lengths, alignment.shape[1])
+        mel_mask = sequence_mask(mel_lengths, alignment.shape[2])
         x = self.text_encoder(
             texts,
-            attention_mask=(~length_to_mask(text_lengths)).int(),
+            attention_mask=text_mask.int(),
         ).transpose(-1, -2)
         x = (x @ alignment).transpose(-1, -2)
-        x = self.project(x)
+        x = self.refiner(self.project(x), mel_mask)
         return torch.stack([head(x) for head in self.heads], dim=-2)  # BxTxHxC
