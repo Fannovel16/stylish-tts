@@ -23,6 +23,7 @@ class CodePredictor(nn.Module):
             num_hidden_layers=12,
             dropout=0.1,
         )
+        self.project = nn.Linear(768, hidden_dim)
         self.heads = nn.ModuleList(
             [
                 nn.Sequential(
@@ -47,4 +48,5 @@ class CodePredictor(nn.Module):
             attention_mask=(~length_to_mask(text_lengths)).int(),
         ).transpose(-1, -2)
         x = (x @ alignment).transpose(-1, -2)
+        x = self.project(x)
         return torch.stack([head(x) for head in self.heads], dim=-2)  # BxTxHxC
