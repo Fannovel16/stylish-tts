@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from utils import sequence_mask
 from .plbert import PLBERT
-from .conformer import Conformer
+from .conformer import Conformer, Swish
 
 
 class CodePredictor(nn.Module):
@@ -35,10 +35,10 @@ class CodePredictor(nn.Module):
             [
                 nn.Sequential(
                     nn.Linear(hidden_dim, hidden_dim // 2),
-                    nn.GELU("tanh"),
+                    Swish(),
                     nn.Dropout(0.1),
                     nn.Linear(hidden_dim // 2, hidden_dim // 4),
-                    nn.GELU("tanh"),
+                    Swish(),
                     nn.Dropout(0.1),
                     nn.Linear(hidden_dim // 4, codebook_size),
                 )
