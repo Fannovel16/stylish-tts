@@ -3,6 +3,7 @@ import torch.nn as nn
 from utils import sequence_mask
 from .plbert import PLBERT
 from .conformer import Conformer, Swish
+from .text_encoder import TextEncoder
 
 
 class CodePredictor(nn.Module):
@@ -15,7 +16,7 @@ class CodePredictor(nn.Module):
     ):
         super().__init__()
         hidden_dim = 256
-        self.text_encoder = PLBERT(
+        """self.text_encoder = PLBERT(
             vocab_size=tokens,
             hidden_size=768,
             num_attention_heads=12,
@@ -24,7 +25,9 @@ class CodePredictor(nn.Module):
             num_hidden_layers=12,
             dropout=0.1,
         )
-        self.project = nn.Linear(768, hidden_dim)
+        self.project = nn.Linear(768, hidden_dim)"""
+        self.text_encoder = TextEncoder(tokens, hidden_dim, text_encoder_config)
+        self.projection = nn.Linear(hidden_dim, hidden_dim)
         self.refiner = Conformer(
             dim=hidden_dim,
             depth=4,
@@ -52,7 +55,7 @@ class CodePredictor(nn.Module):
         x = self.text_encoder(
             texts,
             attention_mask=text_mask.int(),
-        ).transpose(-1, -2)
+        )  # .transpose(-1, -2)
         x = (x @ alignment).transpose(-1, -2)
         x = self.refiner(self.project(x), mel_mask)
         return torch.stack([head(x) for head in self.heads], dim=-2)  # BxTxHxC
