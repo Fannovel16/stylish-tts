@@ -27,10 +27,7 @@ class CodePredictor(nn.Module):
         self.heads = nn.ModuleList(
             [
                 nn.Sequential(
-                    nn.Linear(hidden_dim, hidden_dim // 2),
-                    nn.GELU("tanh"),
-                    nn.Dropout(0.1),
-                    nn.Linear(hidden_dim // 2, hidden_dim // 4),
+                    nn.Linear(hidden_dim, hidden_dim // 4),
                     nn.GELU("tanh"),
                     nn.Dropout(0.1),
                     nn.Linear(hidden_dim // 4, hidden_dim // 8),
