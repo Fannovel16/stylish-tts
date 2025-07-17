@@ -52,10 +52,11 @@ class CodePredictor(nn.Module):
     def forward(self, texts, text_lengths, mel_lengths, alignment):
         text_mask = sequence_mask(text_lengths, alignment.shape[1])
         mel_mask = sequence_mask(mel_lengths, alignment.shape[2])
-        x = self.text_encoder(
+        """x = self.text_encoder(
             texts,
             attention_mask=text_mask.int(),
-        )  # .transpose(-1, -2)
+        ).transpose(-1, -2)"""
+        x = self.text_encoder(texts, text_lengths)
         x = (x @ alignment).transpose(-1, -2)
         x = self.refiner(self.project(x), mel_mask)
         return torch.stack([head(x) for head in self.heads], dim=-2)  # BxTxHxC
