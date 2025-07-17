@@ -267,7 +267,7 @@ class BatchContext:
         phones = self.model.hubert_quantizer.get_output_from_indices(indices)
         return phones, logits
 
-    def pre_hubert_code_predictor(self, batch):
+    def pre_code_predictor(self, batch):
         self.phones = self.train.hubert(
             batch.audio_gt,
             batch.alignment.shape[-1],

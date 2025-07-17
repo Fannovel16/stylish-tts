@@ -72,7 +72,7 @@ class TrainingPlanConfig(BaseModel):
         default_factory=TrainingStageConfig,
         description="Configuration for pretraining stage of HuBERT Residual VQ.",
     )
-    pre_hubert_code_predictor: TrainingStageConfig = Field(
+    pre_code_predictor: TrainingStageConfig = Field(
         default_factory=TrainingStageConfig,
         description="Configuration for pretraining stage of HuBERT Codebook Index Predictor.",
     )

@@ -1,8 +1,7 @@
 import torch
 import torch.nn as nn
-from utils import sequence_mask
-from .conformer import Conformer, Swish
-from .text_encoder import TextEncoder
+from utils import length_to_mask
+from .plbert import PLBERT
 
 
 class CodePredictor(nn.Module):
@@ -15,18 +14,26 @@ class CodePredictor(nn.Module):
     ):
         super().__init__()
         hidden_dim = 256
-        self.text_encoder = TextEncoder(tokens, hidden_dim, text_encoder_config)
+        self.text_encoder = PLBERT(
+            vocab_size=tokens,
+            hidden_size=768,
+            num_attention_heads=12,
+            intermediate_size=2048,
+            max_position_embeddings=512,
+            num_hidden_layers=12,
+            dropout=0.1,
+        )
         self.heads = nn.ModuleList(
             [
                 nn.Sequential(
                     nn.Linear(hidden_dim, hidden_dim // 2),
-                    Swish(),
+                    nn.GELU("tanh"),
                     nn.Dropout(0.1),
                     nn.Linear(hidden_dim // 2, hidden_dim // 4),
-                    Swish(),
+                    nn.GELU("tanh"),
                     nn.Dropout(0.1),
                     nn.Linear(hidden_dim // 4, hidden_dim // 8),
-                    Swish(),
+                    nn.GELU("tanh"),
                     nn.Dropout(0.1),
                     nn.Linear(hidden_dim // 8, codebook_size),
                 )
@@ -35,7 +42,9 @@ class CodePredictor(nn.Module):
         )
 
     def forward(self, texts, text_lengths, mel_lengths, alignment):
-        mel_mask = sequence_mask(mel_lengths, alignment.shape[2])
-        x, _, _ = self.text_encoder(texts, text_lengths)
+        x = self.text_encoder(
+            texts,
+            attention_mask=(~length_to_mask(text_lengths)).int(),
+        ).transpose(-1, -2)
         x = (x @ alignment).transpose(-1, -2)
         return torch.stack([head(x) for head in self.heads], dim=-2)  # BxTxHxC
