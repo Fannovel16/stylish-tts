@@ -27,7 +27,7 @@ class CodePredictor(nn.Module):
         )
         self.project = nn.Linear(768, hidden_dim)"""
         self.text_encoder = TextEncoder(tokens, hidden_dim, text_encoder_config)
-        self.projection = nn.Linear(hidden_dim, hidden_dim)
+        self.project = nn.Linear(hidden_dim, hidden_dim)
         self.refiner = Conformer(
             dim=hidden_dim,
             depth=4,
