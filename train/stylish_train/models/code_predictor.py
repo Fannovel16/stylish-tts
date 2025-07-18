@@ -63,7 +63,6 @@ class CodePredictor(nn.Module):
         )
         self.project = nn.Linear(768, hidden_dim)"""
         self.text_encoder = TextEncoder(tokens, hidden_dim, text_encoder_config)
-        self.project = nn.Linear(hidden_dim, hidden_dim)
         self.refiner = nn.Sequential(
             [BasicConvNeXtBlock(hidden_dim, hidden_dim * 4) for _ in range(4)]
         )
@@ -90,6 +89,5 @@ class CodePredictor(nn.Module):
             attention_mask=text_mask.int(),
         ).transpose(-1, -2)"""
         x, _, _ = self.text_encoder(texts, text_lengths)
-        x = (x @ alignment).transpose(-1, -2)
-        x = self.refiner(self.project(x), mel_mask)
+        x = self.refiner(x @ alignment, mel_mask).transpose(-1, -2)
         return torch.stack([head(x) for head in self.heads], dim=-2)  # BxTxHxC
