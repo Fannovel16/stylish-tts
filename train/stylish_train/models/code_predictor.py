@@ -64,7 +64,7 @@ class CodePredictor(nn.Module):
         self.project = nn.Linear(768, hidden_dim)"""
         self.text_encoder = TextEncoder(tokens, hidden_dim, text_encoder_config)
         self.refiner = nn.Sequential(
-            [BasicConvNeXtBlock(hidden_dim, hidden_dim * 4) for _ in range(4)]
+            *[BasicConvNeXtBlock(hidden_dim, hidden_dim * 4) for _ in range(4)]
         )
         self.heads = nn.ModuleList(
             [
