@@ -2,8 +2,44 @@ import torch
 import torch.nn as nn
 from utils import sequence_mask
 from .plbert import PLBERT
-from .conformer import Conformer, Swish
+from .conformer import Conformer, Swish, calc_same_padding
 from .text_encoder import TextEncoder
+from .conv_next import GRN
+
+
+class BasicConvNeXtBlock(torch.nn.Module):
+    def __init__(
+        self,
+        dim: int,
+        intermediate_dim: int,
+    ):
+        super().__init__()
+        self.dwconv = torch.nn.Conv1d(
+            dim, dim, kernel_size=31, padding=calc_same_padding(31), groups=dim
+        )  # depthwise conv
+
+        self.norm = torch.nn.LayerNorm(dim, eps=1e-6)
+        self.pwconv1 = torch.nn.Linear(
+            dim, intermediate_dim
+        )  # pointwise/1x1 convs, implemented with linear layers
+        self.act = torch.nn.GELU()
+        self.grn = GRN(intermediate_dim)
+        self.pwconv2 = torch.nn.Linear(intermediate_dim, dim)
+
+    def forward(self, x):
+        residual = x
+        x = self.dwconv(x)
+        x = x.transpose(1, 2)  # (B, C, T) -> (B, T, C)
+        x = self.norm(x)
+        x = self.pwconv1(x)
+        x = self.act(x)
+        x = self.grn(x)
+        x = self.pwconv2(x)
+
+        x = x.transpose(1, 2)  # (B, T, C) -> (B, C, T)
+
+        x = residual + x
+        return x
 
 
 class CodePredictor(nn.Module):
@@ -28,11 +64,8 @@ class CodePredictor(nn.Module):
         self.project = nn.Linear(768, hidden_dim)"""
         self.text_encoder = TextEncoder(tokens, hidden_dim, text_encoder_config)
         self.project = nn.Linear(hidden_dim, hidden_dim)
-        self.refiner = Conformer(
-            dim=hidden_dim,
-            depth=4,
-            heads=4,
-            dim_head=hidden_dim // 4,
+        self.refiner = nn.Sequential(
+            [BasicConvNeXtBlock(hidden_dim, hidden_dim * 4) for _ in range(4)]
         )
         self.heads = nn.ModuleList(
             [
