@@ -38,10 +38,10 @@ class CodePredictor(nn.Module):
             [
                 nn.Sequential(
                     nn.Linear(hidden_dim, hidden_dim // 2),
-                    Swish(),
+                    nn.ReLU(),
                     nn.Dropout(0.1),
                     nn.Linear(hidden_dim // 2, hidden_dim // 4),
-                    Swish(),
+                    nn.ReLU(),
                     nn.Dropout(0.1),
                     nn.Linear(hidden_dim // 4, codebook_size),
                 )
