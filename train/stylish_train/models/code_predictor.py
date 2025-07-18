@@ -89,5 +89,5 @@ class CodePredictor(nn.Module):
             attention_mask=text_mask.int(),
         ).transpose(-1, -2)"""
         x, _, _ = self.text_encoder(texts, text_lengths)
-        x = self.refiner(x @ alignment, mel_mask).transpose(-1, -2)
+        x = self.refiner(x @ alignment).transpose(-1, -2)
         return torch.stack([head(x) for head in self.heads], dim=-2)  # BxTxHxC
