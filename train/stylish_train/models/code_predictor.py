@@ -11,7 +11,7 @@ class CodePredictor(nn.Module):
         self,
         tokens,
         codebook_size,
-        heads,
+        num_codebooks,
         text_encoder_config,
     ):
         super().__init__()
@@ -45,7 +45,7 @@ class CodePredictor(nn.Module):
                     nn.Dropout(0.1),
                     nn.Linear(hidden_dim // 4, codebook_size),
                 )
-                for _ in range(heads)
+                for _ in range(num_codebooks)
             ]
         )
 
