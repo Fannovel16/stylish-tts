@@ -64,18 +64,10 @@ class CodePredictor(nn.Module):
         self.project = nn.Linear(768, hidden_dim)"""
         self.text_encoder = TextEncoder(tokens, hidden_dim, text_encoder_config)
         self.refiner = nn.Sequential(
-            *[BasicConvNeXtBlock(hidden_dim, hidden_dim * 4) for _ in range(4)]
-        )
-        self.project = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim // 2),
-            nn.ReLU(),
-            nn.Dropout(0.1),
-            nn.Linear(hidden_dim // 2, hidden_dim // 4),
-            nn.ReLU(),
-            nn.Dropout(0.1),
+            *[BasicConvNeXtBlock(hidden_dim, hidden_dim * 4) for _ in range(8)]
         )
         self.heads = nn.ModuleList(
-            [nn.Linear(hidden_dim // 4, codebook_size) for _ in range(num_codebooks)]
+            [nn.Linear(hidden_dim, codebook_size) for _ in range(num_codebooks)]
         )
 
     def forward(self, texts, text_lengths, mel_lengths, alignment):
@@ -87,5 +79,4 @@ class CodePredictor(nn.Module):
         ).transpose(-1, -2)"""
         x, _, _ = self.text_encoder(texts, text_lengths)
         x = self.refiner(x @ alignment).transpose(-1, -2)
-        x = self.project(x)
         return torch.stack([head(x) for head in self.heads], dim=-2)  # BxTxHxC
