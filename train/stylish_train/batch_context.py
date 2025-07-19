@@ -4,7 +4,7 @@ from typing import Optional
 import torch
 from torch.nn import functional as F
 import torchaudio
-from einops import rearrange, reduce
+from einops import rearrange, repeat
 import train_context
 from stylish_lib.config_loader import Config
 from utils import length_to_mask, log_norm, print_gpu_vram, sequence_mask
@@ -266,6 +266,21 @@ class BatchContext:
         indices = logits.detach().argmax(dim=-1)
         phones = self.model.hubert_quantizer.get_output_from_indices(indices)
         return phones, logits
+
+    def compute_code_predictor_loss(self, batch):
+        mel_mask = sequence_mask(batch.mel_length // 2, batch.alignment.shape[2])
+        mask = repeat(
+            mel_mask,
+            "b t -> (b h) t",
+            h=self.train.model_config.hubert_quantizer.num_quantizers,
+        )
+
+        loss = F.cross_entropy(
+            self.logits_prediction, self.logits_gt, reduction="none"
+        )  # (B*H, T)
+
+        masked_loss = loss * mask.float()
+        return masked_loss.sum() / mask.sum()
 
     def pre_code_predictor(self, batch):
         self.phones = self.train.hubert(

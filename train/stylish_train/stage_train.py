@@ -183,9 +183,7 @@ def train_pre_code_predictor(
         state.pre_code_predictor(batch)
         train.stage.optimizer.zero_grad()
         log = build_loss_log(train)
-        log.add_loss(
-            "hubert_code_ce", F.cross_entropy(state.logits_prediction, state.logits_gt)
-        )
+        log.add_loss("hubert_code_ce", state.compute_code_predictor_loss(batch))
         train.accelerator.backward(
             log.backwards_loss() * math.sqrt(batch.text.shape[0])
         )
