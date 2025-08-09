@@ -273,7 +273,7 @@ class BatchContext:
         phones = self.model.hubert_quantizer.get_output_from_indices(indices)
         return phones, logits
 
-    def compute_code_predictor_loss(self, batch):
+    """def compute_code_predictor_loss(self, batch):
         mel_mask = sequence_mask(batch.mel_length // 2, batch.alignment.shape[2])
         mask = repeat(
             mel_mask,
@@ -286,7 +286,13 @@ class BatchContext:
         )  # (B*H, T)
 
         masked_loss = loss * mask.float()
-        return masked_loss.sum() / mask.sum()
+        return masked_loss.sum() / mask.sum()"""
+
+    def compute_code_predictor_loss(self, batch):
+        return F.cross_entropy(
+            self.logits_prediction,
+            self.logits_gt,
+        )  # (B*H, T)
 
     def pre_code_predictor(self, batch):
         self.phones = self.extract_phones_from_audio(batch)
