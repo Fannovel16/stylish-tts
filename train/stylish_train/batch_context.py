@@ -240,7 +240,12 @@ class BatchContext:
             batch.audio_gt,
             batch.alignment.shape[-1],
         )
-        return batch.alignment.float() @ phones / batch.alignment.sum(-1, keepdim=True)
+        pooled_phones = (
+            batch.alignment.float()
+            @ phones
+            / (batch.alignment.sum(-1, keepdim=True) + 1e-8)
+        )
+        return pooled_phones.detach()
 
     def pre_hubert_quantizer(self, batch):
         self.phones = self.extract_phones_from_audio(batch)
