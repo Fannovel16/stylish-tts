@@ -191,10 +191,7 @@ class BatchContext:
         return prediction
 
     def quantize_hubert(self, batch, hubert_embedding):
-        mel_mask = sequence_mask(batch.mel_length, batch.alignment.shape[2])
-        x, indices, cmt_loss = self.model.hubert_quantizer(
-            hubert_embedding, mask=mel_mask
-        )
+        x, indices, cmt_loss = self.model.hubert_quantizer(hubert_embedding)
         return x, indices, cmt_loss
 
     def track_codebook_metrics(self, codebook_indices):
