@@ -238,11 +238,15 @@ class BatchContext:
                 f"  Code {unique_codes[top_ids[i]].item():4d}: {top_counts[i].item()}"
             )
 
-    def pre_hubert_quantizer(self, batch):
-        self.phones = self.train.hubert(
+    def extract_phones_from_audio(self, batch):
+        phones = self.train.hubert(
             batch.audio_gt,
             batch.alignment.shape[-1],
         )
+        return batch.alignment.float() @ phones / batch.alignment.sum(-1, keepdim=True)
+
+    def pre_hubert_quantizer(self, batch):
+        self.phones = self.extract_phones_from_audio(batch)
         self.phones_prediction, _, self.cmt_loss = self.quantize_hubert(
             batch, self.phones
         )
@@ -283,10 +287,7 @@ class BatchContext:
         return masked_loss.sum() / mask.sum()
 
     def pre_code_predictor(self, batch):
-        self.phones = self.train.hubert(
-            batch.audio_gt,
-            batch.alignment.shape[-1],
-        )
+        self.phones = self.extract_phones_from_audio(batch)
         with torch.no_grad():
             self.model.hubert_quantizer.eval()
             _, codebook_indices, _ = self.quantize_hubert(batch, self.phones)
