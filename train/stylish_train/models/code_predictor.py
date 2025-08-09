@@ -74,5 +74,6 @@ class CodePredictor(nn.Module):
             texts,
             attention_mask=text_mask.int(),
         ).transpose(-1, -2)"""
-        x, _, _ = self.text_encoder(texts, text_lengths).transpose(-1, -2)
+        x, _, _ = self.text_encoder(texts, text_lengths)
+        x = x.transpose(-1, -2)
         return torch.stack([head(x) for head in self.heads], dim=-2)  # BxTxHxC
