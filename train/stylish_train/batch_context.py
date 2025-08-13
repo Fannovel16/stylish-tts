@@ -53,7 +53,7 @@ class BatchContext:
 
     def acoustic_prediction_single(self, batch, use_random_mono=True):
         phones, _ = self.text_to_hubert(batch)
-        phones = phones @ batch.alignment
+        phones = (phones.transpose(-1, -2) @ batch.alignment).transpose(-1, -2)
         acoustic_features, acoustic_styles = self.model.hubert_acoustic_extractor(
             phones, batch.mel_length // 2
         )
@@ -70,7 +70,7 @@ class BatchContext:
 
     def spectral_prediction_single(self, batch, use_random_mono=True):
         phones, _ = self.text_to_hubert(batch)
-        phones = phones @ batch.alignment
+        phones = (phones.transpose(-1, -2) @ batch.alignment).transpose(-1, -2)
         acoustic_features, acoustic_styles = self.model.hubert_acoustic_extractor(
             phones, batch.mel_length // 2
         )
