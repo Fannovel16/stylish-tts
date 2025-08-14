@@ -51,7 +51,7 @@ class CodePredictor(nn.Module):
         text_encoder_config,
     ):
         super().__init__()
-        hidden_dim = 256
+        hidden_dim = 768
         """self.text_encoder = PLBERT(
             vocab_size=tokens,
             hidden_size=768,
@@ -62,9 +62,13 @@ class CodePredictor(nn.Module):
             dropout=0.1,
         )
         self.project = nn.Linear(768, hidden_dim)"""
+        text_encoder_config.hidden_dim = hidden_dim
         self.text_encoder = TextEncoder(tokens, hidden_dim, text_encoder_config)
-        self.heads = nn.ModuleList(
+        """self.heads = nn.ModuleList(
             [nn.Linear(hidden_dim, codebook_size) for _ in range(num_codebooks)]
+        )"""
+        self.refiner = nn.Sequential(
+            *[BasicConvNeXtBlock(hidden_dim, hidden_dim * 4) for _ in range(4)]
         )
 
     def forward(self, texts, text_lengths, mel_lengths, alignment):
@@ -75,5 +79,7 @@ class CodePredictor(nn.Module):
             attention_mask=text_mask.int(),
         ).transpose(-1, -2)"""
         x, _, _ = self.text_encoder(texts, text_lengths)
-        x = x.transpose(-1, -2)
-        return torch.stack([head(x) for head in self.heads], dim=-2)  # BxTxHxC
+        # x = x.transpose(-1, -2)
+        # return torch.stack([head(x) for head in self.heads], dim=-2)  # BxTxHxC
+        x = self.refiner(x @ alignment).transpose(-1, -2)
+        return x

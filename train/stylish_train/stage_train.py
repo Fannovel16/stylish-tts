@@ -183,7 +183,14 @@ def train_pre_code_predictor(
         state.pre_code_predictor(batch)
         train.stage.optimizer.zero_grad()
         log = build_loss_log(train)
-        log.add_loss("hubert_code_ce", state.compute_code_predictor_loss(batch))
+        # log.add_loss("hubert_code_ce", state.compute_code_predictor_loss(batch))
+        log.add_loss(
+            "hubert_distil_l2",
+            F.mse_loss(
+                state.phones_prediction,
+                state.phones,
+            ),
+        )
         train.accelerator.backward(
             log.backwards_loss() * math.sqrt(batch.text.shape[0])
         )
