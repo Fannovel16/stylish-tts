@@ -238,7 +238,7 @@ class BatchContext:
             )
 
     def extract_phones_from_audio(self, batch):
-        phones = self.train.hubert(
+        """phones = self.train.hubert(
             batch.audio_gt,
             batch.alignment.shape[-1],
         )
@@ -247,7 +247,11 @@ class BatchContext:
             @ phones
             / (batch.alignment.sum(-1, keepdim=True) + 1e-8)
         )
-        return pooled_phones.detach()
+        return pooled_phones.detach()"""
+        return self.train.hubert(
+            batch.audio_gt,
+            batch.alignment.shape[-1],
+        )
 
     def pre_hubert_quantizer(self, batch):
         self.phones = self.extract_phones_from_audio(batch)
