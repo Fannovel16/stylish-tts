@@ -271,13 +271,19 @@ class BatchContext:
                 self.track_codebook_metrics(codebook_indices)
             self.model.hubert_quantizer.train()
 
-    def text_to_hubert(self, batch):
+    """def text_to_hubert(self, batch):
         logits = self.model.hubert_code_predictor(
             batch.text, batch.text_length, batch.mel_length // 2, batch.alignment
         )
         indices = logits.detach().argmax(dim=-1)
         phones = self.model.hubert_quantizer.get_output_from_indices(indices)
-        return phones, logits
+        return phones, logits"""
+
+    def text_to_hubert(self, batch):
+        phones = self.model.hubert_code_predictor(
+            batch.text, batch.text_length, batch.mel_length // 2, batch.alignment
+        )
+        return phones, None
 
     """def compute_code_predictor_loss(self, batch):
         mel_mask = sequence_mask(batch.mel_length // 2, batch.alignment.shape[2])
