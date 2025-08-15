@@ -5,13 +5,12 @@ class ExportModel(torch.nn.Module):
     def __init__(
         self,
         *,
-        text_hubert_distiller,
-        text_duration_extractor,
-        text_acoustic_hubert_distiller,
+        hubert_code_predictor,
         hubert_acoustic_extractor,
         hubert_spectral_extractor,
-        duration_predictor,
         pitch_energy_predictor,
+        text_duration_extractor,
+        duration_predictor,
         generator,
         device="cuda",
         **kwargs
@@ -19,13 +18,12 @@ class ExportModel(torch.nn.Module):
         super(ExportModel, self).__init__()
 
         for model in [
-            text_hubert_distiller,
-            text_duration_extractor,
-            text_acoustic_hubert_distiller,
+            hubert_code_predictor,
             hubert_acoustic_extractor,
             hubert_spectral_extractor,
-            duration_predictor,
             pitch_energy_predictor,
+            text_duration_extractor,
+            duration_predictor,
             generator,
         ]:
             model.to(device).eval()
@@ -33,13 +31,12 @@ class ExportModel(torch.nn.Module):
                 p.requires_grad = False
 
         self.device = device
-        self.text_hubert_distiller = text_hubert_distiller
-        self.text_duration_extractor = text_duration_extractor
-        self.text_acoustic_hubert_distiller = text_acoustic_hubert_distiller
-        self.duration_predictor = duration_predictor
-        self.pitch_energy_predictor = pitch_energy_predictor
+        self.hubert_code_predictor = hubert_code_predictor
         self.hubert_acoustic_extractor = hubert_acoustic_extractor
         self.hubert_spectral_extractor = hubert_spectral_extractor
+        self.pitch_energy_predictor = pitch_energy_predictor
+        self.text_duration_extractor = text_duration_extractor
+        self.duration_predictor = duration_predictor
         self.generator = generator
 
     def duration_to_alignment(self, duration):
@@ -63,24 +60,16 @@ class ExportModel(torch.nn.Module):
             duration_features,
         )
         alignment = self.duration_to_alignment(duration)
-
-        spectral_phones, _, _ = self.text_hubert_distiller(texts, text_lengths)
-        spectral_phones = spectral_phones @ alignment
-        spectral_phones = spectral_phones.transpose(-1, -2)
-
-        acoustic_phones, _, _ = self.text_acoustic_hubert_distiller(texts, text_lengths)
-        acoustic_phones = acoustic_phones @ alignment
-        acoustic_phones = acoustic_phones.transpose(-1, -2)
+        phones = self.hubert_code_predictor(texts, text_lengths, alignment)
 
         half_mel_lengths = (
-            torch.ones([texts.shape[0]], device=texts.device) * acoustic_phones.shape[1]
+            torch.ones([texts.shape[0]], device=texts.device) * phones.shape[1]
         )
-
         acoustic_features, acoustic_styles = self.hubert_acoustic_extractor(
-            acoustic_phones, half_mel_lengths
+            phones, half_mel_lengths
         )
         spectral_features, spectral_styles = self.hubert_spectral_extractor(
-            spectral_phones, half_mel_lengths
+            phones, half_mel_lengths
         )
 
         pitch, energy = self.pitch_energy_predictor(

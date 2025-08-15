@@ -102,9 +102,7 @@ stages = {
             "duration_predictor",
         ],
         eval_models=[
-            "hubert_quantizer",
             "hubert_code_predictor",
-            "bert",
             "hubert_acoustic_extractor",
             "generator",
         ],
