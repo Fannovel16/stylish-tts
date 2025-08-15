@@ -98,6 +98,8 @@ stages = {
         train_models=[
             "hubert_spectral_extractor",
             "pitch_energy_predictor",
+            "text_duration_extractor",
+            "duration_predictor",
         ],
         eval_models=[
             "hubert_quantizer",
