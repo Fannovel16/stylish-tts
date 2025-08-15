@@ -71,9 +71,7 @@ class CodePredictor(nn.Module):
             *[BasicConvNeXtBlock(hidden_dim, hidden_dim * 4) for _ in range(4)]
         )
 
-    def forward(self, texts, text_lengths, mel_lengths, alignment):
-        text_mask = sequence_mask(text_lengths, alignment.shape[1])
-        mel_mask = sequence_mask(mel_lengths, alignment.shape[2])
+    def forward(self, texts, text_lengths, alignment):
         """x = self.text_encoder(
             texts,
             attention_mask=text_mask.int(),

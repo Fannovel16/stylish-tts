@@ -83,6 +83,12 @@ class BatchContext:
                 spectral_styles,
             )
         )
+        duration_features, _ = self.model.text_duration_extractor(
+            batch.text, batch.text_length
+        )
+        self.duration_prediction = self.model.duration_predictor(
+            duration_features,
+        )
         prediction = self.model.generator(
             acoustic_features,
             acoustic_styles,
@@ -281,7 +287,7 @@ class BatchContext:
 
     def text_to_hubert(self, batch):
         phones = self.model.hubert_code_predictor(
-            batch.text, batch.text_length, batch.mel_length // 2, batch.alignment
+            batch.text, batch.text_length, batch.alignment
         )
         return phones, None
 
@@ -321,5 +327,5 @@ class BatchContext:
     def pre_code_predictor(self, batch):
         self.phones = self.extract_phones_from_audio(batch)
         self.phones_prediction = self.model.hubert_code_predictor(
-            batch.text, batch.text_length, batch.mel_length // 2, batch.alignment
+            batch.text, batch.text_length, batch.alignment
         )
