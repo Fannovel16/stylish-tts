@@ -332,7 +332,7 @@ class VevoInferencePipeline:
         ## HuBERT features extraction ##
         self.hubert_model = build_hubert_model(self.device)
         stat = np.load(
-            self.content_style_tokenizer_ckpt_path
+            self.content_tokenizer_ckpt_path
             / Path(self.fmt_cfg.model.representation_stat_mean_var_path).name
         )
         self.hubert_feat_norm_mean = torch.tensor(stat["mean"])
