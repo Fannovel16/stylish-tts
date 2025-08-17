@@ -113,7 +113,7 @@ class AdaptiveQuantizedHubert(nn.Module):
 
                 for segment in segments:
                     x = self.vevo.extract_hubert_quantized(
-                        self.content_tokenizer,
+                        self.vevo.content_tokenizer,
                         segment,
                         token_type=self.vevo.ar_cfg.model.vc_input_token_type,
                     )
@@ -130,7 +130,7 @@ class AdaptiveQuantizedHubert(nn.Module):
 
             else:
                 x = self.vevo.extract_hubert_quantized(
-                    self.content_tokenizer,
+                    self.vevo.content_tokenizer,
                     segment,
                     token_type=self.vevo.ar_cfg.model.vc_input_token_type,
                 )
