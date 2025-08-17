@@ -16,7 +16,7 @@ from .feature_extractor import TextFeatureExtractor, HubertFeatureExtractor, Tex
 from .decoder import Decoder
 from .ringformer import RingformerGenerator
 import torch.nn as nn
-from .code_predictor import FeatureSynthesizer
+from .feature_synthesizer import FeatureSynthesizer
 from vector_quantize_pytorch import ResidualVQ
 import safetensors
 from huggingface_hub import hf_hub_download
