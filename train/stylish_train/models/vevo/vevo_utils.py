@@ -349,7 +349,7 @@ class VevoInferencePipeline:
         )
         self.ar_cfg.model.input_repcodec.pretrained_path = ckpt_path
         self.ar_cfg.model.input_repcodec.config_path = str(
-            self.content_tokenizer_ckpt_path
+            self.content_tokenizer_ckpt_path.parent
             / Path(self.ar_cfg.model.input_repcodec.config_path).name
         )
         self.content_tokenizer = load_vevo_vqvae_checkpoint(
@@ -367,7 +367,7 @@ class VevoInferencePipeline:
         ckpt_path = getattr(
             self.fmt_cfg.model.repcodec,
             "pretrained_path",
-            self.content_style_tokenizer_ckpt_path,
+            self.content_style_tokenizer_ckpt_path.parent,
         )
         self.content_style_tokenizer = load_checkpoint(
             build_vqvae_model,
@@ -784,7 +784,9 @@ def build_vevo_inference_pipeline(device):
     )
 
     # ===== Content-Style Tokenizer =====
-    content_style_tokenizer_ckpt_path = Path(local_dir, "tokenizer/vq8192").resolve()
+    content_style_tokenizer_ckpt_path = (
+        Path(local_dir, "tokenizer/vq8192").resolve() / "model.safetensors"
+    )
 
     # ===== Autoregressive Transformer =====
     ar_cfg_path = Path(__file__).parent / "Vq32ToVq8192.json"
