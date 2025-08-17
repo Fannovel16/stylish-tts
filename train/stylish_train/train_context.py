@@ -232,7 +232,8 @@ class TrainContext:
         # )
         with self.accelerator.main_process_first():
             self.hubert = AdaptiveQuantizedHubert(
-                self.config.training.device.self.model_config.sample_rate,
+                self.config.training.device,
+                self.model_config.sample_rate,
                 hubert_config.sr,
             )
 
