@@ -324,8 +324,8 @@ class VevoInferencePipeline:
         # )
         # print(f"#Params of Vocoder model: {count_parameters(self.vocoder_model)}")
 
-        self.content_tokenizer_ckpt_path = Path(content_tokenizer_ckpt_path)
-        self.content_style_tokenizer_ckpt_path = Path(content_style_tokenizer_ckpt_path)
+        self.content_tokenizer_ckpt_path = content_tokenizer_ckpt_path
+        self.content_style_tokenizer_ckpt_path = content_style_tokenizer_ckpt_path
         self.init_vqvae_tokenizer()
 
     def init_vqvae_tokenizer(self):
@@ -778,10 +778,9 @@ def build_vevo_inference_pipeline(device):
         cache_dir="./ckpts/Vevo",
         allow_patterns=["tokenizer/vq32/*"],
     )
-    content_tokenizer_ckpt_path = (
-        Path(local_dir) / "tokenizer/vq32/hubert_large_l18_c32.pkl"
-    )
-    content_tokenizer_ckpt_path = str(content_tokenizer_ckpt_path.resolve())
+    content_tokenizer_ckpt_path = Path(
+        local_dir, "tokenizer/vq32/hubert_large_l18_c32.pkl"
+    ).resolve()
 
     # ===== Content-Style Tokenizer =====
     local_dir = snapshot_download(
@@ -791,8 +790,7 @@ def build_vevo_inference_pipeline(device):
         allow_patterns=["tokenizer/vq8192/*"],
     )
 
-    content_style_tokenizer_ckpt_path = Path(local_dir) / "tokenizer/vq8192"
-    content_style_tokenizer_ckpt_path = str(content_style_tokenizer_ckpt_path.resolve())
+    content_style_tokenizer_ckpt_path = Path(local_dir, "tokenizer/vq8192").resolve()
 
     # ===== Autoregressive Transformer =====
     # local_dir = snapshot_download(
