@@ -55,12 +55,12 @@ class FeatureSynthesizer(nn.Module):
             hidden_dim=feature_dim,
             filter_channels=feature_dim * 4,
             heads=4,
-            layers=4,
+            layers=8,
             kernel_size=3,
             dropout=0.1,
         )
         self.refiner = nn.Sequential(
-            *[BasicConvNeXtBlock(feature_dim, feature_dim * 4) for _ in range(6)]
+            *[BasicConvNeXtBlock(feature_dim, feature_dim * 4) for _ in range(4)]
         )
 
     def forward(self, texts, text_lengths, alignment):
