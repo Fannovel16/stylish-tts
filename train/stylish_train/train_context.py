@@ -97,7 +97,7 @@ class AdaptiveQuantizedHubert(nn.Module):
         super().__init__()
         self.vevo = build_vevo_inference_pipeline(device)
         self.sr = hubert_sr
-        self.resample = torchaudio.transforms.Resample(model_sr, hubert_sr)
+        self.resample = torchaudio.transforms.Resample(model_sr, hubert_sr).to(device)
 
     def forward(self, wave, time_dim):
         xs = []
