@@ -338,25 +338,25 @@ class VevoInferencePipeline:
         self.hubert_feat_norm_std = torch.tensor(stat["std"])
 
         ## Content Tokenizer ##
-        if self.ar_model is not None and "input_repcodec" in self.ar_cfg.model:
-            assert self.ar_cfg.model.vc_input_token_type == "hubert_vevo_codec"
+        # if self.ar_model is not None and "input_repcodec" in self.ar_cfg.model:
+        assert self.ar_cfg.model.vc_input_token_type == "hubert_vevo_codec"
 
-            ckpt_path = getattr(
-                self.ar_cfg.model.input_repcodec,
-                "pretrained_path",
-                self.content_tokenizer_ckpt_path,
-            )
-            self.ar_cfg.model.input_repcodec.pretrained_path = ckpt_path
-            self.content_tokenizer = load_vevo_vqvae_checkpoint(
-                self.ar_cfg.model.input_repcodec,
-                self.device,
-            )
+        ckpt_path = getattr(
+            self.ar_cfg.model.input_repcodec,
+            "pretrained_path",
+            self.content_tokenizer_ckpt_path,
+        )
+        self.ar_cfg.model.input_repcodec.pretrained_path = ckpt_path
+        self.content_tokenizer = load_vevo_vqvae_checkpoint(
+            self.ar_cfg.model.input_repcodec,
+            self.device,
+        )
 
-            print(
-                "#Params of Content Tokenizer: {}".format(
-                    count_parameters(self.content_tokenizer)
-                )
+        print(
+            "#Params of Content Tokenizer: {}".format(
+                count_parameters(self.content_tokenizer)
             )
+        )
 
         ## Content-Style Tokenizer ##
         ckpt_path = getattr(
