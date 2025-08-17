@@ -46,14 +46,14 @@ class FeatureSynthesizer(nn.Module):
     def __init__(
         self,
         tokens,
-        feature_dim,
+        output_feature_dim,
     ):
         super().__init__()
         text_encoder_hidden_dim = 128
         filter_channels = 768
         self.text_encoder = TextEncoder(
             tokens,
-            inter_dim=feature_dim,
+            inter_dim=output_feature_dim,
             hidden_dim=text_encoder_hidden_dim,
             filter_channels=filter_channels,
             heads=2,
@@ -62,7 +62,7 @@ class FeatureSynthesizer(nn.Module):
             dropout=0.1,
         )
         self.refiner = nn.Sequential(
-            *[BasicConvNeXtBlock(feature_dim, filter_channels) for _ in range(6)]
+            *[BasicConvNeXtBlock(output_feature_dim, filter_channels) for _ in range(6)]
         )
 
     def forward(self, texts, text_lengths, alignment):
