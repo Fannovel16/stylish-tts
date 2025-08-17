@@ -18,6 +18,8 @@ from .vevo_repcodec import VevoRepCodec
 
 from huggingface_hub import snapshot_download
 from pathlib import Path
+import json5
+import os
 
 
 def g2p_(text, language):
