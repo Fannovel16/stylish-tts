@@ -377,13 +377,18 @@ class HubertEncoder(nn.Module):
         self,
         hubert_dim,
         inter_dim,
-        config,
+        hidden_dim,
+        filter_channels,
+        heads,
+        layers,
+        kernel_size,
+        dropout,
         f0=False,
     ):
         super().__init__()
         spk_emb_dim = 128
         self.n_spks = 1
-        self.n_channels = config.hidden_dim
+        self.n_channels = hidden_dim
 
         self.emb = torch.nn.Linear(hubert_dim, self.n_channels)
         self.use_f0 = f0
@@ -402,11 +407,11 @@ class HubertEncoder(nn.Module):
 
         self.encoder = Encoder(
             self.n_channels + (spk_emb_dim if self.n_spks > 1 else 0),
-            config.filter_channels,
-            config.heads,
-            config.layers,
-            config.kernel_size,
-            config.dropout,
+            filter_channels,
+            heads,
+            layers,
+            kernel_size,
+            dropout,
         )
 
         self.proj_m = torch.nn.Conv1d(
@@ -453,12 +458,17 @@ class TextEncoder(nn.Module):
         self,
         tokens,
         inter_dim,
-        config,
+        hidden_dim,
+        filter_channels,
+        heads,
+        layers,
+        kernel_size,
+        dropout,
     ):
         super().__init__()
         spk_emb_dim = 128
         self.n_spks = 1
-        self.n_channels = config.hidden_dim
+        self.n_channels = hidden_dim
 
         self.emb = torch.nn.Embedding(tokens, self.n_channels)
         torch.nn.init.normal_(self.emb.weight, 0.0, self.n_channels**-0.5)
@@ -474,11 +484,11 @@ class TextEncoder(nn.Module):
 
         self.encoder = Encoder(
             self.n_channels + (spk_emb_dim if self.n_spks > 1 else 0),
-            config.filter_channels,
-            config.heads,
-            config.layers,
-            config.kernel_size,
-            config.dropout,
+            filter_channels,
+            heads,
+            layers,
+            kernel_size,
+            dropout,
         )
 
         self.proj_m = torch.nn.Conv1d(

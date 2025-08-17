@@ -30,7 +30,9 @@ class TextFeatureExtractor(nn.Module):
     ):
         super().__init__()
         self.encode_feature = encode_feature
-        self.text_encoder = TextEncoder(tokens, inter_dim, config=text_encoder_config)
+        self.text_encoder = TextEncoder(
+            tokens, inter_dim, **text_encoder_config.model_dump()
+        )
         self.style_encoder = FineStyleEncoder(
             inter_dim, style_dim, style_encoder_config.layers
         )
@@ -67,7 +69,7 @@ class HubertFeatureExtractor(nn.Module):
         super().__init__()
         self.encode_feature = encode_feature
         self.text_encoder = HubertEncoder(
-            hubert_dim, inter_dim, config=text_encoder_config, f0=f0
+            hubert_dim, inter_dim, f0=f0, **text_encoder_config.model_dump()
         )
         self.style_encoder = FineStyleEncoder(
             inter_dim, style_dim, style_encoder_config.layers

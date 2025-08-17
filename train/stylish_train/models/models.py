@@ -16,7 +16,7 @@ from .feature_extractor import TextFeatureExtractor, HubertFeatureExtractor, Tex
 from .decoder import Decoder
 from .ringformer import RingformerGenerator
 import torch.nn as nn
-from .code_predictor import CodePredictor
+from .code_predictor import FeatureSynthesizer
 from vector_quantize_pytorch import ResidualVQ
 import safetensors
 from huggingface_hub import hf_hub_download
@@ -78,7 +78,7 @@ def build_model(model_config: ModelConfig):
         text_acoustic_hubert_distiller = TextEncoder(
             model_config.tokens,
             inter_dim=model_config.hubert.hidden_dim,
-            config=acoustic_config.text_encoder,
+            **acoustic_config.text_encoder.model_dump(),
         )
 
     duration_config = model_config.text_duration_extractor
@@ -135,7 +135,7 @@ def build_model(model_config: ModelConfig):
             model_config.hubert.hidden_dim
             // model_config.hubert_quantizer.codebook_size
         ),
-        **model_config.hubert_quantizer.model_dump()
+        **model_config.hubert_quantizer.model_dump(),
     )
 
     # Satisfy the optimizer as RVQ uses EMA instead of gradient descent
@@ -153,7 +153,7 @@ def build_model(model_config: ModelConfig):
         mrd=MultiResolutionDiscriminator(),
         hubert_acoustic_extractor=hubert_acoustic_extractor,
         hubert_spectral_extractor=hubert_spectral_extractor,
-        hubert_code_predictor=CodePredictor(
+        hubert_code_predictor=FeatureSynthesizer(
             model_config.tokens,
             model_config.hubert_quantizer.codebook_size,
             model_config.hubert_quantizer.num_quantizers,

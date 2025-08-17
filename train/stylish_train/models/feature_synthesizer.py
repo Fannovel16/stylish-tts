@@ -42,7 +42,7 @@ class BasicConvNeXtBlock(torch.nn.Module):
         return x
 
 
-class CodePredictor(nn.Module):
+class FeatureSynthesizer(nn.Module):
     def __init__(
         self,
         tokens,
@@ -52,17 +52,6 @@ class CodePredictor(nn.Module):
     ):
         super().__init__()
         hidden_dim = 768
-        """self.text_encoder = PLBERT(
-            vocab_size=tokens,
-            hidden_size=768,
-            num_attention_heads=12,
-            intermediate_size=2048,
-            max_position_embeddings=512,
-            num_hidden_layers=12,
-            dropout=0.1,
-        )
-        self.project = nn.Linear(768, hidden_dim)"""
-        text_encoder_config.hidden_dim = hidden_dim
         self.text_encoder = TextEncoder(tokens, hidden_dim, text_encoder_config)
         """self.heads = nn.ModuleList(
             [nn.Linear(hidden_dim, codebook_size) for _ in range(num_codebooks)]
