@@ -300,15 +300,16 @@ class VevoInferencePipeline:
         super().__init__()
         self.device = device
 
-        if ar_cfg_path is not None and ar_ckpt_path is not None:
-            self.ar_cfg = load_config(ar_cfg_path)
-            # self.ar_model = load_checkpoint(
-            #     build_ar_model, self.ar_cfg, ar_ckpt_path, device
-            # )
-            # print(f"#Params of AR model: {count_parameters(self.ar_model)}")
-        else:
-            self.ar_cfg = None
-            self.ar_model = None
+        # if ar_cfg_path is not None and ar_ckpt_path is not None:
+        #     self.ar_cfg = load_config(ar_cfg_path)
+        #     self.ar_model = load_checkpoint(
+        #         build_ar_model, self.ar_cfg, ar_ckpt_path, device
+        #     )
+        #     print(f"#Params of AR model: {count_parameters(self.ar_model)}")
+        # else:
+        #     self.ar_cfg = None
+        #     self.ar_model = None
+        self.ar_cfg = load_config(ar_cfg_path)
 
         self.fmt_cfg = load_config(fmt_cfg_path)
         # self.fmt_model = load_checkpoint(
