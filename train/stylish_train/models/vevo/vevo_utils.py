@@ -326,6 +326,8 @@ class VevoInferencePipeline:
 
         self.content_tokenizer_ckpt_path = content_tokenizer_ckpt_path
         self.content_style_tokenizer_ckpt_path = content_style_tokenizer_ckpt_path
+        print(self.content_tokenizer_ckpt_path)
+        print(self.content_style_tokenizer_ckpt_path)
         self.init_vqvae_tokenizer()
 
     def init_vqvae_tokenizer(self):
@@ -771,59 +773,32 @@ class VevoInferencePipeline:
 
 
 def build_vevo_inference_pipeline(device):
-    # ===== Content Tokenizer =====
     local_dir = snapshot_download(
         repo_id="amphion/Vevo",
         repo_type="model",
         cache_dir="./ckpts/Vevo",
-        allow_patterns=["tokenizer/vq32/*"],
+        allow_patterns=["tokenizer/vq32/*", "tokenizer/vq8192/*"],
     )
+
+    # ===== Content Tokenizer =====
     content_tokenizer_ckpt_path = Path(
         local_dir, "tokenizer/vq32/hubert_large_l18_c32.pkl"
     ).resolve()
 
     # ===== Content-Style Tokenizer =====
-    local_dir = snapshot_download(
-        repo_id="amphion/Vevo",
-        repo_type="model",
-        cache_dir="./ckpts/Vevo",
-        allow_patterns=["tokenizer/vq8192/*"],
-    )
-
     content_style_tokenizer_ckpt_path = Path(local_dir, "tokenizer/vq8192").resolve()
 
     # ===== Autoregressive Transformer =====
-    # local_dir = snapshot_download(
-    #     repo_id="amphion/Vevo",
-    #     repo_type="model",
-    #     cache_dir="./ckpts/Vevo",
-    #     allow_patterns=["contentstyle_modeling/Vq32ToVq8192/*"],
-    # )
-
     ar_cfg_path = Path(__file__).parent / "Vq32ToVq8192.json"
     ar_cfg_path = str(ar_cfg_path.resolve())
     # ar_ckpt_path = os.path.join(local_dir, "contentstyle_modeling/Vq32ToVq8192")
 
     # ===== Flow Matching Transformer =====
-    # local_dir = snapshot_download(
-    #     repo_id="amphion/Vevo",
-    #     repo_type="model",
-    #     cache_dir="./ckpts/Vevo",
-    #     allow_patterns=["acoustic_modeling/Vq8192ToMels/*"],
-    # )
-
     fmt_cfg_path = Path(__file__).parent / "Vq8192ToMels.json"
     fmt_cfg_path = str(fmt_cfg_path.resolve())
     # fmt_ckpt_path = os.path.join(local_dir, "acoustic_modeling/Vq8192ToMels")
 
     # ===== Vocoder =====
-    # local_dir = snapshot_download(
-    #     repo_id="amphion/Vevo",
-    #     repo_type="model",
-    #     cache_dir="./ckpts/Vevo",
-    #     allow_patterns=["acoustic_modeling/Vocoder/*"],
-    # )
-
     # vocoder_cfg_path = "./models/vc/vevo/config/Vocoder.json"
     # vocoder_ckpt_path = os.path.join(local_dir, "acoustic_modeling/Vocoder")
 
