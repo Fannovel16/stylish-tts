@@ -131,7 +131,7 @@ class AdaptiveQuantizedHubert(nn.Module):
             else:
                 x = self.vevo.extract_hubert_quantized(
                     self.vevo.content_tokenizer,
-                    segment,
+                    audio,
                     token_type=self.vevo.ar_cfg.model.vc_input_token_type,
                 )
                 print(x.shape)
