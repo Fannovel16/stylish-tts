@@ -326,8 +326,6 @@ class VevoInferencePipeline:
 
         self.content_tokenizer_ckpt_path = content_tokenizer_ckpt_path
         self.content_style_tokenizer_ckpt_path = content_style_tokenizer_ckpt_path
-        print(self.content_tokenizer_ckpt_path)
-        print(self.content_style_tokenizer_ckpt_path)
         self.init_vqvae_tokenizer()
 
     def init_vqvae_tokenizer(self):
