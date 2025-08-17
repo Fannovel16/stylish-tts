@@ -345,7 +345,7 @@ class VevoInferencePipeline:
         ckpt_path = getattr(
             self.ar_cfg.model.input_repcodec,
             "pretrained_path",
-            self.content_tokenizer_ckpt_path,
+            str(self.content_tokenizer_ckpt_path.resolve()),
         )
         self.ar_cfg.model.input_repcodec.pretrained_path = ckpt_path
         self.ar_cfg.model.input_repcodec.config_path = str(
@@ -367,7 +367,7 @@ class VevoInferencePipeline:
         ckpt_path = getattr(
             self.fmt_cfg.model.repcodec,
             "pretrained_path",
-            self.content_style_tokenizer_ckpt_path.parent,
+            str(self.content_style_tokenizer_ckpt_path.parent.resolve()),
         )
         self.content_style_tokenizer = load_checkpoint(
             build_vqvae_model,
