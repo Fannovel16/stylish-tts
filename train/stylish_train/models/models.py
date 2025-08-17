@@ -153,7 +153,7 @@ def build_model(model_config: ModelConfig):
         mrd=MultiResolutionDiscriminator(),
         hubert_acoustic_extractor=hubert_acoustic_extractor,
         hubert_spectral_extractor=hubert_spectral_extractor,
-        hubert_code_predictor=FeatureSynthesizer(
+        hubert_feature_synthesizer=FeatureSynthesizer(
             model_config.tokens,
             1024,
         ),

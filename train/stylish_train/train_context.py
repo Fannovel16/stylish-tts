@@ -117,9 +117,8 @@ class AdaptiveQuantizedHubert(nn.Module):
                         segment,
                         token_type=self.vevo.ar_cfg.model.vc_input_token_type,
                     )
-                    print(x.shape)
                     x = torch.nn.functional.interpolate(
-                        x,
+                        x.transpose(-1, -2),
                         size=time_dim // 2,
                         mode="nearest",
                     ).transpose(-1, -2)
@@ -134,9 +133,8 @@ class AdaptiveQuantizedHubert(nn.Module):
                     audio,
                     token_type=self.vevo.ar_cfg.model.vc_input_token_type,
                 )
-                print(x.shape)
                 x = torch.nn.functional.interpolate(
-                    x,
+                    x.transpose(-1, -2),
                     size=time_dim,
                     mode="nearest",
                 ).transpose(-1, -2)
