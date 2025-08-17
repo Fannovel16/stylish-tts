@@ -46,27 +46,26 @@ class FeatureSynthesizer(nn.Module):
     def __init__(
         self,
         tokens,
-        codebook_size,
-        num_codebooks,
-        text_encoder_config,
     ):
         super().__init__()
-        hidden_dim = 768
-        self.text_encoder = TextEncoder(tokens, hidden_dim, text_encoder_config)
-        """self.heads = nn.ModuleList(
-            [nn.Linear(hidden_dim, codebook_size) for _ in range(num_codebooks)]
-        )"""
+        text_encoder_hidden_dim = 128
+        filter_channel = 768
+        hidden_dim = 1024
+        self.text_encoder = TextEncoder(
+            tokens,
+            inter_dim=hidden_dim,
+            hidden_dim=text_encoder_hidden_dim,
+            filter_channels=filter_channel,
+            heads=2,
+            layers=4,
+            kernel_size=3,
+            dropout=0.1,
+        )
         self.refiner = nn.Sequential(
-            *[BasicConvNeXtBlock(hidden_dim, hidden_dim * 4) for _ in range(4)]
+            *[BasicConvNeXtBlock(hidden_dim, filter_channel) for _ in range(6)]
         )
 
     def forward(self, texts, text_lengths, alignment):
-        """x = self.text_encoder(
-            texts,
-            attention_mask=text_mask.int(),
-        ).transpose(-1, -2)"""
         x, _, _ = self.text_encoder(texts, text_lengths)
-        # x = x.transpose(-1, -2)
-        # return torch.stack([head(x) for head in self.heads], dim=-2)  # BxTxHxC
         x = self.refiner(x @ alignment).transpose(-1, -2)
         return x
