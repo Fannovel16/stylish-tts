@@ -316,7 +316,7 @@ class VevoInferencePipeline:
         # )
         # print(f"#Params of Flow Matching model: {count_parameters(self.fmt_model)}")
 
-        self.vocoder_cfg = load_config(vocoder_cfg_path)
+        # self.vocoder_cfg = load_config(vocoder_cfg_path)
         # self.mel_model = build_mel_model(self.vocoder_cfg, device)
         # self.vocoder_model = load_checkpoint(
         #     build_vocoder_model, self.vocoder_cfg, vocoder_ckpt_path, device
