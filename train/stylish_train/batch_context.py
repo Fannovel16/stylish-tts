@@ -36,21 +36,6 @@ class BatchContext:
             energy = log_norm(mels.unsqueeze(1)).squeeze(1)
         return energy
 
-    """def acoustic_prediction_single(self, batch, use_random_mono=True):
-        acoustic_features, acoustic_styles = self.model.text_acoustic_extractor(
-            batch.text, batch.text_length
-        )
-        print_gpu_vram("style extractor")
-        energy = self.acoustic_energy(batch.mel)
-        pitch = self.calculate_pitch(batch).detach()
-        prediction = self.model.generator(
-            acoustic_features @ batch.alignment,
-            acoustic_styles @ batch.alignment,
-            pitch,
-            energy,
-        )
-        return prediction"""
-
     def acoustic_prediction_single(self, batch, use_random_mono=True):
         phones, _ = self.text_to_hubert(batch)
         # phones = (phones.transpose(-1, -2) @ batch.alignment).transpose(-1, -2)
@@ -97,70 +82,6 @@ class BatchContext:
         )
         print_gpu_vram("generator")
         return prediction
-
-    """def textual_prediction_single(self, batch):
-        acoustic_features, acoustic_styles = self.model.text_acoustic_extractor(
-            batch.text, batch.text_length
-        )
-        duration_features, _ = self.model.text_duration_extractor(
-            batch.text, batch.text_length
-        )
-        spectral_features, spectral_styles = self.model.text_spectral_extractor(
-            batch.text, batch.text_length
-        )
-        self.duration_prediction = self.model.duration_predictor(
-            duration_features,
-        )
-        self.pitch_prediction, self.energy_prediction = (
-            self.model.pitch_energy_predictor(
-                spectral_features.transpose(-1, -2) @ batch.alignment,
-                spectral_styles @ batch.alignment,
-            )
-        )
-        pitch = self.calculate_pitch(batch, self.pitch_prediction)
-        prediction = self.model.generator(
-            acoustic_features @ batch.alignment,
-            acoustic_styles @ batch.alignment,
-            pitch,
-            self.energy_prediction,
-        )
-        print_gpu_vram("generator")
-        return prediction"""
-
-    """ def textual_prediction_single(self, batch):
-        # Invoke to only get hidden features
-        phones = self.train.hubert(batch.audio_gt, batch.alignment.shape[-1])
-        self.model.hubert_acoustic_extractor(phones, batch.mel_length // 2)
-        self.model.hubert_spectral_extractor(phones, batch.mel_length // 2)
-
-        # Textual
-        acoustic_features, acoustic_styles = self.model.text_acoustic_extractor(
-            batch.text, batch.text_length
-        )
-        duration_features, _ = self.model.text_duration_extractor(
-            batch.text, batch.text_length
-        )
-        spectral_features, spectral_styles = self.model.text_spectral_extractor(
-            batch.text, batch.text_length
-        )
-
-        self.duration_prediction = self.model.duration_predictor(
-            duration_features,
-        )
-        self.pitch_prediction, self.energy_prediction = (
-            self.model.pitch_energy_predictor(
-                spectral_features.transpose(-1, -2) @ batch.alignment,
-                spectral_styles @ batch.alignment,
-            )
-        )
-        prediction = self.model.generator(
-            acoustic_features @ batch.alignment,
-            acoustic_styles @ batch.alignment,
-            self.pitch_prediction,
-            self.energy_prediction,
-        )
-        print_gpu_vram("generator")
-        return prediction """
 
     def textual_prediction_single(self, batch):
         self.phones = self.train.hubert(batch.audio_gt, batch.alignment.shape[-1])
@@ -278,7 +199,7 @@ class BatchContext:
             self.model.hubert_quantizer.train()
 
     """def text_to_hubert(self, batch):
-        logits = self.model.hubert_code_predictor(
+        logits = self.model.hubert_feature_synthesizer(
             batch.text, batch.text_length, batch.mel_length // 2, batch.alignment
         )
         indices = logits.detach().argmax(dim=-1)
@@ -286,7 +207,7 @@ class BatchContext:
         return phones, logits"""
 
     def text_to_hubert(self, batch):
-        phones = self.model.hubert_code_predictor(
+        phones = self.model.hubert_feature_synthesizer(
             batch.text, batch.text_length, batch.alignment
         )
         return phones, None
@@ -326,6 +247,6 @@ class BatchContext:
 
     def pre_code_predictor(self, batch):
         self.phones = self.extract_phones_from_audio(batch)
-        self.phones_prediction = self.model.hubert_code_predictor(
+        self.phones_prediction = self.model.hubert_feature_synthesizer(
             batch.text, batch.text_length, batch.alignment
         )

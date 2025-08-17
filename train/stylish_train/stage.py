@@ -79,7 +79,7 @@ stages = {
             "hubert_acoustic_extractor",
             "generator",
         ],
-        eval_models=["hubert_quantizer", "hubert_code_predictor", "bert"],
+        eval_models=["hubert_quantizer", "hubert_feature_synthesizer", "bert"],
         discriminators=["mpd", "mrd"],
         inputs=[
             "text",
@@ -102,7 +102,7 @@ stages = {
             "duration_predictor",
         ],
         eval_models=[
-            "hubert_code_predictor",
+            "hubert_feature_synthesizer",
             "hubert_acoustic_extractor",
             "generator",
         ],
@@ -164,7 +164,7 @@ stages = {
         next_stage=None,
         train_fn=train_pre_code_predictor,
         validate_fn=validate_pre_code_predictor,
-        train_models=["hubert_code_predictor"],
+        train_models=["hubert_feature_synthesizer"],
         eval_models=["hubert_quantizer"],
         discriminators=[],
         inputs=[

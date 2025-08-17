@@ -5,7 +5,7 @@ class ExportModel(torch.nn.Module):
     def __init__(
         self,
         *,
-        hubert_code_predictor,
+        hubert_feature_synthesizer,
         hubert_acoustic_extractor,
         hubert_spectral_extractor,
         pitch_energy_predictor,
@@ -18,7 +18,7 @@ class ExportModel(torch.nn.Module):
         super(ExportModel, self).__init__()
 
         for model in [
-            hubert_code_predictor,
+            hubert_feature_synthesizer,
             hubert_acoustic_extractor,
             hubert_spectral_extractor,
             pitch_energy_predictor,
@@ -31,7 +31,7 @@ class ExportModel(torch.nn.Module):
                 p.requires_grad = False
 
         self.device = device
-        self.hubert_code_predictor = hubert_code_predictor
+        self.hubert_feature_synthesizer = hubert_feature_synthesizer
         self.hubert_acoustic_extractor = hubert_acoustic_extractor
         self.hubert_spectral_extractor = hubert_spectral_extractor
         self.pitch_energy_predictor = pitch_energy_predictor
@@ -60,7 +60,7 @@ class ExportModel(torch.nn.Module):
             duration_features,
         )
         alignment = self.duration_to_alignment(duration)
-        phones = self.hubert_code_predictor(texts, text_lengths, alignment)
+        phones = self.hubert_feature_synthesizer(texts, text_lengths, alignment)
 
         half_mel_lengths = (
             torch.ones([texts.shape[0]], device=texts.device) * phones.shape[1]

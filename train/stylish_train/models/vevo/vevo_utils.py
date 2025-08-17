@@ -282,8 +282,7 @@ class JsonHParams:
 
 
 # Comment out AR transformer and vocoder
-# Make the pipeline compatitable with accelerate.prepare
-class VevoInferencePipeline(torch.nn.Module):
+class VevoInferencePipeline:
     def __init__(
         self,
         content_tokenizer_ckpt_path=None,
@@ -498,6 +497,31 @@ class VevoInferencePipeline(torch.nn.Module):
                 reduced_masks, batch_first=True, padding_value=0
             )
             return reduced_codecs, reduced_masks
+
+    def extract_hubert_quantized(
+        self,
+        vqvae_model,
+        wavs,
+        wav_lens=None,
+        output_layer=18,
+        token_type="hubert_codec",
+    ):
+        # Extract features and normalize
+        feats, feat_lengths = self.extract_hubert_feature(wavs, wav_lens, output_layer)
+
+        if token_type == "hubert_codec":
+            feats = (
+                feats - self.hubert_feat_norm_mean.to(feats)
+            ) / self.hubert_feat_norm_std.to(feats)
+            _, z = vqvae_model.quantize(feats)
+        elif token_type == "hubert_vevo_codec":
+            x = vqvae_model.encoder(feats.transpose(1, 2))
+            z = vqvae_model.projector(x)
+            z, _ = vqvae_model.quantizer.codebook.forward_index(z.transpose(2, 1))
+        else:
+            raise ValueError("Invalid token_type")
+
+        return z
 
     def random_mask_codec(self, codecs, codec_masks, ratio, mask_value):
         """
@@ -739,77 +763,80 @@ class VevoInferencePipeline(torch.nn.Module):
         return synthesized_audio
 
 
-def build_vevo_inference_pipeline(train):
-    with train.accelerator.main_process_first():
+def build_vevo_inference_pipeline(device):
+    # ===== Content Tokenizer =====
+    local_dir = snapshot_download(
+        repo_id="amphion/Vevo",
+        repo_type="model",
+        cache_dir="./ckpts/Vevo",
+        allow_patterns=["tokenizer/vq32/*"],
+    )
+    content_tokenizer_ckpt_path = (
+        Path(local_dir) / "tokenizer/vq32/hubert_large_l18_c32.pkl"
+    )
+    content_tokenizer_ckpt_path = str(content_tokenizer_ckpt_path.resolve())
 
-        # ===== Content Tokenizer =====
-        local_dir = snapshot_download(
-            repo_id="amphion/Vevo",
-            repo_type="model",
-            cache_dir="./ckpts/Vevo",
-            allow_patterns=["tokenizer/vq32/*"],
-        )
-        content_tokenizer_ckpt_path = (
-            Path(local_dir) / "tokenizer/vq32/hubert_large_l18_c32.pkl"
-        )
-        content_tokenizer_ckpt_path = str(content_tokenizer_ckpt_path.resolve())
+    # ===== Content-Style Tokenizer =====
+    local_dir = snapshot_download(
+        repo_id="amphion/Vevo",
+        repo_type="model",
+        cache_dir="./ckpts/Vevo",
+        allow_patterns=["tokenizer/vq8192/*"],
+    )
 
-        # ===== Content-Style Tokenizer =====
-        local_dir = snapshot_download(
-            repo_id="amphion/Vevo",
-            repo_type="model",
-            cache_dir="./ckpts/Vevo",
-            allow_patterns=["tokenizer/vq8192/*"],
-        )
+    content_style_tokenizer_ckpt_path = Path(local_dir) / "tokenizer/vq8192"
+    content_style_tokenizer_ckpt_path = str(content_tokenizer_ckpt_path.resolve())
 
-        content_style_tokenizer_ckpt_path = Path(local_dir) / "tokenizer/vq8192"
-        content_style_tokenizer_ckpt_path = str(content_tokenizer_ckpt_path.resolve())
+    # ===== Autoregressive Transformer =====
+    # local_dir = snapshot_download(
+    #     repo_id="amphion/Vevo",
+    #     repo_type="model",
+    #     cache_dir="./ckpts/Vevo",
+    #     allow_patterns=["contentstyle_modeling/Vq32ToVq8192/*"],
+    # )
 
-        # ===== Autoregressive Transformer =====
-        # local_dir = snapshot_download(
-        #     repo_id="amphion/Vevo",
-        #     repo_type="model",
-        #     cache_dir="./ckpts/Vevo",
-        #     allow_patterns=["contentstyle_modeling/PhoneToVq8192/*"],
-        # )
+    ar_cfg_path = Path(__file__).parent / "Vq32ToVq8192.json"
+    ar_cfg_path = str(ar_cfg_path.resolve())
+    # ar_ckpt_path = os.path.join(local_dir, "contentstyle_modeling/Vq32ToVq8192")
 
-        ar_cfg_path = Path(__file__).parent / "PhoneToVq8192.json"
-        ar_cfg_path = str(ar_cfg_path.resolve())
-        # ar_ckpt_path = os.path.join(local_dir, "contentstyle_modeling/PhoneToVq8192")
+    # ===== Flow Matching Transformer =====
+    # local_dir = snapshot_download(
+    #     repo_id="amphion/Vevo",
+    #     repo_type="model",
+    #     cache_dir="./ckpts/Vevo",
+    #     allow_patterns=["acoustic_modeling/Vq8192ToMels/*"],
+    # )
 
-        # ===== Flow Matching Transformer =====
-        # local_dir = snapshot_download(
-        #     repo_id="amphion/Vevo",
-        #     repo_type="model",
-        #     cache_dir="./ckpts/Vevo",
-        #     allow_patterns=["acoustic_modeling/Vq8192ToMels/*"],
-        # )
+    fmt_cfg_path = Path(__file__).parent / "Vq8192ToMels.json"
+    fmt_cfg_path = str(fmt_cfg_path.resolve())
+    # fmt_ckpt_path = os.path.join(local_dir, "acoustic_modeling/Vq8192ToMels")
 
-        fmt_cfg_path = Path(__file__).parent / "Vq8192ToMels.json"
-        fmt_cfg_path = str(fmt_cfg_path.resolve())
-        # fmt_ckpt_path = os.path.join(local_dir, "acoustic_modeling/Vq8192ToMels")
+    # ===== Vocoder =====
+    # local_dir = snapshot_download(
+    #     repo_id="amphion/Vevo",
+    #     repo_type="model",
+    #     cache_dir="./ckpts/Vevo",
+    #     allow_patterns=["acoustic_modeling/Vocoder/*"],
+    # )
 
-        # ===== Vocoder =====
-        # local_dir = snapshot_download(
-        #     repo_id="amphion/Vevo",
-        #     repo_type="model",
-        #     cache_dir="./ckpts/Vevo",
-        #     allow_patterns=["acoustic_modeling/Vocoder/*"],
-        # )
+    # vocoder_cfg_path = "./models/vc/vevo/config/Vocoder.json"
+    # vocoder_ckpt_path = os.path.join(local_dir, "acoustic_modeling/Vocoder")
 
-        # vocoder_cfg_path = "./models/vc/vevo/config/Vocoder.json"
-        # vocoder_ckpt_path = os.path.join(local_dir, "acoustic_modeling/Vocoder")
-
-        # ===== Inference =====
-        inference_pipeline = VevoInferencePipeline(
-            content_tokenizer_ckpt_path=content_tokenizer_ckpt_path,
-            content_style_tokenizer_ckpt_path=content_style_tokenizer_ckpt_path,
-            ar_cfg_path=ar_cfg_path,
-            ar_ckpt_path=None,
-            fmt_cfg_path=fmt_cfg_path,
-            fmt_ckpt_path=None,
-            vocoder_cfg_path=None,
-            vocoder_ckpt_path=None,
-            device="cpu",
-        )
-        return inference_pipeline
+    # ===== Inference =====
+    inference_pipeline = VevoInferencePipeline(
+        content_tokenizer_ckpt_path=content_tokenizer_ckpt_path,
+        content_style_tokenizer_ckpt_path=content_style_tokenizer_ckpt_path,
+        ar_cfg_path=ar_cfg_path,
+        ar_ckpt_path=None,
+        fmt_cfg_path=fmt_cfg_path,
+        fmt_ckpt_path=None,
+        vocoder_cfg_path=None,
+        vocoder_ckpt_path=None,
+        device=device,
+    )
+    inference_pipeline.hubert_model = inference_pipeline.hubert_model.eval()
+    inference_pipeline.content_tokenizer = inference_pipeline.content_tokenizer.eval()
+    inference_pipeline.content_style_tokenizer = (
+        inference_pipeline.content_style_tokenizer.eval()
+    )
+    return inference_pipeline
