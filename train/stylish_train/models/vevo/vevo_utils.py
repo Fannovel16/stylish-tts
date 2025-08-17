@@ -785,7 +785,7 @@ def build_vevo_inference_pipeline(device):
     )
 
     content_style_tokenizer_ckpt_path = Path(local_dir) / "tokenizer/vq8192"
-    content_style_tokenizer_ckpt_path = str(content_tokenizer_ckpt_path.resolve())
+    content_style_tokenizer_ckpt_path = str(content_style_tokenizer_ckpt_path.resolve())
 
     # ===== Autoregressive Transformer =====
     # local_dir = snapshot_download(
