@@ -781,9 +781,9 @@ def build_vevo_inference_pipeline(device):
     )
 
     # ===== Content Tokenizer =====
-    content_tokenizer_ckpt_path = Path(
-        local_dir, "tokenizer/vq32/hubert_large_l18_c32.pkl"
-    ).resolve()
+    content_tokenizer_ckpt_path = (
+        Path(local_dir, "tokenizer/vq32").resolve() / "hubert_large_l18_c32.pkl"
+    )
 
     # ===== Content-Style Tokenizer =====
     content_style_tokenizer_ckpt_path = Path(local_dir, "tokenizer/vq8192").resolve()
