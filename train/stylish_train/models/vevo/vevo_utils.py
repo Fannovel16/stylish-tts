@@ -526,8 +526,7 @@ class VevoInferencePipeline:
             z = vqvae_model.projector(x)
             # z, _ = vqvae_model.quantizer.codebook.forward_index(z.transpose(2, 1))
             _, idx = vqvae_model.quantizer.codebook.forward_index(z.transpose(2, 1))
-            codecs = idx[0]  # (B, T)
-            z = vqvae_model.quantizer.codebook.lookup(codecs)
+            z = vqvae_model.quantizer.codebook.lookup(idx)
         else:
             raise ValueError("Invalid token_type")
 
