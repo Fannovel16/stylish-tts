@@ -523,14 +523,8 @@ class VevoInferencePipeline:
             _, z = vqvae_model.quantize(feats)
         elif token_type == "hubert_vevo_codec":
             x = vqvae_model.encoder(feats.transpose(1, 2))
-            z = vqvae_model.projector(x)
+            z = vqvae_model.projector(x).transpose(2, 1)
             # z, _ = vqvae_model.quantizer.codebook.forward_index(z.transpose(2, 1))
-            _, idx = vqvae_model.quantizer.codebook.forward_index(z.transpose(2, 1))
-            z = (
-                vqvae_model.quantizer.codebook.lookup(idx.cpu())
-                .squeeze(1)
-                .to(self.device)
-            )
         else:
             raise ValueError("Invalid token_type")
 
