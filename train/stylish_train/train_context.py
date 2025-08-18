@@ -48,48 +48,48 @@ class HubertModelWithFinalProj(HubertModel):
         self.final_proj = nn.Linear(config.hidden_size, config.classifier_proj_size)
 
 
-# class AdaptiveHubert(nn.Module):
-#     def __init__(self, hubert_path: str, model_sr: int, hubert_sr: int):
-#         super().__init__()
-#         self.model = HubertModelWithFinalProj.from_pretrained(hubert_path)
-#         self.sr = hubert_sr
-#         self.resample = torchaudio.transforms.Resample(model_sr, hubert_sr)
+class AdaptiveHubert(nn.Module):
+    def __init__(self, hubert_path: str, model_sr: int, hubert_sr: int):
+        super().__init__()
+        self.model = HubertModelWithFinalProj.from_pretrained(hubert_path)
+        self.sr = hubert_sr
+        self.resample = torchaudio.transforms.Resample(model_sr, hubert_sr)
 
-#     def forward(self, wave, time_dim):
-#         xs = []
-#         wave = self.resample(wave)
-#         for i in range(wave.shape[0]):
-#             audio = wave[i : i + 1, :]  # (1, time)
+    def forward(self, wave, time_dim):
+        xs = []
+        wave = self.resample(wave)
+        for i in range(wave.shape[0]):
+            audio = wave[i : i + 1, :]  # (1, time)
 
-#             if audio.shape[1] >= self.sr * 5:
-#                 # Split the audio into two halves
-#                 mid = audio.shape[1] // 2
-#                 segments = [audio[:, :mid], audio[:, mid:]]
-#                 segment_outputs = []
+            if audio.shape[1] >= self.sr * 5:
+                # Split the audio into two halves
+                mid = audio.shape[1] // 2
+                segments = [audio[:, :mid], audio[:, mid:]]
+                segment_outputs = []
 
-#                 for segment in segments:
-#                     x = self.model(segment)["last_hidden_state"].transpose(-1, -2)
-#                     x = torch.nn.functional.interpolate(
-#                         x,
-#                         size=time_dim // 2,
-#                         mode="nearest",
-#                     ).transpose(-1, -2)
-#                     segment_outputs.append(x)
+                for segment in segments:
+                    x = self.model(segment)["last_hidden_state"].transpose(-1, -2)
+                    x = torch.nn.functional.interpolate(
+                        x,
+                        size=time_dim // 2,
+                        mode="nearest",
+                    ).transpose(-1, -2)
+                    segment_outputs.append(x)
 
-#                 # Concatenate the two halves along the time dimension
-#                 x = torch.cat(segment_outputs, dim=1)
+                # Concatenate the two halves along the time dimension
+                x = torch.cat(segment_outputs, dim=1)
 
-#             else:
-#                 x = self.model(audio)["last_hidden_state"].transpose(-1, -2)
-#                 x = torch.nn.functional.interpolate(
-#                     x,
-#                     size=time_dim,
-#                     mode="nearest",
-#                 ).transpose(-1, -2)
+            else:
+                x = self.model(audio)["last_hidden_state"].transpose(-1, -2)
+                x = torch.nn.functional.interpolate(
+                    x,
+                    size=time_dim,
+                    mode="nearest",
+                ).transpose(-1, -2)
 
-#             xs.append(x)
+            xs.append(x)
 
-#         return torch.cat(xs, 0)
+        return torch.cat(xs, 0)
 
 
 class AdaptiveQuantizedHubert(nn.Module):
@@ -219,21 +219,21 @@ class TrainContext:
         ).to(self.config.training.device)
 
         hubert_config = self.model_config.hubert
-        # self.hubert = (
-        #     AdaptiveHubert(
-        #         hubert_config.model,
-        #         self.model_config.sample_rate,
-        #         hubert_config.sr,
-        #     )
-        #     .to(self.config.training.device)
-        #     .eval()
-        # )
-        with self.accelerator.main_process_first():
-            self.hubert = AdaptiveQuantizedHubert(
-                self.config.training.device,
+        self.hubert = (
+            AdaptiveHubert(
+                hubert_config.model,
                 self.model_config.sample_rate,
                 hubert_config.sr,
             )
+            .to(self.config.training.device)
+            .eval()
+        )
+        # with self.accelerator.main_process_first():
+        #     self.hubert = AdaptiveQuantizedHubert(
+        #         self.config.training.device,
+        #         self.model_config.sample_rate,
+        #         hubert_config.sr,
+        #     )
 
     def reset_out_dir(self, stage_name):
         self.out_dir = osp.join(self.base_output_dir, stage_name)
