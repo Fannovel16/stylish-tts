@@ -59,10 +59,9 @@ class FeatureSynthesizer(nn.Module):
             kernel_size=3,
             dropout=0.1,
         )
-        # self.refiner = nn.Sequential(
-        #    *[BasicConvNeXtBlock(feature_dim, feature_dim * 4) for _ in range(4)]
-        # )
-        self.refiner = nn.Conv1d(feature_dim, feature_dim, 1)
+        self.refiner = nn.Sequential(
+            *[BasicConvNeXtBlock(feature_dim, feature_dim * 4) for _ in range(4)]
+        )
 
     def forward(self, texts, text_lengths, alignment):
         x, _, _ = self.text_encoder(texts, text_lengths)
