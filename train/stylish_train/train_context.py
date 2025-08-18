@@ -149,9 +149,9 @@ class AdaptiveWhisperEncoder(nn.Module):
     def __init__(self, whisper_name, model_sr, device):
         super().__init__()
         self.device = device
-        self.whisper_model = WhisperModel.from_pretrained(
-            whisper_name, torch_dtype=torch.float16
-        ).to(self.device)
+        self.whisper_model = (
+            WhisperModel.from_pretrained(whisper_name).to(self.device).eval()
+        )
         del self.whisper_model.decoder
         self.whisper_feature_extractor = AutoFeatureExtractor.from_pretrained(
             whisper_name
