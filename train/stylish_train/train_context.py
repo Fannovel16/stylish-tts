@@ -283,7 +283,7 @@ class TrainContext:
         #     )
         with self.accelerator.main_process_first():
             self.whisper = AdaptiveWhisperEncoder(
-                "openai/whisper-medium",
+                "openai/whisper-small",
                 self.model_config.sample_rate,
                 self.config.training.device,
             )
