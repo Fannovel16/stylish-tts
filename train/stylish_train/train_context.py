@@ -20,6 +20,7 @@ import torchaudio, torch
 import torch.nn as nn
 from transformers import HubertModel
 from models.vevo.vevo_utils import build_vevo_inference_pipeline
+from transformers import AutoFeatureExtractor, WhisperModel
 
 
 class Manifest:
@@ -48,7 +49,7 @@ class HubertModelWithFinalProj(HubertModel):
         self.final_proj = nn.Linear(config.hidden_size, config.classifier_proj_size)
 
 
-class AdaptiveHubert(nn.Module):
+"""class AdaptiveHubert(nn.Module):
     def __init__(self, hubert_path: str, model_sr: int, hubert_sr: int):
         super().__init__()
         self.model = HubertModelWithFinalProj.from_pretrained(hubert_path)
@@ -141,7 +142,52 @@ class AdaptiveQuantizedHubert(nn.Module):
 
             xs.append(x)
 
-        return torch.cat(xs, 0)
+        return torch.cat(xs, 0)"""
+
+
+class AdaptiveWhisperEncoder(nn.Module):
+    def __init__(self, whisper_name, model_sr, device):
+        super().__init__()
+        self.device = device
+        self.whisper_model = WhisperModel.from_pretrained(
+            whisper_name, torch_dtype=torch.float16
+        ).to(self.device)
+        del self.whisper_model.decoder
+        self.whisper_feature_extractor = AutoFeatureExtractor.from_pretrained(
+            whisper_name
+        )
+        self.resample = torchaudio.transforms.Resample(model_sr, 16000).to(self.device)
+
+    def forward(self, wave, time_dim):
+        wave = self.resample(wave)
+        all_features = []
+        for i in range(wave.shape[0]):
+            audio = wave[i, :]
+            inputs = self.whisper_feature_extractor(
+                [audio.cpu().numpy()],
+                return_tensors="pt",
+                return_attention_mask=True,
+                sampling_rate=16000,
+            )
+            input_features = self.whisper_model._mask_input_features(
+                inputs.input_features, attention_mask=inputs.attention_mask
+            ).to(self.device)
+            outputs = self.whisper_model.encoder(
+                input_features.to(self.whisper_model.encoder.dtype),
+                head_mask=None,
+                output_attentions=False,
+                output_hidden_states=False,
+                return_dict=True,
+            )
+            features = outputs.last_hidden_state.to(torch.float32)
+            features = features[:, : audio.size(-1) // 320 + 1]
+            features = torch.nn.functional.interpolate(
+                features.transpose(-1, -2),
+                size=time_dim,
+                mode="nearest",
+            ).transpose(-1, -2)
+            all_features.append(features)
+        return torch.cat(all_features, 0)
 
 
 class TrainContext:
@@ -219,21 +265,27 @@ class TrainContext:
         ).to(self.config.training.device)
 
         hubert_config = self.model_config.hubert
-        self.hubert = (
-            AdaptiveHubert(
-                hubert_config.model,
-                self.model_config.sample_rate,
-                hubert_config.sr,
-            )
-            .to(self.config.training.device)
-            .eval()
-        )
+        # self.hubert = (
+        #     AdaptiveHubert(
+        #         hubert_config.model,
+        #         self.model_config.sample_rate,
+        #         hubert_config.sr,
+        #     )
+        #     .to(self.config.training.device)
+        #     .eval()
+        # )
         # with self.accelerator.main_process_first():
         #     self.hubert = AdaptiveQuantizedHubert(
         #         self.config.training.device,
         #         self.model_config.sample_rate,
         #         hubert_config.sr,
         #     )
+        with self.accelerator.main_process_first():
+            self.whisper = AdaptiveWhisperEncoder(
+                "openai/whisper-large-v3",
+                self.model_config.sample_rate,
+                self.config.training.device,
+            )
 
     def reset_out_dir(self, stage_name):
         self.out_dir = osp.join(self.base_output_dir, stage_name)
