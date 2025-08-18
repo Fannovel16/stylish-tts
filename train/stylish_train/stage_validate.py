@@ -100,12 +100,12 @@ def validate_pre_hubert_quantizer(batch, train):
 
 
 @torch.no_grad()
-def validate_pre_code_predictor(batch, train):
+def validate_pre_feature_synthesizer(batch, train):
     state = BatchContext(train=train, model=train.model)
-    state.pre_code_predictor(batch)
+    state.pre_feature_synthesizer(batch)
     train.stage.optimizer.zero_grad()
     log = build_loss_log(train)
-    # log.add_loss("hubert_code_ce", state.compute_code_predictor_loss(batch))
+    # log.add_loss("hubert_code_ce", state.compute_feature_synthesizer_loss(batch))
     log.add_loss(
         "hubert_distil_l2",
         F.mse_loss(

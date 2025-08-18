@@ -175,10 +175,11 @@ class BatchContext:
             / (batch.alignment.sum(-1, keepdim=True) + 1e-8)
         )
         return pooled_phones.detach()"""
-        return self.train.hubert(
-            batch.audio_gt,
-            batch.alignment.shape[-1],
-        )
+        with torch.no_grad():
+            return self.train.hubert(
+                batch.audio_gt,
+                batch.alignment.shape[-1],
+            )
 
     def pre_hubert_quantizer(self, batch):
         self.phones = self.extract_phones_from_audio(batch)
@@ -212,7 +213,7 @@ class BatchContext:
         )
         return phones, None
 
-    """def compute_code_predictor_loss(self, batch):
+    """def compute_feature_synthesizer_loss(self, batch):
         mel_mask = sequence_mask(batch.mel_length // 2, batch.alignment.shape[2])
         mask = repeat(
             mel_mask,
@@ -227,13 +228,13 @@ class BatchContext:
         masked_loss = loss * mask.float()
         return masked_loss.sum() / mask.sum()"""
 
-    def compute_code_predictor_loss(self, batch):
+    def compute_feature_synthesizer_loss(self, batch):
         return F.cross_entropy(
             self.logits_prediction,
             self.logits_gt,
         )  # (B*H, T)
 
-    """def pre_code_predictor(self, batch):
+    """def pre_feature_synthesizer(self, batch):
         self.phones = self.extract_phones_from_audio(batch)
         with torch.no_grad():
             self.model.hubert_quantizer.eval()
@@ -245,7 +246,7 @@ class BatchContext:
             "b t h c -> (b h) c t",
         )"""
 
-    def pre_code_predictor(self, batch):
+    def pre_feature_synthesizer(self, batch):
         self.phones = self.extract_phones_from_audio(batch)
         self.phones_prediction = self.model.hubert_feature_synthesizer(
             batch.text, batch.text_length, batch.alignment

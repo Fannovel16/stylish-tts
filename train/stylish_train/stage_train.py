@@ -182,15 +182,15 @@ def train_pre_hubert_quantizer(
     return log.detach(), None
 
 
-def train_pre_code_predictor(
+def train_pre_feature_synthesizer(
     batch, model, train, probing
 ) -> Tuple[LossLog, Optional[torch.Tensor]]:
     state = BatchContext(train=train, model=model)
     with train.accelerator.autocast():
-        state.pre_code_predictor(batch)
+        state.pre_feature_synthesizer(batch)
         train.stage.optimizer.zero_grad()
         log = build_loss_log(train)
-        # log.add_loss("hubert_code_ce", state.compute_code_predictor_loss(batch))
+        # log.add_loss("hubert_code_ce", state.compute_feature_synthesizer_loss(batch))
         log.add_loss(
             "hubert_distil_l2",
             F.mse_loss(

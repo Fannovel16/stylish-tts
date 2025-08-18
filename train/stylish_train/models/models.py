@@ -168,6 +168,6 @@ def load_defaults(train, model):
         """params = safetensors.torch.load_file(
             hf_hub_download(repo_id="stylish-tts/plbert", filename="plbert.safetensors")
         )
-        model.hubert_code_predictor.text_encoder.load_state_dict(params, strict=False)
+        model.hubert_feature_synthesizer.text_encoder.load_state_dict(params, strict=False)
         """
         return
