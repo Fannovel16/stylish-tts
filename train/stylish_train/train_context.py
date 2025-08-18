@@ -160,7 +160,7 @@ class AdaptiveWhisperEncoder(nn.Module):
 
     def forward(self, wave, time_dim):
         wave = self.resample(wave)
-        all_features = []
+        all_input_features = []
         for i in range(wave.shape[0]):
             audio = wave[i, :]
             inputs = self.whisper_feature_extractor(
@@ -172,22 +172,23 @@ class AdaptiveWhisperEncoder(nn.Module):
             input_features = self.whisper_model._mask_input_features(
                 inputs.input_features, attention_mask=inputs.attention_mask
             ).to(self.device)
-            outputs = self.whisper_model.encoder(
-                input_features.to(self.whisper_model.encoder.dtype),
-                head_mask=None,
-                output_attentions=False,
-                output_hidden_states=False,
-                return_dict=True,
-            )
-            features = outputs.last_hidden_state.to(torch.float32)
-            features = features[:, : audio.size(-1) // 320 + 1]
-            features = torch.nn.functional.interpolate(
-                features.transpose(-1, -2),
-                size=time_dim,
-                mode="nearest",
-            ).transpose(-1, -2)
-            all_features.append(features)
-        return torch.cat(all_features, 0)
+            all_input_features.append(input_features)
+        all_input_features = torch.cat(all_input_features, 0)
+        outputs = self.whisper_model.encoder(
+            all_input_features.to(self.whisper_model.encoder.dtype),
+            head_mask=None,
+            output_attentions=False,
+            output_hidden_states=False,
+            return_dict=True,
+        )
+        all_features = outputs.last_hidden_state.to(torch.float32)
+        all_features = all_features[:, : audio.size(-1) // 320 + 1]
+        all_features = torch.nn.functional.interpolate(
+            all_features.transpose(-1, -2),
+            size=time_dim,
+            mode="nearest",
+        ).transpose(-1, -2)
+        return all_features
 
 
 class TrainContext:
