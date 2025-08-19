@@ -124,7 +124,6 @@ class AdaptiveQuantizedHubert(nn.Module):
                         mode="nearest",
                     ).transpose(-1, -2)
                     segment_outputs.append(x)
-                    codecs = codecs.squeeze()
                     print(
                         codecs.shape,
                         [
@@ -147,7 +146,6 @@ class AdaptiveQuantizedHubert(nn.Module):
                     size=time_dim,
                     mode="nearest",
                 ).transpose(-1, -2)
-                codecs = codecs.squeeze()
                 print(
                     codecs.shape,
                     [
