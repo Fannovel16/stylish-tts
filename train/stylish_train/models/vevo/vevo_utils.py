@@ -523,7 +523,7 @@ class VevoInferencePipeline:
             codecs, z = vqvae_model.quantize(feats)
         elif token_type == "hubert_vevo_codec":
             x = vqvae_model.encoder(feats.transpose(1, 2))
-            z = vqvae_model.projector(x).transpose(2, 1)
+            z = vqvae_model.projector(x)
             z, idx = vqvae_model.quantizer.codebook.forward_index(z.transpose(2, 1))
             codecs = idx[0]  # (B, T)
         else:
