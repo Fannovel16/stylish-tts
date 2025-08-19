@@ -204,6 +204,8 @@ class BatchContext:
         global_step = self.train.manifest.current_step
         print_every = self.train.config.training.log_interval
         in_val = not torch.is_grad_enabled()
+        print(codebook_indices.shape, codebook_indices)
+        print([duration_reduction_func(ci)[0].shape[0] for ci in codebook_indices])
         if in_val or (global_step >= print_every and global_step % print_every == 0):
             with torch.no_grad():
                 self.model.hubert_quantizer.eval()
@@ -211,10 +213,6 @@ class BatchContext:
                     batch, self.phones
                 )
                 codebook_indices = codebook_indices.squeeze()
-                print(codebook_indices.shape, codebook_indices)
-                print(
-                    [duration_reduction_func(ci)[0].shape[0] for ci in codebook_indices]
-                )
             if not in_val:
                 self.track_codebook_metrics(codebook_indices)
             self.model.hubert_quantizer.train()
