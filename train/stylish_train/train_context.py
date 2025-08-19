@@ -49,7 +49,7 @@ class HubertModelWithFinalProj(HubertModel):
         self.final_proj = nn.Linear(config.hidden_size, config.classifier_proj_size)
 
 
-"""class AdaptiveHubert(nn.Module):
+""" class AdaptiveHubert(nn.Module):
     def __init__(self, hubert_path: str, model_sr: int, hubert_sr: int):
         super().__init__()
         self.model = HubertModelWithFinalProj.from_pretrained(hubert_path)
@@ -90,7 +90,7 @@ class HubertModelWithFinalProj(HubertModel):
 
             xs.append(x)
 
-        return torch.cat(xs, 0)
+        return torch.cat(xs, 0) """
 
 
 class AdaptiveQuantizedHubert(nn.Module):
@@ -113,7 +113,7 @@ class AdaptiveQuantizedHubert(nn.Module):
                 segment_outputs = []
 
                 for segment in segments:
-                    x = self.vevo.extract_hubert_quantized(
+                    x, codecs = self.vevo.extract_hubert_quantized(
                         self.vevo.content_tokenizer,
                         segment,
                         token_type=self.vevo.ar_cfg.model.vc_input_token_type,
@@ -124,12 +124,13 @@ class AdaptiveQuantizedHubert(nn.Module):
                         mode="nearest",
                     ).transpose(-1, -2)
                     segment_outputs.append(x)
+                    print(codecs)
 
                 # Concatenate the two halves along the time dimension
                 x = torch.cat(segment_outputs, dim=1)
 
             else:
-                x = self.vevo.extract_hubert_quantized(
+                x, codecs = self.vevo.extract_hubert_quantized(
                     self.vevo.content_tokenizer,
                     audio,
                     token_type=self.vevo.ar_cfg.model.vc_input_token_type,
@@ -139,13 +140,14 @@ class AdaptiveQuantizedHubert(nn.Module):
                     size=time_dim,
                     mode="nearest",
                 ).transpose(-1, -2)
+                print(codecs)
 
             xs.append(x)
 
-        return torch.cat(xs, 0)"""
+        return torch.cat(xs, 0)
 
 
-class AdaptiveWhisperEncoder(nn.Module):
+"""class AdaptiveWhisperEncoder(nn.Module):
     def __init__(self, whisper_name, model_sr, device):
         super().__init__()
         self.device = device
@@ -188,7 +190,7 @@ class AdaptiveWhisperEncoder(nn.Module):
             size=time_dim,
             mode="nearest",
         ).transpose(-1, -2)
-        return all_features
+        return all_features"""
 
 
 class TrainContext:
@@ -275,18 +277,18 @@ class TrainContext:
         #     .to(self.config.training.device)
         #     .eval()
         # )
-        # with self.accelerator.main_process_first():
-        #     self.hubert = AdaptiveQuantizedHubert(
-        #         self.config.training.device,
-        #         self.model_config.sample_rate,
-        #         hubert_config.sr,
-        #     )
         with self.accelerator.main_process_first():
-            self.whisper = AdaptiveWhisperEncoder(
-                "openai/whisper-small",
-                self.model_config.sample_rate,
+            self.hubert = AdaptiveQuantizedHubert(
                 self.config.training.device,
+                self.model_config.sample_rate,
+                hubert_config.sr,
             )
+        # with self.accelerator.main_process_first():
+        #     self.whisper = AdaptiveWhisperEncoder(
+        #         "openai/whisper-small",
+        #         self.model_config.sample_rate,
+        #         self.config.training.device,
+        #     )
 
     def reset_out_dir(self, stage_name):
         self.out_dir = osp.join(self.base_output_dir, stage_name)

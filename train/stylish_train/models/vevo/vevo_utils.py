@@ -520,15 +520,16 @@ class VevoInferencePipeline:
             feats = (
                 feats - self.hubert_feat_norm_mean.to(feats)
             ) / self.hubert_feat_norm_std.to(feats)
-            _, z = vqvae_model.quantize(feats)
+            codecs, z = vqvae_model.quantize(feats)
         elif token_type == "hubert_vevo_codec":
             x = vqvae_model.encoder(feats.transpose(1, 2))
             z = vqvae_model.projector(x).transpose(2, 1)
-            # z, _ = vqvae_model.quantizer.codebook.forward_index(z.transpose(2, 1))
+            z, idx = vqvae_model.quantizer.codebook.forward_index(z.transpose(2, 1))
+            codecs = idx[0]  # (B, T)
         else:
             raise ValueError("Invalid token_type")
 
-        return z
+        return z, codecs
 
     def random_mask_codec(self, codecs, codec_masks, ratio, mask_value):
         """

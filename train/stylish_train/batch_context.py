@@ -176,7 +176,7 @@ class BatchContext:
         )
         return pooled_phones.detach()"""
         with torch.no_grad():
-            return self.train.whisper(
+            return self.train.hubert(
                 batch.audio_gt,
                 batch.alignment.shape[-1],
             )
