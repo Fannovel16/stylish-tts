@@ -204,6 +204,7 @@ class BatchContext:
         global_step = self.train.manifest.current_step
         print_every = self.train.config.training.log_interval
         in_val = not torch.is_grad_enabled()
+        print(batch.text.shape, batch.mel_length // 2)
         print(
             codebook_indices.shape,
             [
