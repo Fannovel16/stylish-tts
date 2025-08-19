@@ -124,12 +124,12 @@ class AdaptiveQuantizedHubert(nn.Module):
                         mode="nearest",
                     ).transpose(-1, -2)
                     segment_outputs.append(x)
-                    codec = codec.squeeze()
+                    codecs = codecs.squeeze()
                     print(
                         codecs.shape,
                         [
                             self.vevo.duration_reduction_func(ci)[0].shape[0]
-                            for ci in codec
+                            for ci in codecs
                         ],
                     )
 
@@ -147,10 +147,13 @@ class AdaptiveQuantizedHubert(nn.Module):
                     size=time_dim,
                     mode="nearest",
                 ).transpose(-1, -2)
-                codec = codec.squeeze()
+                codecs = codecs.squeeze()
                 print(
                     codecs.shape,
-                    [self.vevo.duration_reduction_func(ci)[0].shape[0] for ci in codec],
+                    [
+                        self.vevo.duration_reduction_func(ci)[0].shape[0]
+                        for ci in codecs
+                    ],
                 )
 
             xs.append(x)
