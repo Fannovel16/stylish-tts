@@ -182,6 +182,21 @@ class BatchContext:
             )
 
     def pre_hubert_quantizer(self, batch):
+        def duration_reduction_func(token_seq, n_gram=1):
+            """
+            Args:
+                token_seq: (T,)
+            Returns:
+                reduced_token_seq: (T')
+                reduced_token_seq_len: T'
+            """
+            n_gram_seq = token_seq.unfold(0, n_gram, 1)
+            mask = torch.all(n_gram_seq[1:] != n_gram_seq[:-1], dim=1)
+            reduced_token_seq = torch.cat(
+                (n_gram_seq[0, :n_gram], n_gram_seq[1:, -1][mask])
+            )
+            return reduced_token_seq, len(reduced_token_seq)
+
         self.phones = self.extract_phones_from_audio(batch)
         self.phones_prediction, _, self.cmt_loss = self.quantize_hubert(
             batch, self.phones
@@ -194,6 +209,11 @@ class BatchContext:
                 self.model.hubert_quantizer.eval()
                 self.phones_prediction, codebook_indices, _ = self.quantize_hubert(
                     batch, self.phones
+                )
+                codebook_indices = codebook_indices.squeeze()
+                print(codebook_indices.shape, codebook_indices)
+                print(
+                    [duration_reduction_func(ci)[0].shape[0] for ci in codebook_indices]
                 )
             if not in_val:
                 self.track_codebook_metrics(codebook_indices)
