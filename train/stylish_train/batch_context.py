@@ -198,7 +198,7 @@ class BatchContext:
             return reduced_token_seq, len(reduced_token_seq)
 
         self.phones = self.extract_phones_from_audio(batch)
-        self.phones_prediction, _, self.cmt_loss = self.quantize_hubert(
+        self.phones_prediction, codebook_indices, self.cmt_loss = self.quantize_hubert(
             batch, self.phones
         )
         global_step = self.train.manifest.current_step
