@@ -155,7 +155,7 @@ def build_model(model_config: ModelConfig):
         hubert_spectral_extractor=hubert_spectral_extractor,
         hubert_feature_synthesizer=FeatureSynthesizer(
             model_config.tokens,
-            768,
+            1024,
         ),
         hubert_quantizer=hubert_quantizer,
     )
