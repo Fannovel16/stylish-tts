@@ -49,7 +49,7 @@ class HubertModelWithFinalProj(HubertModel):
         self.final_proj = nn.Linear(config.hidden_size, config.classifier_proj_size)
 
 
-class AdaptiveHubert(nn.Module):
+"""class AdaptiveHubert(nn.Module):
     def __init__(self, hubert_path: str, model_sr: int, hubert_sr: int):
         super().__init__()
         self.model = HubertModelWithFinalProj.from_pretrained(hubert_path)
@@ -90,10 +90,10 @@ class AdaptiveHubert(nn.Module):
 
             xs.append(x)
 
-        return torch.cat(xs, 0)
+        return torch.cat(xs, 0)"""
 
 
-"""class AdaptiveQuantizedHubert(nn.Module):
+class AdaptiveQuantizedHubert(nn.Module):
     def __init__(self, device, model_sr: int, hubert_sr: int):
         super().__init__()
         self.vevo = build_vevo_inference_pipeline(device)
@@ -124,7 +124,14 @@ class AdaptiveHubert(nn.Module):
                         mode="nearest",
                     ).transpose(-1, -2)
                     segment_outputs.append(x)
-                    print(codecs)
+                    codec = codec.squeeze()
+                    print(
+                        codecs.shape,
+                        [
+                            self.vevo.duration_reduction_func(ci)[0].shape[0]
+                            for ci in codec
+                        ],
+                    )
 
                 # Concatenate the two halves along the time dimension
                 x = torch.cat(segment_outputs, dim=1)
@@ -140,11 +147,15 @@ class AdaptiveHubert(nn.Module):
                     size=time_dim,
                     mode="nearest",
                 ).transpose(-1, -2)
-                print(codecs)
+                codec = codec.squeeze()
+                print(
+                    codecs.shape,
+                    [self.vevo.duration_reduction_func(ci)[0].shape[0] for ci in codec],
+                )
 
             xs.append(x)
 
-        return torch.cat(xs, 0)"""
+        return torch.cat(xs, 0)
 
 
 """class AdaptiveWhisperEncoder(nn.Module):
@@ -268,21 +279,21 @@ class TrainContext:
         ).to(self.config.training.device)
 
         hubert_config = self.model_config.hubert
-        self.hubert = (
-            AdaptiveHubert(
-                hubert_config.model,
-                self.model_config.sample_rate,
-                hubert_config.sr,
-            )
-            .to(self.config.training.device)
-            .eval()
-        )
-        # with self.accelerator.main_process_first():
-        #     self.hubert = AdaptiveQuantizedHubert(
-        #         self.config.training.device,
+        # self.hubert = (
+        #     AdaptiveHubert(
+        #         hubert_config.model,
         #         self.model_config.sample_rate,
         #         hubert_config.sr,
         #     )
+        #     .to(self.config.training.device)
+        #     .eval()
+        # )
+        with self.accelerator.main_process_first():
+            self.hubert = AdaptiveQuantizedHubert(
+                self.config.training.device,
+                self.model_config.sample_rate,
+                hubert_config.sr,
+            )
         # with self.accelerator.main_process_first():
         #     self.whisper = AdaptiveWhisperEncoder(
         #         "openai/whisper-small",

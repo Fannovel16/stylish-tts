@@ -204,13 +204,11 @@ class BatchContext:
         global_step = self.train.manifest.current_step
         print_every = self.train.config.training.log_interval
         in_val = not torch.is_grad_enabled()
-        print(batch.text.shape, batch.mel_length // 2)
+        codebook_indices = codebook_indices.squeeze()
         print(
+            batch.text.shape,
             codebook_indices.shape,
-            [
-                duration_reduction_func(ci)[0].shape[0]
-                for ci in codebook_indices.squeeze()
-            ],
+            [duration_reduction_func(ci)[0].shape[0] for ci in codebook_indices],
         )
         if in_val or (global_step >= print_every and global_step % print_every == 0):
             with torch.no_grad():
@@ -218,7 +216,6 @@ class BatchContext:
                 self.phones_prediction, codebook_indices, _ = self.quantize_hubert(
                     batch, self.phones
                 )
-                codebook_indices = codebook_indices.squeeze()
             if not in_val:
                 self.track_codebook_metrics(codebook_indices)
             self.model.hubert_quantizer.train()
@@ -271,6 +268,7 @@ class BatchContext:
         )"""
 
     def pre_feature_synthesizer(self, batch):
+        print(batch.text.shape)
         self.phones = self.extract_phones_from_audio(batch)
         self.phones_prediction = self.model.hubert_feature_synthesizer(
             batch.text, batch.text_length, batch.alignment
