@@ -271,7 +271,7 @@ class BatchContext:
         pred_str = tokenizer.batch_decode(pred_ids, skip_special_tokens=True)
         labels_ids[labels_ids == -100] = tokenizer.pad_token_id
         label_str = tokenizer.batch_decode(labels_ids, skip_special_tokens=True)
-        cer = self.cer_metric.compute(predictions=pred_str, references=label_str)["cer"]
+        cer = self.cer_metric.compute(predictions=pred_str, references=label_str)
         return cer
 
     def pre_vevo_token_predictor(self, batch, training=True):
