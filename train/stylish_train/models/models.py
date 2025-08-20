@@ -141,7 +141,7 @@ def build_model(model_config: ModelConfig):
 
     # Satisfy the optimizer as RVQ uses EMA instead of gradient descent
     hubert_quantizer.register_parameter("unused", nn.Parameter())
-    vevo_token_predictor, vevo_token_predictor_tokenizer = build_model_tokenizer()
+    vevo_token_predictor_tokenizer, vevo_token_predictor = build_model_tokenizer()
 
     nets = Munch(
         text_acoustic_extractor=text_acoustic_extractor,
@@ -161,7 +161,7 @@ def build_model(model_config: ModelConfig):
             1024,
         ),
         hubert_quantizer=hubert_quantizer,
-        vevo_token_predictor_tokenizer=byt5_tokenzier,
+        vevo_token_predictor_tokenizer=vevo_token_predictor_tokenizer,
         vevo_token_predictor=vevo_token_predictor,
     )
 
