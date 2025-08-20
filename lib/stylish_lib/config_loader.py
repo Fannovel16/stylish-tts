@@ -77,6 +77,11 @@ class TrainingPlanConfig(BaseModel):
         description="Configuration for pretraining stage of HuBERT Codebook Index Predictor.",
     )
 
+    pre_vevo_token_predictor: TrainingStageConfig = Field(
+        default_factory=TrainingStageConfig,
+        description="Configuration for pretraining stage of ByT5 Vevo-content-token predictor.",
+    )
+
     def get_stage(self, name: str) -> TrainingStageConfig:
         try:
             return getattr(self, name)
