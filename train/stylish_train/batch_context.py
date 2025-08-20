@@ -13,6 +13,7 @@ from stylish_train.models.vevo_token_predictor import (
     phoneme_idx_to_token,
 )
 from transformers import T5ForConditionalGeneration
+import evaluate
 
 
 class BatchContext:
@@ -29,6 +30,7 @@ class BatchContext:
         self.byt5_data_collator = DataCollatorWithPadding(
             self.train.vevo_token_predictor_tokenizer, self.train.config.training.device
         )
+        self.cer_metric = evaluate.load("cer")
 
         self.pitch_prediction = None
         self.energy_prediction = None
@@ -269,8 +271,7 @@ class BatchContext:
         pred_str = tokenizer.batch_decode(pred_ids, skip_special_tokens=True)
         labels_ids[labels_ids == -100] = tokenizer.pad_token_id
         label_str = tokenizer.batch_decode(labels_ids, skip_special_tokens=True)
-
-        cer = cer_metric.compute(predictions=pred_str, references=label_str)
+        cer = self.cer_metric.compute(predictions=pred_str, references=label_str)["cer"]
         return cer
 
     def pre_vevo_token_predictor(self, batch, training=True):
