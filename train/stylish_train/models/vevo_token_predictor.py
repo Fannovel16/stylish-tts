@@ -60,5 +60,5 @@ def build_model_tokenizer(
     byt5_config.d_model = d_model
     byt5_config.d_kv = d_kv
     byt5_config.d_ff = d_ff
-    byt5_model = T5ForConditionalGeneration(T5Config(byt5_config))
+    byt5_model = T5ForConditionalGeneration(byt5_config)
     return byt5_model, byt5_tokenzier
