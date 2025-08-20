@@ -43,7 +43,7 @@ def phoneme_idx_to_token(i):
     return f"<PH{i}>"
 
 
-def build_model_tokenizer(
+def build_tokenizer_model(
     num_vevo_tokens=32,
     num_decoder_layers=2,
     num_layers=2,

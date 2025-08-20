@@ -21,6 +21,7 @@ import torch.nn as nn
 from transformers import HubertModel
 from models.vevo.vevo_utils import build_vevo_inference_pipeline
 from transformers import AutoFeatureExtractor, WhisperModel
+from models.vevo_token_predictor import build_tokenizer_model
 
 
 class Manifest:
@@ -285,6 +286,7 @@ class TrainContext:
                 self.model_config.sample_rate,
                 hubert_config.sr,
             )
+        self.vevo_token_predictor_tokenizer, _ = build_tokenizer_model()
         # with self.accelerator.main_process_first():
         #     self.whisper = AdaptiveWhisperEncoder(
         #         "openai/whisper-small",

@@ -27,7 +27,7 @@ class BatchContext:
         # This is a subset containing only those models used this batch
         self.model = model
         self.byt5_data_collator = DataCollatorWithPadding(
-            self.model.vevo_token_predictor_tokenizer, self.train.config.training.device
+            self.train.vevo_token_predictor_tokenizer, self.train.config.training.device
         )
 
         self.pitch_prediction = None
@@ -264,7 +264,7 @@ class BatchContext:
         )
 
     def compute_cer(self, pred_ids, labels_ids):
-        tokenizer = self.model.vevo_token_predictor_tokenizer
+        tokenizer = self.train.vevo_token_predictor_tokenizer
 
         pred_str = tokenizer.batch_decode(pred_ids, skip_special_tokens=True)
         labels_ids[labels_ids == -100] = tokenizer.pad_token_id
