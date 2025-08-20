@@ -8,7 +8,10 @@ from einops import rearrange, repeat
 import train_context
 from stylish_lib.config_loader import Config
 from utils import length_to_mask, log_norm, print_gpu_vram, sequence_mask
-from .models.vevo_token_predictor import DataCollatorWithPadding, phoneme_idx_to_token
+from stylish_train.models.vevo_token_predictor import (
+    DataCollatorWithPadding,
+    phoneme_idx_to_token,
+)
 from transformers import T5ForConditionalGeneration
 
 

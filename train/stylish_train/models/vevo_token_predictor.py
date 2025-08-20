@@ -52,7 +52,7 @@ def build_model_tokenizer(
     d_ff=512,
 ):
     byt5_tokenzier = ByT5Tokenizer.from_pretrained("google/byt5-small")
-    byt5_tokenzier.add_tokens([phoneme_idx_to_token(i) for i in range(32)])
+    byt5_tokenzier.add_tokens([phoneme_idx_to_token(i) for i in range(num_vevo_tokens)])
     byt5_config = T5Config.from_pretrained("google/byt5-small")
     byt5_config.vocab_size = len(byt5_tokenzier)
     byt5_config.num_decoder_layers = num_decoder_layers
