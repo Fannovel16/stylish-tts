@@ -302,7 +302,7 @@ class BatchContext:
                 for grapheme, codes in zip(batch.grapheme, all_codes)
             ]
         )
-        if trainig:
+        if training:
             self.byt5_ce_loss = self.model.vevo_token_predictor(**byt5_batch).loss
         else:
             pred_ids = self.model.vevo_token_predictor.generate(
