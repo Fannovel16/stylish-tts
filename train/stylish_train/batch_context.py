@@ -304,8 +304,8 @@ class BatchContext:
         self.byt5_ce_loss = self.model.vevo_token_predictor(**byt5_batch).loss
         if not training:
             pred_ids = self.model.vevo_token_predictor.generate(
-                input_ids=batch["input_ids"],
-                attention_mask=batch["attention_mask"],
+                input_ids=byt5_batch["input_ids"],
+                attention_mask=byt5_batch["attention_mask"],
                 max_length=250,
             )
             self.byt5_cer_loss = self.compute_cer(pred_ids, byt5_batch["labels"])
