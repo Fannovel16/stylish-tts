@@ -17,6 +17,7 @@ from stage_train import (
     train_spectral,
     train_pre_hubert_quantizer,
     train_pre_feature_synthesizer,
+    train_pre_vevo_token_predictor,
 )
 
 from stage_validate import (
@@ -26,6 +27,7 @@ from stage_validate import (
     validate_spectral,
     validate_pre_hubert_quantizer,
     validate_pre_feature_synthesizer,
+    validate_pre_vevo_token_predictor,
 )
 
 from optimizers import build_optimizer
@@ -175,6 +177,24 @@ stages = {
             "audio_gt",
             "pitch",
             "alignment",
+        ],
+    ),
+    "pre_vevo_token_predictor": StageConfig(
+        next_stage=None,
+        train_fn=train_pre_vevo_token_predictor,
+        validate_fn=validate_pre_vevo_token_predictor,
+        train_models=["hubert_feature_synthesizer"],
+        eval_models=["hubert_quantizer"],
+        discriminators=[],
+        inputs=[
+            "text",
+            "text_length",
+            "mel",
+            "mel_length",
+            "audio_gt",
+            "pitch",
+            "alignment",
+            "grapheme",
         ],
     ),
 }
@@ -472,6 +492,7 @@ batch_names = [
     "pitch",
     "align_mel",
     "alignment",
+    "grapheme",
 ]
 
 

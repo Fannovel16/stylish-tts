@@ -141,7 +141,9 @@ class FilePathDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         data = self.data_list[idx]
         path = data[0]
-        wave, text_tensor, speaker_id, mel_tensor, align_mel = self._load_tensor(data)
+        wave, text_tensor, speaker_id, mel_tensor, align_mel, grapheme = (
+            self._load_tensor(data)
+        )
 
         acoustic_feature = mel_tensor.squeeze()
         length_feature = acoustic_feature.size(1)
@@ -189,10 +191,11 @@ class FilePathDataset(torch.utils.data.Dataset):
             pitch,
             align_mel,
             alignment,
+            grapheme,
         )
 
     def _load_tensor(self, data):
-        wave_path, text, speaker_id, _ = data
+        wave_path, text, speaker_id, grapheme = data
         speaker_id = int(speaker_id)
         wave, sr = sf.read(osp.join(self.root_path, wave_path))
         if wave.shape[-1] == 2:
@@ -222,11 +225,11 @@ class FilePathDataset(torch.utils.data.Dataset):
         mel_tensor = self.preprocess(wave, align=False).squeeze()
         align_mel = self.preprocess(wave, align=True).squeeze()
 
-        return (wave, text, speaker_id, mel_tensor, align_mel)
+        return (wave, text, speaker_id, mel_tensor, align_mel, grapheme)
 
     def _load_data(self, data):
         max_mel_length = 192
-        wave, text_tensor, speaker_id, mel_tensor = self._load_tensor(data)
+        wave, text_tensor, speaker_id, mel_tensor, grapheme = self._load_tensor(data)
 
         mel_length = mel_tensor.size(1)
         if mel_length > max_mel_length:
@@ -277,6 +280,7 @@ class Collater(object):
         pitches = torch.zeros((batch_size, max_mel_length)).float()
         align_mels = torch.zeros((batch_size, 80, max_mel_length)).float()
         alignments = torch.zeros((batch_size, max_text_length, max_mel_length // 2))
+        graphemes = []
 
         for bid, (
             label,
@@ -290,6 +294,7 @@ class Collater(object):
             pitch,
             align_mel,
             alignment,
+            grapheme,
         ) in enumerate(batch):
             mel_size = mel.size(1)
             text_size = text.size(0)
@@ -311,6 +316,7 @@ class Collater(object):
                 pitches[bid] = pitch
             align_mels[bid, :, :mel_size] = align_mel
             alignments[bid, :text_size, : mel_size // 2] = alignment
+            graphemes.append(grapheme)
 
         result = (
             waves,
@@ -325,6 +331,7 @@ class Collater(object):
             pitches,
             align_mels,
             alignments,
+            graphemes,
         )
         return result
 

@@ -111,9 +111,10 @@ class AdaptiveQuantizedHubert(nn.Module):
                 mid = audio.shape[1] // 2
                 segments = [audio[:, :mid], audio[:, mid:]]
                 segment_outputs = []
+                code_outputs = []
 
                 for segment in segments:
-                    x, codecs = self.vevo.extract_hubert_quantized(
+                    x, _codes = self.vevo.extract_hubert_quantized(
                         self.vevo.content_tokenizer,
                         segment,
                         token_type=self.vevo.ar_cfg.model.vc_input_token_type,
@@ -124,19 +125,14 @@ class AdaptiveQuantizedHubert(nn.Module):
                         mode="nearest",
                     ).transpose(-1, -2)
                     segment_outputs.append(x)
-                    print(
-                        codecs.shape,
-                        [
-                            self.vevo.duration_reduction_func(ci)[0].shape[0]
-                            for ci in codecs
-                        ],
-                    )
+                    code_outputs.append(_codes)
 
                 # Concatenate the two halves along the time dimension
                 x = torch.cat(segment_outputs, dim=1)
+                codes = torch.cat(code_outputs, dim=1)
 
             else:
-                x, codecs = self.vevo.extract_hubert_quantized(
+                x, codes = self.vevo.extract_hubert_quantized(
                     self.vevo.content_tokenizer,
                     audio,
                     token_type=self.vevo.ar_cfg.model.vc_input_token_type,
@@ -146,17 +142,11 @@ class AdaptiveQuantizedHubert(nn.Module):
                     size=time_dim,
                     mode="nearest",
                 ).transpose(-1, -2)
-                print(
-                    codecs.shape,
-                    [
-                        self.vevo.duration_reduction_func(ci)[0].shape[0]
-                        for ci in codecs
-                    ],
-                )
 
             xs.append(x)
+            code_outputs.append(codes)
 
-        return torch.cat(xs, 0)
+        return torch.cat(xs, 0), torch.cat(codes, 0)
 
 
 """class AdaptiveWhisperEncoder(nn.Module):

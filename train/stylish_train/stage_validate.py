@@ -114,3 +114,18 @@ def validate_pre_feature_synthesizer(batch, train):
         ),
     )
     return log, None, None, None
+
+
+@torch.no_grad()
+def validate_pre_vevo_token_predictor(batch, train):
+    state = BatchContext(train=train, model=train.model)
+    state.pre_vevo_token_predictor(batch, training=False)
+    train.stage.optimizer.zero_grad()
+    log = build_loss_log(train)
+    # log.add_loss("hubert_code_ce", state.compute_feature_synthesizer_loss(batch))
+    log.add_loss(
+        "byt5_ce",
+        state.byt5_ce_loss,
+    )
+    log.add_loss("byt5_cer", state.byt5_cer_loss)
+    return log, None, None, None

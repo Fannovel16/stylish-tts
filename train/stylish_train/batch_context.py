@@ -8,6 +8,8 @@ from einops import rearrange, repeat
 import train_context
 from stylish_lib.config_loader import Config
 from utils import length_to_mask, log_norm, print_gpu_vram, sequence_mask
+from .models.vevo_token_predictor import DataCollatorWithPadding, phoneme_idx_to_token
+from transformers import T5ForConditionalGeneration
 
 
 class BatchContext:
@@ -21,6 +23,9 @@ class BatchContext:
         self.config: Config = train.config
         # This is a subset containing only those models used this batch
         self.model = model
+        self.byt5_data_collator = DataCollatorWithPadding(
+            self.model.vevo_token_predictor_tokenizer, self.train.config.training.device
+        )
 
         self.pitch_prediction = None
         self.energy_prediction = None
@@ -30,6 +35,8 @@ class BatchContext:
         self.cmt_loss = None
         self.logits_gt = None
         self.logits_prediction = None
+        self.byt5_ce_loss = None
+        self.byt5_cer_loss = None
 
     def acoustic_energy(self, mels: torch.Tensor):
         with torch.no_grad():
@@ -182,21 +189,6 @@ class BatchContext:
             )
 
     def pre_hubert_quantizer(self, batch):
-        def duration_reduction_func(token_seq, n_gram=1):
-            """
-            Args:
-                token_seq: (T,)
-            Returns:
-                reduced_token_seq: (T')
-                reduced_token_seq_len: T'
-            """
-            n_gram_seq = token_seq.unfold(0, n_gram, 1)
-            mask = torch.all(n_gram_seq[1:] != n_gram_seq[:-1], dim=1)
-            reduced_token_seq = torch.cat(
-                (n_gram_seq[0, :n_gram], n_gram_seq[1:, -1][mask])
-            )
-            return reduced_token_seq, len(reduced_token_seq)
-
         self.phones = self.extract_phones_from_audio(batch)
         self.phones_prediction, codebook_indices, self.cmt_loss = self.quantize_hubert(
             batch, self.phones
@@ -204,12 +196,6 @@ class BatchContext:
         global_step = self.train.manifest.current_step
         print_every = self.train.config.training.log_interval
         in_val = not torch.is_grad_enabled()
-        codebook_indices = codebook_indices.squeeze()
-        print(
-            batch.text.shape,
-            codebook_indices.shape,
-            [duration_reduction_func(ci)[0].shape[0] for ci in codebook_indices],
-        )
         if in_val or (global_step >= print_every and global_step % print_every == 0):
             with torch.no_grad():
                 self.model.hubert_quantizer.eval()
@@ -269,7 +255,53 @@ class BatchContext:
 
     def pre_feature_synthesizer(self, batch):
         print(batch.text.shape)
-        self.phones = self.extract_phones_from_audio(batch)
+        self.phones, _ = self.extract_phones_from_audio(batch)
         self.phones_prediction = self.model.hubert_feature_synthesizer(
             batch.text, batch.text_length, batch.alignment
         )
+
+    def compute_cer(self, pred_ids, label_ids):
+        tokenizer = self.model.vevo_token_predictor_tokenizer
+
+        pred_str = tokenizer.batch_decode(pred_ids, skip_special_tokens=True)
+        labels_ids[labels_ids == -100] = tokenizer.pad_token_id
+        label_str = tokenizer.batch_decode(labels_ids, skip_special_tokens=True)
+
+        cer = cer_metric.compute(predictions=pred_str, references=label_str)
+        return cer
+
+    def pre_vevo_token_predictor(self, batch, training=True):
+        def duration_reduction_func(token_seq, n_gram=1):
+            """
+            Args:
+                token_seq: (T,)
+            Returns:
+                reduced_token_seq: (T')
+                reduced_token_seq_len: T'
+            """
+            n_gram_seq = token_seq.unfold(0, n_gram, 1)
+            mask = torch.all(n_gram_seq[1:] != n_gram_seq[:-1], dim=1)
+            reduced_token_seq = torch.cat(
+                (n_gram_seq[0, :n_gram], n_gram_seq[1:, -1][mask])
+            )
+            return reduced_token_seq, len(reduced_token_seq)
+
+        _, all_codes = self.extract_phones_from_audio(batch)
+        all_codes = [duration_reduction_func(codes) for codes in all_codes]
+        byt5_batch = self.byt5_data_collator(
+            [
+                {
+                    "input_ids": grapheme,
+                    "labels": "".join([phoneme_idx_to_token(code) for code in codes]),
+                }
+                for grapheme, codes in zip(batch.grapheme, all_codes)
+            ]
+        )
+        self.byt5_ce_loss = self.model.vevo_token_predictor(**byt5_batch).loss
+        if not training:
+            pred_ids = self.model.vevo_token_predictor.generate(
+                input_ids=batch["input_ids"],
+                attention_mask=batch["attention_mask"],
+                max_length=250,
+            )
+            self.byt5_cer_loss = self.compute_cer(pred_ids, byt5_batch["labels"])

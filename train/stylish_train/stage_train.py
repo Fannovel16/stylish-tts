@@ -203,3 +203,23 @@ def train_pre_feature_synthesizer(
         )
 
     return log.detach(), None
+
+
+def train_pre_vevo_token_predictor(
+    batch, model, train, probing
+) -> Tuple[LossLog, Optional[torch.Tensor]]:
+    state = BatchContext(train=train, model=model)
+    with train.accelerator.autocast():
+        state.pre_vevo_token_predictor(batch, training=True)
+        train.stage.optimizer.zero_grad()
+        log = build_loss_log(train)
+        # log.add_loss("hubert_code_ce", state.compute_feature_synthesizer_loss(batch))
+        log.add_loss(
+            "byt5_ce",
+            state.byt5_ce_loss,
+        )
+        train.accelerator.backward(
+            log.backwards_loss() * math.sqrt(batch.text.shape[0])
+        )
+
+    return log.detach(), None
