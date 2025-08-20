@@ -505,7 +505,7 @@ def prepare_batch(
     prepared = {}
     for i, key in enumerate(batch_names):
         if key in keys_to_transfer:
-            if key != "paths":
+            if key not in ["path", "grapheme"]:
                 prepared[key] = inputs[i].to(device)
             else:
                 prepared[key] = inputs[i]
