@@ -271,6 +271,7 @@ class BatchContext:
         pred_str = tokenizer.batch_decode(pred_ids, skip_special_tokens=True)
         labels_ids[labels_ids == -100] = tokenizer.pad_token_id
         label_str = tokenizer.batch_decode(labels_ids, skip_special_tokens=True)
+        print(pred_str, label_str)
         cer = self.cer_metric.compute(predictions=pred_str, references=label_str)
         return cer
 
@@ -301,8 +302,9 @@ class BatchContext:
                 for grapheme, codes in zip(batch.grapheme, all_codes)
             ]
         )
-        self.byt5_ce_loss = self.model.vevo_token_predictor(**byt5_batch).loss
-        if not training:
+        if trainig:
+            self.byt5_ce_loss = self.model.vevo_token_predictor(**byt5_batch).loss
+        else:
             pred_ids = self.model.vevo_token_predictor.generate(
                 input_ids=byt5_batch["input_ids"],
                 attention_mask=byt5_batch["attention_mask"],
