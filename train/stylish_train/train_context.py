@@ -102,7 +102,7 @@ class AdaptiveQuantizedHubert(nn.Module):
         self.resample = torchaudio.transforms.Resample(model_sr, hubert_sr).to(device)
 
     def forward(self, wave, time_dim):
-        xs, codes = [], []
+        xs, all_codes = [], []
         wave = self.resample(wave)
         for i in range(wave.shape[0]):
             audio = wave[i : i + 1, :]  # (1, time)
@@ -145,9 +145,9 @@ class AdaptiveQuantizedHubert(nn.Module):
                 ).transpose(-1, -2)
 
             xs.append(x)
-            codes.append(codes)
+            all_codes.append(codes)
 
-        return torch.cat(xs, 0), torch.cat(codes, 0)
+        return torch.cat(xs, 0), torch.cat(all_codes, 0)
 
 
 """class AdaptiveWhisperEncoder(nn.Module):
