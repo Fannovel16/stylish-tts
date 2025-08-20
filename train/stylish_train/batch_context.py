@@ -260,7 +260,7 @@ class BatchContext:
             batch.text, batch.text_length, batch.alignment
         )
 
-    def compute_cer(self, pred_ids, label_ids):
+    def compute_cer(self, pred_ids, labels_ids):
         tokenizer = self.model.vevo_token_predictor_tokenizer
 
         pred_str = tokenizer.batch_decode(pred_ids, skip_special_tokens=True)

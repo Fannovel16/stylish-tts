@@ -183,8 +183,8 @@ stages = {
         next_stage=None,
         train_fn=train_pre_vevo_token_predictor,
         validate_fn=validate_pre_vevo_token_predictor,
-        train_models=["hubert_feature_synthesizer"],
-        eval_models=["hubert_quantizer"],
+        train_models=["vevo_token_predictor"],
+        eval_models=["vevo_token_predictor_tokenizer"],
         discriminators=[],
         inputs=[
             "text",
