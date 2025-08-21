@@ -40,7 +40,7 @@ class DataCollatorWithPadding:
 
 
 def phoneme_idx_to_token(i):
-    return f"<PH{i}>"
+    return f"<{i}>"
 
 
 def build_tokenizer_model(

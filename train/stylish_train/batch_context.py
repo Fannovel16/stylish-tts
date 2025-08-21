@@ -292,15 +292,6 @@ class BatchContext:
 
         _, all_codes = self.extract_phones_from_audio(batch)
         all_codes = [duration_reduction_func(codes) for codes in all_codes]
-        print(
-            [
-                {
-                    "input_ids": grapheme,
-                    "labels": "".join([phoneme_idx_to_token(code) for code in codes]),
-                }
-                for grapheme, codes in zip(batch.grapheme, all_codes)
-            ]
-        )
         byt5_batch = self.byt5_data_collator(
             [
                 {
