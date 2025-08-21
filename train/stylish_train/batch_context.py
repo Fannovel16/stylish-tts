@@ -271,7 +271,6 @@ class BatchContext:
         pred_str = tokenizer.batch_decode(pred_ids, skip_special_tokens=True)
         labels_ids[labels_ids == -100] = tokenizer.pad_token_id
         label_str = tokenizer.batch_decode(labels_ids, skip_special_tokens=True)
-        print(pred_str, label_str)
         cer = self.cer_metric.compute(predictions=pred_str, references=label_str)
         return cer
 
@@ -292,7 +291,16 @@ class BatchContext:
             return reduced_token_seq, len(reduced_token_seq)
 
         _, all_codes = self.extract_phones_from_audio(batch)
-        all_codes = [duration_reduction_func(codes) for codes in all_codes]
+        all_codes = [duration_reduction_func(codes)[0] for codes in all_codes]
+        print(
+            [
+                {
+                    "input_ids": grapheme,
+                    "labels": "".join([phoneme_idx_to_token(code) for code in codes]),
+                }
+                for grapheme, codes in zip(batch.grapheme, all_codes)
+            ]
+        )
         byt5_batch = self.byt5_data_collator(
             [
                 {
