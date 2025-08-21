@@ -46,8 +46,8 @@ def phoneme_idx_to_token(i):
 def build_tokenizer_model(
     num_vevo_tokens=32,
     num_decoder_layers=2,
-    num_layers=2,
-    d_model=512,
+    num_layers=6,
+    d_model=256,
     d_kv=64,
     d_ff=512,
 ):
