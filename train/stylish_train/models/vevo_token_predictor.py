@@ -45,11 +45,11 @@ def phoneme_idx_to_token(i):
 
 def build_tokenizer_model(
     num_vevo_tokens=32,
-    num_decoder_layers=2,
-    num_layers=4,
-    d_model=512,
+    num_decoder_layers=4,
+    num_layers=4 * 2,
+    d_model=256,
     d_kv=64,
-    d_ff=512,
+    d_ff=256 * 4,
 ):
     byt5_tokenzier = ByT5Tokenizer.from_pretrained("google/byt5-small")
     byt5_tokenzier.add_tokens([phoneme_idx_to_token(i) for i in range(num_vevo_tokens)])
