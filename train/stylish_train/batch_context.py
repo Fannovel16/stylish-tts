@@ -288,10 +288,10 @@ class BatchContext:
             reduced_token_seq = torch.cat(
                 (n_gram_seq[0, :n_gram], n_gram_seq[1:, -1][mask])
             )
-            return reduced_token_seq, len(reduced_token_seq)
+            return reduced_token_seq
 
         _, all_codes = self.extract_phones_from_audio(batch)
-        all_codes = [duration_reduction_func(codes)[0] for codes in all_codes]
+        all_codes = [duration_reduction_func(codes) for codes in all_codes]
         print(
             [
                 {
