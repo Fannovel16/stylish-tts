@@ -284,6 +284,7 @@ class BatchContext:
         # _, vevo_tokens = self.extract_phones_from_audio(batch)
         self.phones = self.extract_phones_from_audio(batch)
         _, cvec_tokens, _ = self.quantize_hubert(batch, self.phones)
+        cvec_tokens = cvec_tokens.squeeze(-1)
         reduced_cvec_tokens = [
             self.duration_reduction_func(_tokens, 1) for _tokens in cvec_tokens
         ]
