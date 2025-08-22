@@ -195,6 +195,7 @@ stages = {
             "pitch",
             "alignment",
             "grapheme",
+            "path",
         ],
     ),
 }
