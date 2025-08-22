@@ -291,7 +291,7 @@ class BatchContext:
     def pre_vevo_token_predictor(self, batch, training=True):
         _, vevo_tokens = self.extract_phones_from_audio(batch)
         reduced_vevo_tokens = [
-            self.duration_reduction_func(_tokens, 1) for _tokens in vevo_tokens
+            self.duration_reduction_func(_tokens, 2) for _tokens in vevo_tokens
         ]
         pphones = pad_sequence(reduced_vevo_tokens, batch_first=True).to(
             batch.text.device
@@ -303,8 +303,8 @@ class BatchContext:
         grapheme_ids, grapheme_lengths = self.train.byte_tokenizer.batch_encode(
             batch.grapheme
         )
-        grapheme_ids = grapheme_ids.repeat_interleave(10, dim=-1).to(batch.text.device)
-        grapheme_lengths = grapheme_lengths.mul(10).to(batch.text.device)
+        grapheme_ids = grapheme_ids.repeat_interleave(5, dim=-1).to(batch.text.device)
+        grapheme_lengths = grapheme_lengths.mul(5).to(batch.text.device)
 
         """if training:
             self.byt5_ce_loss = self.model.vevo_token_predictor(**byt5_batch).loss
