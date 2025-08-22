@@ -98,7 +98,7 @@ class ConformerTextEncoder(torch.nn.Module):
 
     def forward(self, input, lengths):
         x = self.embedding(input).transpose(-1, -2)
-        x_mask = torch.unsqueeze(sequence_mask(lengths, x.size(2)), 1).to(x.dtype)
+        x_mask = sequence_mask(lengths, x.size(2)).to(x.dtype)
         x = self.model(x.transpose(-1, -2), x_mask)
         return x, None
 
