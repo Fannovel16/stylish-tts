@@ -303,8 +303,8 @@ class BatchContext:
         grapheme_ids, grapheme_lengths = self.train.byte_tokenizer.batch_encode(
             batch.grapheme
         )
-        grapheme_ids = grapheme_ids.repeat_interleave(2, dim=-1).to(batch.text.device)
-        grapheme_lengths = grapheme_lengths.mul(2).to(batch.text.device)
+        grapheme_ids = grapheme_ids.to(batch.text.device)
+        grapheme_lengths = grapheme_lengths.to(batch.text.device)
 
         """if training:
             self.byt5_ce_loss = self.model.vevo_token_predictor(**byt5_batch).loss
