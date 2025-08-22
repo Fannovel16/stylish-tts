@@ -184,7 +184,7 @@ stages = {
         train_fn=train_pre_vevo_token_predictor,
         validate_fn=validate_pre_vevo_token_predictor,
         train_models=["vevo_token_predictor"],
-        eval_models=["vevo_token_predictor_tokenizer"],
+        eval_models=["byte_tokenizer"],
         discriminators=[],
         inputs=[
             "text",
