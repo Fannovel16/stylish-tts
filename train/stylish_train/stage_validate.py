@@ -135,12 +135,16 @@ def validate_pre_vevo_token_predictor(batch, train):
     log.add_loss(
         "pphone_per",
         state.wer_metric.compute(
-            predictions=" ".join(
-                str(x)
+            predictions=[
+                " ".join(
+                    str(x)
+                    for x in state.duration_reduction_func(_ctc.argmax(-1)).tolist()
+                )
                 for _ctc in ctc
-                for x in state.duration_reduction_func(_ctc.argmax(-1)).tolist()
-            ),
-            references=" ".join(pphones.tolist()),
+            ],
+            references=[
+                " ".join(str(x) for x in _pphones.tolist()) for _pphones in pphones
+            ],
         ),
     )
     return log, None, None, None
