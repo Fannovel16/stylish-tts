@@ -15,6 +15,8 @@ from transformers import T5ForConditionalGeneration
 import evaluate
 from torch.nn.utils.rnn import pad_sequence
 
+SAMPLE_BLACK_LIST = set()
+
 
 class BatchContext:
     def __init__(
@@ -310,12 +312,19 @@ class BatchContext:
             violating_indices = (
                 torch.argwhere(grapheme_lengths <= pphone_lengths).squeeze(-1).tolist()
             )
-            violating_samples = ", ".join(
-                [f"{batch.path[i]} ({batch.grapheme[i]})" for i in violating_indices]
-            )
-            self.train.logger.warning(
-                f"Grapheme must be longer than phoneme, found violating samples: {violating_samples}"
-            )
+            violating_samples = []
+            for i in violating_indices:
+                if batch.path[i] not in SAMPLE_BLACK_LIST:
+                    violating_samples.append((batch.path[i], batch.grapheme[i]))
+                    SAMPLE_BLACK_LIST.add(batch.path[i])
+
+            if len(violating_samples) > 0:
+                violating_samples = ", ".join(
+                    [f"{path} ({grapheme})" for path, grapheme in violating_samples]
+                )
+                self.train.logger.warning(
+                    f"Grapheme must be longer than phoneme, found violating samples: {violating_samples}"
+                )
             return (None,) * 5
         """if training:
             self.byt5_ce_loss = self.model.vevo_token_predictor(**byt5_batch).loss
