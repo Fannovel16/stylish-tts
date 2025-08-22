@@ -273,7 +273,7 @@ class BatchContext:
         cer = self.wer_metric.compute(predictions=pred_str, references=label_str)
         return cer
 
-    def duration_reduction_func(token_seq, n_gram=1):
+    def duration_reduction_func(self, token_seq, n_gram=1):
         """
         Args:
             token_seq: (T,)
