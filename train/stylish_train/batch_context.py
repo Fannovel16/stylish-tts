@@ -305,6 +305,9 @@ class BatchContext:
         )
         grapheme_ids = grapheme_ids.repeat_interleave(5, dim=-1).to(batch.text.device)
         grapheme_lengths = grapheme_lengths.mul(5).to(batch.text.device)
+        assert torch.all(
+            grapheme_lengths > pphone_lengths
+        ), "Grapheme must be longer than phoneme"
 
         """if training:
             self.byt5_ce_loss = self.model.vevo_token_predictor(**byt5_batch).loss
