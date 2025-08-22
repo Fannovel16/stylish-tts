@@ -103,7 +103,6 @@ def validate_pre_hubert_quantizer(batch, train):
 def validate_pre_feature_synthesizer(batch, train):
     state = BatchContext(train=train, model=train.model)
     state.pre_feature_synthesizer(batch)
-    train.stage.optimizer.zero_grad()
     log = build_loss_log(train)
     # log.add_loss("hubert_code_ce", state.compute_feature_synthesizer_loss(batch))
     log.add_loss(
@@ -122,8 +121,9 @@ def validate_pre_vevo_token_predictor(batch, train):
     ctc, grapheme_ids, grapheme_lengths, pphones, pphone_lengths = (
         state.pre_vevo_token_predictor(batch, training=False)
     )
-    train.stage.optimizer.zero_grad()
     log = build_loss_log(train)
+    if ctc is None:
+        return log, None, None, None
     loss_ctc = train.align_loss(
         ctc, pphones, grapheme_lengths, pphone_lengths, step_type="eval"
     )

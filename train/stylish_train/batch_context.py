@@ -291,7 +291,7 @@ class BatchContext:
     def pre_vevo_token_predictor(self, batch, training=True):
         _, vevo_tokens = self.extract_phones_from_audio(batch)
         reduced_vevo_tokens = [
-            self.duration_reduction_func(_tokens, 2) for _tokens in vevo_tokens
+            self.duration_reduction_func(_tokens, 1) for _tokens in vevo_tokens
         ]
         pphones = pad_sequence(reduced_vevo_tokens, batch_first=True).to(
             batch.text.device
@@ -303,12 +303,20 @@ class BatchContext:
         grapheme_ids, grapheme_lengths = self.train.byte_tokenizer.batch_encode(
             batch.grapheme
         )
-        grapheme_ids = grapheme_ids.repeat_interleave(5, dim=-1).to(batch.text.device)
-        grapheme_lengths = grapheme_lengths.mul(5).to(batch.text.device)
-        assert torch.all(
-            grapheme_lengths > pphone_lengths
-        ), "Grapheme must be longer than phoneme"
+        grapheme_ids = grapheme_ids.repeat_interleave(3, dim=-1).to(batch.text.device)
+        grapheme_lengths = grapheme_lengths.mul(3).to(batch.text.device)
 
+        if not torch.all(grapheme_lengths > pphone_lengths):
+            violating_indices = (
+                torch.argwhere(grapheme_lengths <= pphone_lengths).squeeze(-1).tolist()
+            )
+            violating_samples = ", ".join(
+                [f"{batch.path[i]} ({batch.grapheme[i]})" for i in violating_indices]
+            )
+            self.train.logger.warning(
+                f"Grapheme must be longer than phoneme, found violating samples: {violating_samples}"
+            )
+            return (None,) * 5
         """if training:
             self.byt5_ce_loss = self.model.vevo_token_predictor(**byt5_batch).loss
         else:

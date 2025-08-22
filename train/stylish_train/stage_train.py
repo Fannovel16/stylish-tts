@@ -215,6 +215,8 @@ def train_pre_vevo_token_predictor(
         )
         train.stage.optimizer.zero_grad()
         log = build_loss_log(train)
+        if ctc is None:
+            return log.detach(), None
         # log.add_loss("hubert_code_ce", state.compute_feature_synthesizer_loss(batch))
         # log.add_loss(
         #     "byt5_ce",
