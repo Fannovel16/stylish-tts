@@ -290,10 +290,14 @@ class BatchContext:
 
     def pre_vevo_token_predictor(self, batch, training=True):
         _, vevo_tokens = self.extract_phones_from_audio(batch)
-        pphones = [self.duration_reduction_func(_tokens) for _tokens in vevo_tokens]
-        pphones = pad_sequence(pphones, batch_first=True).to(batch.text.device)
+        reduced_vevo_tokens = [
+            self.duration_reduction_func(_tokens) for _tokens in vevo_tokens
+        ]
+        pphones = pad_sequence(reduced_vevo_tokens, batch_first=True).to(
+            batch.text.device
+        )
         pphone_lengths = torch.tensor(
-            [len(_tokens) for _tokens in vevo_tokens], dtype=torch.long
+            [len(_tokens) for _tokens in reduced_vevo_tokens], dtype=torch.long
         ).to(batch.text.device)
 
         grapheme_ids, grapheme_lengths = self.train.byte_tokenizer.batch_encode(
