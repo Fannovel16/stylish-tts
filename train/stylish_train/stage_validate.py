@@ -138,7 +138,7 @@ def validate_pre_vevo_token_predictor(batch, train):
             predictions=[
                 " ".join(
                     str(x)
-                    for x in state.duration_reduction_func(_ctc.argmax(-1)).tolist()
+                    for x in state.duration_reduction_func(_ctc.argmax(-1), 2).tolist()
                 )
                 for _ctc in ctc
             ],
