@@ -220,6 +220,10 @@ def train_pre_vevo_token_predictor(
         #     "byt5_ce",
         #     state.byt5_ce_loss,
         # )
+        print("CTC", ctc)
+        print("pphones", pphones)
+        print("grapheme_lengths", grapheme_lengths)
+        print("pphone_lengths", pphone_lengths)
         loss_ctc = train.align_loss(
             ctc, pphones, grapheme_lengths, pphone_lengths, step_type="train"
         )
