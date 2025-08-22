@@ -305,8 +305,8 @@ class BatchContext:
         grapheme_ids, grapheme_lengths = self.train.byte_tokenizer.batch_encode(
             batch.grapheme
         )
-        grapheme_ids = grapheme_ids.repeat_interleave(2, dim=-1).to(batch.text.device)
-        grapheme_lengths = grapheme_lengths.mul(2).to(batch.text.device)
+        grapheme_ids = grapheme_ids.repeat_interleave(4, dim=-1).to(batch.text.device)
+        grapheme_lengths = grapheme_lengths.mul(4).to(batch.text.device)
 
         if not torch.all(grapheme_lengths > pphone_lengths):
             violating_indices = (
