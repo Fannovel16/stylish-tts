@@ -282,6 +282,7 @@ class BatchContext:
 
     def pre_vevo_token_predictor(self, batch, training=True):
         # _, vevo_tokens = self.extract_phones_from_audio(batch)
+        self.phones = self.extract_phones_from_audio(batch)
         _, cvec_tokens, _ = self.quantize_hubert(batch, self.phones)
         reduced_cvec_tokens = [
             self.duration_reduction_func(_tokens, 1) for _tokens in cvec_tokens
