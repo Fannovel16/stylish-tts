@@ -292,7 +292,9 @@ class BatchContext:
         _, vevo_tokens = self.extract_phones_from_audio(batch)
         pphones = [self.duration_reduction_func(_tokens) for _tokens in vevo_tokens]
         pphones = pad_sequence(pphones, batch_first=True)
-        pphone_lengths = [len(_tokens) for _tokens in vevo_tokens]
+        pphone_lengths = torch.tensor(
+            [len(_tokens) for _tokens in vevo_tokens], dtype=torch.long
+        )
 
         grapheme_ids, grapheme_lengths = self.train.byte_tokenizer.batch_encode(
             batch.grapheme
