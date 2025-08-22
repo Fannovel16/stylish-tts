@@ -176,16 +176,6 @@ class BatchContext:
             )
 
     def extract_phones_from_audio(self, batch):
-        """phones = self.train.hubert(
-            batch.audio_gt,
-            batch.alignment.shape[-1],
-        )
-        pooled_phones = (
-            batch.alignment.float()
-            @ phones
-            / (batch.alignment.sum(-1, keepdim=True) + 1e-8)
-        )
-        return pooled_phones.detach()"""
         with torch.no_grad():
             return self.train.hubert(
                 batch.audio_gt,
@@ -291,22 +281,23 @@ class BatchContext:
         return reduced_token_seq
 
     def pre_vevo_token_predictor(self, batch, training=True):
-        _, vevo_tokens = self.extract_phones_from_audio(batch)
-        reduced_vevo_tokens = [
-            self.duration_reduction_func(_tokens, 1) for _tokens in vevo_tokens
+        # _, vevo_tokens = self.extract_phones_from_audio(batch)
+        _, cvec_tokens, _ = self.quantize_hubert(batch, self.phones)
+        reduced_cvec_tokens = [
+            self.duration_reduction_func(_tokens, 1) for _tokens in cvec_tokens
         ]
-        pphones = pad_sequence(reduced_vevo_tokens, batch_first=True).to(
+        pphones = pad_sequence(reduced_cvec_tokens, batch_first=True).to(
             batch.text.device
         )
         pphone_lengths = torch.tensor(
-            [len(_tokens) for _tokens in reduced_vevo_tokens], dtype=torch.long
+            [len(_tokens) for _tokens in reduced_cvec_tokens], dtype=torch.long
         ).to(batch.text.device)
 
         grapheme_ids, grapheme_lengths = self.train.byte_tokenizer.batch_encode(
             batch.grapheme
         )
-        grapheme_ids = grapheme_ids.repeat_interleave(4, dim=-1).to(batch.text.device)
-        grapheme_lengths = grapheme_lengths.mul(4).to(batch.text.device)
+        grapheme_ids = grapheme_ids.repeat_interleave(2, dim=-1).to(batch.text.device)
+        grapheme_lengths = grapheme_lengths.mul(2).to(batch.text.device)
 
         if not torch.all(grapheme_lengths > pphone_lengths):
             violating_indices = (

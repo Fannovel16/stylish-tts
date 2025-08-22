@@ -50,7 +50,7 @@ class HubertModelWithFinalProj(HubertModel):
         self.final_proj = nn.Linear(config.hidden_size, config.classifier_proj_size)
 
 
-"""class AdaptiveHubert(nn.Module):
+class AdaptiveHubert(nn.Module):
     def __init__(self, hubert_path: str, model_sr: int, hubert_sr: int):
         super().__init__()
         self.model = HubertModelWithFinalProj.from_pretrained(hubert_path)
@@ -91,10 +91,10 @@ class HubertModelWithFinalProj(HubertModel):
 
             xs.append(x)
 
-        return torch.cat(xs, 0)"""
+        return torch.cat(xs, 0)
 
 
-class AdaptiveQuantizedHubert(nn.Module):
+"""class AdaptiveQuantizedHubert(nn.Module):
     def __init__(self, device, model_sr: int, hubert_sr: int):
         super().__init__()
         self.vevo = build_vevo_inference_pipeline(device)
@@ -147,7 +147,7 @@ class AdaptiveQuantizedHubert(nn.Module):
             xs.append(x)
             all_codes.append(codes)
 
-        return torch.cat(xs, 0), torch.cat(all_codes, 0)
+        return torch.cat(xs, 0), torch.cat(all_codes, 0)"""
 
 
 """class AdaptiveWhisperEncoder(nn.Module):
@@ -271,21 +271,21 @@ class TrainContext:
         ).to(self.config.training.device)
 
         hubert_config = self.model_config.hubert
-        # self.hubert = (
-        #     AdaptiveHubert(
-        #         hubert_config.model,
-        #         self.model_config.sample_rate,
-        #         hubert_config.sr,
-        #     )
-        #     .to(self.config.training.device)
-        #     .eval()
-        # )
-        with self.accelerator.main_process_first():
-            self.hubert = AdaptiveQuantizedHubert(
-                self.config.training.device,
+        self.hubert = (
+            AdaptiveHubert(
+                hubert_config.model,
                 self.model_config.sample_rate,
                 hubert_config.sr,
             )
+            .to(self.config.training.device)
+            .eval()
+        )
+        # with self.accelerator.main_process_first():
+        #     self.hubert = AdaptiveQuantizedHubert(
+        #         self.config.training.device,
+        #         self.model_config.sample_rate,
+        #         hubert_config.sr,
+        #     )
         self.byte_tokenizer = ByteTokenizer
         # with self.accelerator.main_process_first():
         #     self.whisper = AdaptiveWhisperEncoder(
