@@ -5,6 +5,7 @@ import torch
 from .conformer import Conformer
 from .text_aligner import CTCModel
 from utils import sequence_mask
+from misaki.vi import ViCleaner
 
 
 @dataclass
@@ -56,10 +57,11 @@ class ByteTokenizer:
     """
 
     vocab_size = 256
+    vi_cleaner = ViCleaner()
 
     @classmethod
     def encode(cls, text):
-        return tuple(text.lower().encode("utf-8"))
+        return tuple(cls.vi_cleaner.clean_text(text.lower()).encode("utf-8"))
 
     @classmethod
     def decode(cls, tokens):
