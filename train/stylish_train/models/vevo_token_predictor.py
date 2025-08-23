@@ -105,7 +105,7 @@ class ConformerTextEncoder(torch.nn.Module):
         return x, None
 
 
-def build_model(num_tokens=ByteTokenizer.vocab_size, hidden_dim=128, num_classes=32):
+def build_model(num_tokens=ByteTokenizer.vocab_size, hidden_dim=128, num_classes=16):
     model = CTCModel(
         encoder=ConformerTextEncoder(num_tokens, hidden_dim),
         encoder_output_layer=torch.nn.Linear(hidden_dim, num_classes),
