@@ -18,10 +18,12 @@ from torch.utils.tensorboard.writer import SummaryWriter
 from stylish_lib.text_utils import TextCleaner
 import torchaudio, torch
 import torch.nn as nn
-from transformers import HubertModel
-from models.vevo.vevo_utils import build_vevo_inference_pipeline
-from transformers import AutoFeatureExtractor, WhisperModel
+
+# from transformers import HubertModel
+# from models.vevo.vevo_utils import build_vevo_inference_pipeline
+# from transformers import AutoFeatureExtractor, WhisperModel
 from models.vevo_token_predictor import ByteTokenizer
+from models.phonslm import HuBERTPhoneme
 
 
 class Manifest:
@@ -44,7 +46,7 @@ class Manifest:
                 setattr(self, key, value)
 
 
-class HubertModelWithFinalProj(HubertModel):
+"""class HubertModelWithFinalProj(HubertModel):
     def __init__(self, config):
         super().__init__(config)
         self.final_proj = nn.Linear(config.hidden_size, config.classifier_proj_size)
@@ -91,7 +93,7 @@ class AdaptiveHubert(nn.Module):
 
             xs.append(x)
 
-        return torch.cat(xs, 0)
+        return torch.cat(xs, 0)"""
 
 
 """class AdaptiveQuantizedHubert(nn.Module):
@@ -196,6 +198,26 @@ class AdaptiveHubert(nn.Module):
         return all_features"""
 
 
+class AdaptiveHubert(nn.Module):
+    def __init__(
+        self, hubert_path: str, model_sr: int, hubert_sr: int, extract_layer=13
+    ):
+        super().__init__()
+        self.model = HuBERTPhoneme.from_pretrained(hubert_path)
+        self.sr = hubert_sr
+        self.resample = torchaudio.transforms.Resample(model_sr, hubert_sr)
+        self.extract_layer = extract_layer
+
+    def forward(self, wave, time_dim):
+        wave = self.resample(wave)
+        features, _ = self.model.extract_features(wave)
+        return torch.nn.functional.interpolate(
+            features[self.extract_layer - 1].transpose(-1, -2),
+            size=time_dim,
+            mode="nearest",
+        ).transpose(-1, -2)
+
+
 class TrainContext:
     def __init__(
         self,
@@ -273,7 +295,7 @@ class TrainContext:
         hubert_config = self.model_config.hubert
         self.hubert = (
             AdaptiveHubert(
-                hubert_config.model,
+                "coml/hubert-phoneme-classification",
                 self.model_config.sample_rate,
                 hubert_config.sr,
             )
