@@ -200,7 +200,7 @@ class AdaptiveHubert(nn.Module):
 
 class AdaptiveHubert(nn.Module):
     def __init__(
-        self, hubert_path: str, model_sr: int, hubert_sr: int, extract_layer=13
+        self, hubert_path: str, model_sr: int, hubert_sr: int, extract_layer=12
     ):
         super().__init__()
         self.model = HuBERTPhoneme.from_pretrained(hubert_path)
@@ -211,7 +211,6 @@ class AdaptiveHubert(nn.Module):
     def forward(self, wave, time_dim):
         wave = self.resample(wave)
         features, _ = self.model.extract_features(wave)
-        print([feat.shape for feat in features])
         return torch.nn.functional.interpolate(
             features[self.extract_layer - 1].transpose(-1, -2),
             size=time_dim,
