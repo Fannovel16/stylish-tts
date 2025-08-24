@@ -24,6 +24,8 @@ import torch.nn as nn
 # from transformers import AutoFeatureExtractor, WhisperModel
 from models.vevo_token_predictor import ByteTokenizer
 from models.phonslm import HuBERTPhoneme
+from models.rspin import RSpinWavlm
+from torch.hub import download_url_to_file, get_dir
 
 
 class Manifest:
@@ -198,7 +200,7 @@ class AdaptiveHubert(nn.Module):
         return all_features"""
 
 
-class AdaptiveHubert(nn.Module):
+"""class AdaptiveHubert(nn.Module):
     def __init__(
         self, hubert_path: str, model_sr: int, hubert_sr: int, extract_layer=12
     ):
@@ -211,12 +213,25 @@ class AdaptiveHubert(nn.Module):
     def forward(self, wave, time_dim):
         wave = self.resample(wave)
         features, _ = self.model.extract_features(wave)
-        """ return torch.nn.functional.interpolate(
-            features[self.extract_layer - 1].transpose(-1, -2),
-            size=time_dim,
-            mode="nearest",
-        ).transpose(-1, -2) """
-        return features[self.extract_layer - 1]
+        return features[self.extract_layer - 1]"""
+
+
+class AdaptiveHubert(nn.Module):
+    def __init__(
+        self,
+        hubert_path: str,
+        model_sr: int,
+        hubert_sr: int,
+    ):
+        super().__init__()
+        self.model = RSpinWavlm.load_from_checkpoint(hubert_path)
+        self.sr = hubert_sr
+        self.resample = torchaudio.transforms.Resample(model_sr, hubert_sr)
+
+    def forward(self, wave, time_dim):
+        wave = self.resample(wave)
+        feat_list, padding_mask, codes = self.model(wave, get_code=True)
+        return codes
 
 
 class TrainContext:
@@ -294,9 +309,15 @@ class TrainContext:
         ).to(self.config.training.device)
 
         hubert_config = self.model_config.hubert
+        hubert_path = osp.abspath(osp.join(get_dir(), "wavlm_rspin_32-40k.pt"))
+        download_url_to_file(
+            "https://data.csail.mit.edu/public-release-sls/rspin/wavlm_rspin_32-40k.pt",
+            hubert_path,
+        )
         self.hubert = (
             AdaptiveHubert(
-                "coml/hubert-phoneme-classification",
+                hubert_path,
+                # "coml/hubert-phoneme-classification",
                 self.model_config.sample_rate,
                 hubert_config.sr,
             )
