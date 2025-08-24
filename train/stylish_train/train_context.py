@@ -216,7 +216,7 @@ class AdaptiveHubert(nn.Module):
             size=time_dim,
             mode="nearest",
         ).transpose(-1, -2) """
-        return features
+        return features[self.extract_layer - 1]
 
 
 class TrainContext:
