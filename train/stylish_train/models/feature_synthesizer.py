@@ -15,7 +15,7 @@ class BasicConvNeXtBlock(torch.nn.Module):
     ):
         super().__init__()
         self.dwconv = torch.nn.Conv1d(
-            dim, dim, kernel_size=21, padding=10, groups=dim
+            dim, dim, kernel_size=31, padding=10, groups=dim
         )  # depthwise conv
 
         self.norm = torch.nn.LayerNorm(dim, eps=1e-6)
@@ -54,14 +54,12 @@ class FeatureSynthesizer(nn.Module):
             inter_dim=feature_dim,
             hidden_dim=feature_dim,
             filter_channels=feature_dim * 4,
-            heads=4,
-            layers=8,
+            heads=2,
+            layers=4,
             kernel_size=3,
             dropout=0.1,
         )
-        self.refiner = nn.Sequential(
-            *[BasicConvNeXtBlock(feature_dim, feature_dim * 4) for _ in range(4)]
-        )
+        self.refiner = BasicConvNeXtBlock(feature_dim, feature_dim * 4)
 
     def forward(self, texts, text_lengths, alignment):
         x, _, _ = self.text_encoder(texts, text_lengths)
