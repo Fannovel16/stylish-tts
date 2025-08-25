@@ -15,7 +15,7 @@ class BasicConvNeXtBlock(torch.nn.Module):
     ):
         super().__init__()
         self.dwconv = torch.nn.Conv1d(
-            dim, dim, kernel_size=31, padding=10, groups=dim
+            dim, dim, kernel_size=31, padding=15, groups=dim
         )  # depthwise conv
 
         self.norm = torch.nn.LayerNorm(dim, eps=1e-6)
