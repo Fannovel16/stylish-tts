@@ -231,7 +231,12 @@ class AdaptiveHubert(nn.Module):
     def forward(self, wave, time_dim):
         wave = self.resample(wave)
         feat_list, padding_mask, codes = self.model(wave, get_code=True)
-        return codes
+        features = torch.nn.functional.interpolate(
+            feat_list[-1].transpose(-1, -2),
+            size=time_dim,
+            mode="nearest",
+        ).transpose(-1, -2)
+        return features, codes
 
 
 class TrainContext:

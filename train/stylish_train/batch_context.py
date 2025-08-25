@@ -248,7 +248,6 @@ class BatchContext:
         )"""
 
     def pre_feature_synthesizer(self, batch):
-        print(batch.text.shape)
         self.phones, _ = self.extract_phones_from_audio(batch)
         self.phones_prediction = self.model.hubert_feature_synthesizer(
             batch.text, batch.text_length, batch.alignment
