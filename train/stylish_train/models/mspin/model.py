@@ -56,8 +56,8 @@ class MSpin(nn.Module):
         )
 
         self.global_sr = global_sr
-        self.encoder_sr = self.processor.sampling_rate
         self.processor = AutoFeatureExtractor.from_pretrained(w2v_bert_path)
+        self.encoder_sr = self.processor.sampling_rate
         self.resample = torchaudio.transforms.Resample(self.global_sr, self.encoder_sr)
 
     def extract_feature(self, wav):
