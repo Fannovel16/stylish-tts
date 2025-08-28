@@ -140,5 +140,5 @@ class Nansy:
             _wav_p = self.random_eq(_wav_p, sr)
             _wav_p = np.clip(_wav_p, -1.0, 1.0)
             wav_p.append(_wav_p)
-        wav_p = torch.from_numpy(np.stack(wav_p, axis=0)).to(device)
+        wav_p = torch.from_numpy(np.stack(wav_p, axis=0)).float().to(device)
         return wav_p
