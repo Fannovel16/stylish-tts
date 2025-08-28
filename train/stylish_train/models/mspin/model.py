@@ -129,7 +129,10 @@ class Nansy:
         wav_p = []
         for _wav, _f0 in zip(wav, f0):
             _f0 = np.ma.MaskedArray(_f0, mask=_f0 <= 0)
-            lo, hi = int(_f0.mean()), int(_f0.max())
+            if _f0.count() > 0:
+                lo, hi = int(_f0.mean()), int(_f0.max())
+            else:
+                lo, hi = 50, 100
             _wav_p = self.random_formant_f0(_wav, sr, lo, hi)
             _wav_p = self.random_eq(wav_p, sr, lo, hi)
             _wav_p = np.clip(wav_p, -1.0, 1.0)
