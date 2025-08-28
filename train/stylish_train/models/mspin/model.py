@@ -4,6 +4,7 @@ import torch.nn as nn
 import torchaudio
 import numpy as np
 from scipy.signal import sosfilt
+from einops import rearrange
 from .swav_vq_dis import SwavVQDisentangle
 from .audio import params2sos, change_gender, change_gender_f0
 
@@ -72,14 +73,14 @@ class MSpin(nn.Module):
         return self.model(wav).last_hidden_state
 
     def forward(self, view0, view1=None):
-        x0 = self.extract_feature(view0)
+        z0 = self.extract_feature(view0)
         if view1 is None:
-            return x0, None
-        x1 = self.extract_feature(view1)
-        metrics = self.loss.cal_loss(
-            self.pred_head(x0).squeeze(1), self.pred_head(x1).squeeze(1)
-        )
-        return x0, metrics
+            return z0, None
+        z1 = self.extract_feature(view1)
+        logit0 = rearrange(self.pred_head(z0), "b t c -> (b t) c")
+        logit1 = rearrange(self.pred_head(z1), "b t c -> (b t) c")
+        metrics = self.loss.cal_loss(logit0, logit1)
+        return z0, metrics
 
 
 # https://github.com/vectominist/spin/blob/main/src/data/dataset.py
