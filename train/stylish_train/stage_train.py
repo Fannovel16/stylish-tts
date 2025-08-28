@@ -239,3 +239,22 @@ def train_pre_vevo_token_predictor(
         )
 
     return log.detach(), None
+
+
+def train_pre_mspin(
+    batch, model, train, probing
+) -> Tuple[LossLog, Optional[torch.Tensor]]:
+    state = BatchContext(train=train, model=model)
+    with train.accelerator.autocast():
+        metrics = state.pre_mspin(batch)
+        train.stage.optimizer.zero_grad()
+        log = build_loss_log(train)
+        log.add_loss(
+            "spin_ce",
+            metrics["loss_ce"],
+        )
+        train.accelerator.backward(
+            log.backwards_loss() * math.sqrt(batch.text.shape[0])
+        )
+
+    return log.detach(), None

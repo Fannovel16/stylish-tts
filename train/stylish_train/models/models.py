@@ -22,6 +22,7 @@ import safetensors
 from huggingface_hub import hf_hub_download
 from .plbert import PLBERT
 from .vevo_token_predictor import build_model as build_vevo_token_predictor
+from .mspin.model import MSpin
 
 from munch import Munch
 
@@ -162,6 +163,7 @@ def build_model(model_config: ModelConfig):
         ),
         hubert_quantizer=hubert_quantizer,
         vevo_token_predictor=vevo_token_predictor,
+        mspin=MSpin(),
     )
 
     return nets

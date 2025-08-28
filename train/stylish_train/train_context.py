@@ -27,6 +27,7 @@ from models.phonslm import HuBERTPhoneme
 from models.rspin import RSpinWavlm
 from torch.hub import download_url_to_file, get_dir
 import os
+from models.mspin.model import Nansy
 
 
 class Manifest:
@@ -338,6 +339,9 @@ class TrainContext:
         #         hubert_config.sr,
         #     )
         self.byte_tokenizer = ByteTokenizer
+        self.nansy = Nansy(
+            self.model_config.sample_rate,
+        )
         # with self.accelerator.main_process_first():
         #     self.whisper = AdaptiveWhisperEncoder(
         #         "openai/whisper-small",

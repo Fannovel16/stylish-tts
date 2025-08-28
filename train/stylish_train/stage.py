@@ -18,6 +18,7 @@ from stage_train import (
     train_pre_hubert_quantizer,
     train_pre_feature_synthesizer,
     train_pre_vevo_token_predictor,
+    train_pre_mspin,
 )
 
 from stage_validate import (
@@ -28,6 +29,7 @@ from stage_validate import (
     validate_pre_hubert_quantizer,
     validate_pre_feature_synthesizer,
     validate_pre_vevo_token_predictor,
+    validate_mspin,
 )
 
 from optimizers import build_optimizer
@@ -185,6 +187,25 @@ stages = {
         validate_fn=validate_pre_vevo_token_predictor,
         train_models=["vevo_token_predictor"],
         eval_models=["hubert_quantizer"],
+        discriminators=[],
+        inputs=[
+            "text",
+            "text_length",
+            "mel",
+            "mel_length",
+            "audio_gt",
+            "pitch",
+            "alignment",
+            "grapheme",
+            "path",
+        ],
+    ),
+    "pre_mspin": StageConfig(
+        next_stage=None,
+        train_fn=train_pre_mspin,
+        validate_fn=validate_mspin,
+        train_models=["mspin"],
+        eval_models=[],
         discriminators=[],
         inputs=[
             "text",

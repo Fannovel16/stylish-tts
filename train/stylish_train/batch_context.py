@@ -330,3 +330,8 @@ class BatchContext:
             self.byt5_cer_loss = self.compute_cer(pred_ids, byt5_batch["labels"])"""
         ctc, _ = self.model.vevo_token_predictor(grapheme_ids, grapheme_lengths)
         return ctc, grapheme_ids, grapheme_lengths, pphones, pphone_lengths
+
+    def pre_mspin(self, batch):
+        perburted_wav = self.train.nansy(batch.audio_gt, batch.pitch)
+        _, metrics = self.model.mspin(batch.audio_gt, perburted_wav)
+        return metrics

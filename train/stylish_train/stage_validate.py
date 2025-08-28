@@ -148,3 +148,17 @@ def validate_pre_vevo_token_predictor(batch, train):
         ),
     )
     return log, None, None, None
+
+
+@torch.no_grad()
+def validate_mspin(batch, train):
+    state = BatchContext(train=train, model=train.model)
+    metrics = state.pre_mspin(batch)
+    log = build_loss_log(train)
+    log.add_loss("spin_ce", metrics["loss_ce"])
+    log.add_loss("code_perplexity", metrics["code_perplexity"])
+    log.add_loss("prob_perplexity", metrics["prob_perplexity"])
+    log.add_loss("acc", metrics["acc"])
+    log.add_loss("acc_1", metrics["acc_1"])
+    log.add_loss("acc_2", metrics["acc_2"])
+    return log, None, None, None
