@@ -123,10 +123,16 @@ class Nansy:
         return ss
 
     def __call__(self, wav, f0):
+        device = wav.device
+        wav, f0 = wav.cpu().numpy(), f0.cpu().numpy()
         sr = self.global_sr
-        f0 = np.ma.MaskedArray(f0, mask=f0 <= 0)
-        lo, hi = int(f0.mean()), int(f0.max())
-        wav_p = self.random_formant_f0(wav, sr, lo, hi)
-        wav_p = self.random_eq(wav_p, sr, lo, hi)
-        wav_p = np.clip(wav_p, -1.0, 1.0)
+        wav_p = []
+        for _wav, _f0 in zip(wav, f0):
+            _f0 = np.ma.MaskedArray(_f0, mask=f0 <= 0)
+            lo, hi = int(_f0.mean()), int(_f0.max())
+            _wav_p = self.random_formant_f0(_wav, sr, lo, hi)
+            _wav_p = self.random_eq(wav_p, sr, lo, hi)
+            _wav_p = np.clip(wav_p, -1.0, 1.0)
+            wav_p.append(_wav_p)
+        wav_p = torch.from_numpy(np.stack(wav_p, axis=0)).to(device)
         return wav_p
