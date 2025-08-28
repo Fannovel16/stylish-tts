@@ -332,6 +332,6 @@ class BatchContext:
         return ctc, grapheme_ids, grapheme_lengths, pphones, pphone_lengths
 
     def pre_mspin(self, batch):
-        perburted_wav = self.train.nansy(batch.audio_gt, batch.pitch)
+        perburted_wav = self.train.nansy(batch.audio_gt, batch.pitch, batch.path)
         _, metrics = self.model.mspin(batch.audio_gt, perburted_wav)
         return metrics
