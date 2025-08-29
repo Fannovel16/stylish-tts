@@ -315,7 +315,10 @@ class Collater(object):
             if pitch is not None:
                 pitches[bid] = pitch
             align_mels[bid, :, :mel_size] = align_mel
-            alignments[bid, :text_size, : mel_size // 2] = alignment
+            try:
+                alignments[bid, :text_size, : mel_size // 2] = alignment
+            except:
+                pass
             graphemes.append(grapheme)
 
         result = (
