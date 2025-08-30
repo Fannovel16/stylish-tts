@@ -128,11 +128,11 @@ class Nansy:
         wav_p = wav
         if f0.count() > 0:
             lo, hi = int(f0.mean()), int(f0.max())
-            wav_p = self.random_formant_f0(wav_p, sr, lo, hi)
+            wav_p = self.random_formant_f0(wav_p, self.global_sr, lo, hi)
         else:
             print(
                 f'Positive pitch not found, skip random_formant_f0 on sample "{path}"'
             )
-        wav_p = self.random_eq(wav_p, sr)
+        wav_p = self.random_eq(wav_p, self.global_sr)
         wav_p = np.clip(wav_p, -1.0, 1.0)
         return wav_p
