@@ -224,9 +224,19 @@ class FilePathDataset(torch.utils.data.Dataset):
         wave = np.concatenate(
             [np.zeros([pad_start]), wave, np.zeros([pad_end])], axis=0
         )
+
+        if wave_path in self.pitch:
+            pitch = torch.nan_to_num(self.pitch[wave_path].detach().clone())
+        else:
+            low, high = 80, 175
+            pitch = torch.normal(
+                mean=(low + high) / 2, std=(high - low) / 6, size=(frame_count,)
+            )
+            pitch = torch.clamp(pitch, min=low, max=high)
+
         perturbed_wave = self.nansy(
             wave,
-            torch.nan_to_num(self.pitch[wave_path].detach().clone()).cpu().numpy(),
+            pitch.cpu().numpy(),
             wave_path,
         )
         wave = torch.from_numpy(wave).float()
