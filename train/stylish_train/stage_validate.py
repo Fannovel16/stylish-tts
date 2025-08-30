@@ -155,10 +155,11 @@ def validate_mspin(batch, train):
     state = BatchContext(train=train, model=train.model)
     metrics = state.pre_mspin(batch)
     log = build_loss_log(train)
-    log.add_loss("spin_ce", metrics["loss_ce"])
-    log.add_loss("code_perplexity", metrics["code_perplexity"])
-    log.add_loss("prob_perplexity", metrics["prob_perplexity"])
-    log.add_loss("acc", metrics["acc"])
-    log.add_loss("acc_1", metrics["acc_1"])
-    log.add_loss("acc_2", metrics["acc_2"])
+    num_codewords = train.model.mspin.loss.num_vars
+    log.add_loss("code_ce", metrics["loss_ce"])
+    log.add_loss("norm_code_perplexity", metrics["code_perplexity"] / num_codewords)
+    log.add_loss("norm_prob_perplexity", metrics["prob_perplexity"] / num_codewords)
+    log.add_loss("acc_both_view", metrics["acc"])
+    log.add_loss("acc_view_0", metrics["acc_1"])
+    log.add_loss("acc_view_1", metrics["acc_2"])
     return log, None, None, None

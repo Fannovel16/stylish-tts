@@ -152,7 +152,7 @@ def main(
         val_dataset,
         val_time_bins,
         validation=True,
-        num_workers=4,
+        num_workers=32,
         device=train.config.training.device,
         multispeaker=train.model_config.multispeaker,
         train=train,
