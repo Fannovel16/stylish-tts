@@ -226,7 +226,7 @@ class FilePathDataset(torch.utils.data.Dataset):
         )
         perturbed_wave = self.nansy(
             wave,
-            torch.nan_to_num(self.pitch[path].detach().clone()).cpu().numpy(),
+            torch.nan_to_num(self.pitch[wave_path].detach().clone()).cpu().numpy(),
             wave_path,
         )
         wave = torch.from_numpy(wave).float()
