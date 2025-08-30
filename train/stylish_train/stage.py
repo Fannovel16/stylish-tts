@@ -217,6 +217,7 @@ stages = {
             "alignment",
             "grapheme",
             "path",
+            "audio_p",
         ],
     ),
 }
@@ -515,6 +516,7 @@ batch_names = [
     "align_mel",
     "alignment",
     "grapheme",
+    "audio_p",
 ]
 
 

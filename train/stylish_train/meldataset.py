@@ -10,6 +10,7 @@ import torch
 import torchaudio
 import torch.utils.data
 from safetensors import safe_open
+from models.mspin.model import Nansy
 
 import logging
 
@@ -65,6 +66,8 @@ class FilePathDataset(torch.utils.data.Dataset):
             hop_length=model_config.hop_length,
             sample_rate=model_config.sample_rate,
         )
+
+        self.nansy = Nansy(model_config.sample_rate)
 
         self.root_path = root_path
         self.multispeaker = model_config.multispeaker
@@ -141,9 +144,15 @@ class FilePathDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         data = self.data_list[idx]
         path = data[0]
-        wave, text_tensor, speaker_id, mel_tensor, align_mel, grapheme = (
-            self._load_tensor(data)
-        )
+        (
+            wave,
+            text_tensor,
+            speaker_id,
+            mel_tensor,
+            align_mel,
+            grapheme,
+            perturbed_wave,
+        ) = self._load_tensor(data)
 
         acoustic_feature = mel_tensor.squeeze()
         length_feature = acoustic_feature.size(1)
@@ -192,6 +201,7 @@ class FilePathDataset(torch.utils.data.Dataset):
             align_mel,
             alignment,
             grapheme,
+            perturbed_wave,
         )
 
     def _load_tensor(self, data):
@@ -214,8 +224,13 @@ class FilePathDataset(torch.utils.data.Dataset):
         wave = np.concatenate(
             [np.zeros([pad_start]), wave, np.zeros([pad_end])], axis=0
         )
+        perturbed_wave = self.nansy(
+            wave,
+            torch.nan_to_num(self.pitch[path].detach().clone()).cpu().numpy(),
+            wave_path,
+        )
         wave = torch.from_numpy(wave).float()
-
+        perturbed_wave = torch.from_numpy(perturbed_wave).float()
         text = self.text_cleaner(text)
 
         text.insert(0, 0)
@@ -225,11 +240,13 @@ class FilePathDataset(torch.utils.data.Dataset):
         mel_tensor = self.preprocess(wave, align=False).squeeze()
         align_mel = self.preprocess(wave, align=True).squeeze()
 
-        return (wave, text, speaker_id, mel_tensor, align_mel, grapheme)
+        return (wave, text, speaker_id, mel_tensor, align_mel, grapheme, perturbed_wave)
 
     def _load_data(self, data):
         max_mel_length = 192
-        wave, text_tensor, speaker_id, mel_tensor, grapheme = self._load_tensor(data)
+        wave, text_tensor, speaker_id, mel_tensor, grapheme, perturbed_wave = (
+            self._load_tensor(data)
+        )
 
         mel_length = mel_tensor.size(1)
         if mel_length > max_mel_length:
@@ -281,6 +298,7 @@ class Collater(object):
         align_mels = torch.zeros((batch_size, 80, max_mel_length)).float()
         alignments = torch.zeros((batch_size, max_text_length, max_mel_length // 2))
         graphemes = []
+        perturbed_waves = torch.zeros((batch_size, batch[0][7].shape[-1])).float()
 
         for bid, (
             label,
@@ -295,6 +313,7 @@ class Collater(object):
             align_mel,
             alignment,
             grapheme,
+            perturbed_wave,
         ) in enumerate(batch):
             mel_size = mel.size(1)
             text_size = text.size(0)
@@ -312,6 +331,7 @@ class Collater(object):
                 ref_mels[bid, :, :ref_mel_size] = ref_mel
                 ref_labels[bid] = ref_label
             waves[bid] = wave
+            perturbed_waves[bid] = perturbed_wave
             if pitch is not None:
                 pitches[bid] = pitch
             align_mels[bid, :, :mel_size] = align_mel
@@ -335,6 +355,7 @@ class Collater(object):
             align_mels,
             alignments,
             graphemes,
+            perturbed_waves,
         )
         return result
 
