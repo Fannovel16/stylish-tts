@@ -48,8 +48,9 @@ class BatchContext:
         return energy
 
     def acoustic_prediction_single(self, batch, use_random_mono=True):
-        phones, _ = self.text_to_hubert(batch)
+        # phones, _ = self.text_to_hubert(batch)
         # phones = (phones.transpose(-1, -2) @ batch.alignment).transpose(-1, -2)
+        phones = self.extract_phones_from_audio(batch)
         acoustic_features, acoustic_styles = self.model.hubert_acoustic_extractor(
             phones, batch.mel_length // 2
         )
@@ -177,10 +178,17 @@ class BatchContext:
 
     def extract_phones_from_audio(self, batch):
         with torch.no_grad():
-            return self.train.hubert(
+            phones, _ = self.model.mspin(batch.audio_gt)
+            phones = torch.nn.functional.interpolate(
+                phones.transpose(-1, -2),
+                size=batch.alignment.shape[-1],
+                mode="nearest",
+            ).transpose(-1, -2)
+            """return self.train.hubert(
                 batch.audio_gt,
                 batch.alignment.shape[-1],
-            )
+            )"""
+            return phones
 
     def pre_hubert_quantizer(self, batch):
         self.phones = self.extract_phones_from_audio(batch)
