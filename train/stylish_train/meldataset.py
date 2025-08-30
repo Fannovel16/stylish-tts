@@ -10,7 +10,6 @@ import torch
 import torchaudio
 import torch.utils.data
 from safetensors import safe_open
-from models.mspin.model import Nansy
 
 import logging
 
@@ -28,6 +27,7 @@ class FilePathDataset(torch.utils.data.Dataset):
         model_config,
         pitch_path,
         alignment_path,
+        stage,
     ):
         self.pitch = {}
         with safe_open(pitch_path, framework="pt", device="cpu") as f:
@@ -67,7 +67,12 @@ class FilePathDataset(torch.utils.data.Dataset):
             sample_rate=model_config.sample_rate,
         )
 
-        self.nansy = Nansy(model_config.sample_rate)
+        # NANSY is CPU-intensive, only used in pre_mspin stage
+        self.enable_nansy = stage == "pre_mspin"
+        if self.enable_nansy:
+            from models.mspin.model import Nansy
+
+            self.nansy = Nansy(model_config.sample_rate)
 
         self.root_path = root_path
         self.multispeaker = model_config.multispeaker
@@ -225,20 +230,23 @@ class FilePathDataset(torch.utils.data.Dataset):
             [np.zeros([pad_start]), wave, np.zeros([pad_end])], axis=0
         )
 
-        if wave_path in self.pitch:
-            pitch = torch.nan_to_num(self.pitch[wave_path].detach().clone())
-        else:
-            low, high = 80, 175
-            pitch = torch.normal(
-                mean=(low + high) / 2, std=(high - low) / 6, size=(frame_count,)
-            )
-            pitch = torch.clamp(pitch, min=low, max=high)
+        if self.enable_nansy:
+            if wave_path in self.pitch:
+                pitch = torch.nan_to_num(self.pitch[wave_path].detach().clone())
+            else:
+                low, high = 80, 175
+                pitch = torch.normal(
+                    mean=(low + high) / 2, std=(high - low) / 6, size=(frame_count,)
+                )
+                pitch = torch.clamp(pitch, min=low, max=high)
 
-        perturbed_wave = self.nansy(
-            wave,
-            pitch.cpu().numpy(),
-            wave_path,
-        )
+            perturbed_wave = self.nansy(
+                wave,
+                pitch.cpu().numpy(),
+                wave_path,
+            )
+        else:
+            perturbed_wave = np.full_like(wave, np.nan)
         wave = torch.from_numpy(wave).float()
         perturbed_wave = torch.from_numpy(perturbed_wave).float()
         text = self.text_cleaner(text)

@@ -146,6 +146,7 @@ def main(
         model_config=train.model_config,
         pitch_path=train.config.dataset.pitch_path,
         alignment_path=train.config.dataset.alignment_path,
+        stage=stage,
     )
     val_time_bins, _ = val_dataset.time_bins()
     train.val_dataloader = build_dataloader(
