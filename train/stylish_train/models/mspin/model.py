@@ -62,14 +62,14 @@ class MSpin(nn.Module):
         self.resample = torchaudio.transforms.Resample(self.global_sr, self.encoder_sr)
 
     def extract_feature(self, wav):
-        device = wav.device
-        wav = self.resample(wav).cpu().numpy()
+        device, dtype = wav.device, wav.dtype
+        wav = self.resample(wav).cpu().float().numpy()
         wav = self.processor(
             wav,
             sampling_rate=self.encoder_sr,
             return_tensors="pt",
         )["input_features"]
-        wav = wav.to(device)
+        wav = wav.to(device, dtype)
         return self.model(wav).last_hidden_state
 
     def forward(self, view0, view1=None):
