@@ -83,7 +83,7 @@ stages = {
             "hubert_acoustic_extractor",
             "generator",
         ],
-        eval_models=["hubert_quantizer", "hubert_feature_synthesizer", "bert"],
+        eval_models=["hubert_quantizer", "hubert_feature_synthesizer", "bert", "mspin"],
         discriminators=["mpd", "mrd"],
         inputs=[
             "text",
@@ -109,6 +109,7 @@ stages = {
             "hubert_feature_synthesizer",
             "hubert_acoustic_extractor",
             "generator",
+            "mspin",
         ],
         discriminators=[],
         inputs=[
