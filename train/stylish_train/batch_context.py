@@ -8,9 +8,6 @@ from einops import rearrange, repeat
 import train_context
 from stylish_lib.config_loader import Config
 from utils import length_to_mask, log_norm, print_gpu_vram, sequence_mask
-from stylish_train.models.vevo_token_predictor import (
-    phoneme_idx_to_token,
-)
 from transformers import T5ForConditionalGeneration
 import evaluate
 from torch.nn.utils.rnn import pad_sequence

@@ -20,11 +20,6 @@ import torchaudio, torch
 import torch.nn as nn
 
 # from transformers import HubertModel
-# from models.vevo.vevo_utils import build_vevo_inference_pipeline
-# from transformers import AutoFeatureExtractor, WhisperModel
-from models.vevo_token_predictor import ByteTokenizer
-from models.phonslm import HuBERTPhoneme
-from models.rspin import RSpinWavlm
 from torch.hub import download_url_to_file, get_dir
 import os
 
@@ -315,23 +310,23 @@ class TrainContext:
         ).to(self.config.training.device)
 
         hubert_config = self.model_config.hubert
-        os.makedirs(get_dir(), exist_ok=True)
-        hubert_path = osp.abspath(osp.join(get_dir(), "wavlm_rspin_32-40k.pt"))
-        if not osp.exists(hubert_path):
-            download_url_to_file(
-                "https://data.csail.mit.edu/public-release-sls/rspin/wavlm_rspin_32-40k.pt",
-                hubert_path,
-            )
-        self.hubert = (
-            AdaptiveHubert(
-                hubert_path,
-                # "coml/hubert-phoneme-classification",
-                self.model_config.sample_rate,
-                hubert_config.sr,
-            )
-            .to(self.config.training.device)
-            .eval()
-        )
+        # os.makedirs(get_dir(), exist_ok=True)
+        # hubert_path = osp.abspath(osp.join(get_dir(), "wavlm_rspin_32-40k.pt"))
+        # if not osp.exists(hubert_path):
+        #     download_url_to_file(
+        #         "https://data.csail.mit.edu/public-release-sls/rspin/wavlm_rspin_32-40k.pt",
+        #         hubert_path,
+        #     )
+        # self.hubert = (
+        #     AdaptiveHubert(
+        #         hubert_path,
+        #         # "coml/hubert-phoneme-classification",
+        #         self.model_config.sample_rate,
+        #         hubert_config.sr,
+        #     )
+        #     .to(self.config.training.device)
+        #     .eval()
+        # )
         # with self.accelerator.main_process_first():
         #     self.hubert = AdaptiveQuantizedHubert(
         #         self.config.training.device,

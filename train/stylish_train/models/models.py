@@ -21,7 +21,6 @@ from vector_quantize_pytorch import ResidualVQ
 import safetensors
 from huggingface_hub import hf_hub_download
 from .plbert import PLBERT
-from .vevo_token_predictor import build_model as build_vevo_token_predictor
 from .mspin.model import MSpin
 
 from munch import Munch
@@ -142,7 +141,6 @@ def build_model(model_config: ModelConfig):
 
     # Satisfy the optimizer as RVQ uses EMA instead of gradient descent
     hubert_quantizer.register_parameter("unused", nn.Parameter())
-    vevo_token_predictor = build_vevo_token_predictor()
 
     nets = Munch(
         text_acoustic_extractor=text_acoustic_extractor,
@@ -162,7 +160,6 @@ def build_model(model_config: ModelConfig):
             768,
         ),
         hubert_quantizer=hubert_quantizer,
-        vevo_token_predictor=vevo_token_predictor,
         mspin=MSpin(),
     )
 
