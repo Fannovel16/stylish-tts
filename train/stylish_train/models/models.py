@@ -68,11 +68,11 @@ def build_model(model_config: ModelConfig):
         )
         text_spectral_extractor = TextFeatureExtractor(
             tokens=model_config.tokens,
-            inter_dim=spectral_config.inter_dim,
-            style_dim=spectral_config.style_dim,
-            text_encoder_config=spectral_config.text_encoder,
-            style_encoder_config=spectral_config.style_encoder,
-            feature_encoder_config=spectral_config.feature_encoder,
+            inter_dim=acoustic_config.inter_dim,
+            style_dim=acoustic_config.style_dim,
+            text_encoder_config=acoustic_config.text_encoder,
+            style_encoder_config=acoustic_config.style_encoder,
+            feature_encoder_config=acoustic_config.feature_encoder,
             encode_feature=True,
         )
         hubert_acoustic_extractor = HubertFeatureExtractor(
