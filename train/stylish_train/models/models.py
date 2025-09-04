@@ -71,6 +71,7 @@ def build_model(model_config: ModelConfig):
             spk_dim=192,
             style_dim=acoustic_config.style_dim,
             inter_dim=acoustic_config.inter_dim,
+            style_encoder_config=acoustic_config.style_encoder,
             feature_encoder_config=acoustic_config.feature_encoder,
         )
 
@@ -102,6 +103,7 @@ def build_model(model_config: ModelConfig):
         spk_dim=192,
         style_dim=acoustic_config.style_dim,
         inter_dim=acoustic_config.inter_dim,
+        style_encoder_config=acoustic_config.style_encoder,
         feature_encoder_config=acoustic_config.feature_encoder,
     )
 

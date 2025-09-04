@@ -62,12 +62,15 @@ class HubertFeatureExtractor(nn.Module):
         spk_dim,
         style_dim,
         inter_dim,
+        style_encoder_config: StyleEncoderConfig,
         feature_encoder_config: AdaptiveFeatureEncoderConfig,
         final_style_concat=True,
         f0=False,
     ):
         super().__init__()
-        self.style_encoder = TextStyleEncoder(hubert_dim + spk_dim, style_dim)
+        self.style_encoder = TextStyleEncoder(
+            hubert_dim + spk_dim, style_dim, style_encoder_config
+        )
         self.feature_encoder = AdaptiveFeatureEncoder(
             sty_dim=style_dim,
             d_model=hubert_dim,
