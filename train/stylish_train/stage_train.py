@@ -252,11 +252,11 @@ def train_pre_hubert_pe_predictor(
         pitch = batch.pitch
         log = build_loss_log(train)
         log.add_loss(
-            "pitch",
+            "pitch_l1",
             F.smooth_l1_loss(pitch, state.pitch_prediction),
         )
         log.add_loss(
-            "energy",
+            "energy_l1",
             F.smooth_l1_loss(energy, state.energy_prediction),
         )
         train.accelerator.backward(

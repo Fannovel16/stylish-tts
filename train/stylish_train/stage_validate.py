@@ -157,8 +157,8 @@ def validate_pre_hubert_pe_predictor(batch, train):
     energy = state.acoustic_energy(batch.mel)
     log = build_loss_log(train)
     log.add_loss(
-        "pitch",
+        "pitch_l1",
         F.smooth_l1_loss(batch.pitch, state.pitch_prediction),
     )
-    log.add_loss("energy", F.smooth_l1_loss(energy, state.energy_prediction))
+    log.add_loss("energy_l1", F.smooth_l1_loss(energy, state.energy_prediction))
     return log, None, None, None
