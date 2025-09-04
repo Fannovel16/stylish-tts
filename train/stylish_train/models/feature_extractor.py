@@ -68,23 +68,25 @@ class HubertFeatureExtractor(nn.Module):
         f0=False,
     ):
         super().__init__()
+        self.phone_quant = nn.Conv1d(hubert_dim, inter_dim, 1)
+        self.spk_quant = nn.Conv1d(spk_dim, style_dim, 1)
         self.style_encoder = TextStyleEncoder(
-            hubert_dim + spk_dim, style_dim, style_encoder_config
+            inter_dim + spk_dim, style_dim, style_encoder_config
         )
         self.feature_encoder = AdaptiveFeatureEncoder(
             sty_dim=style_dim,
-            d_model=hubert_dim,
+            d_model=inter_dim,
             layers=feature_encoder_config.layers,
             dropout=feature_encoder_config.dropout,
             heads=feature_encoder_config.heads,
             kernel_size=feature_encoder_config.kernel_size,
             final_style_concat=final_style_concat,
-            final_d_model=inter_dim,
         )
 
     def forward(self, x, x_lengths, spk_emb, pitch=None):
+        x, raw_style = self.phone_quant(x), self.spk_quant(spk_emb)
         raw_style = torch.cat(
-            [x, spk_emb.unsqueeze(-1).repeat(1, 1, x.shape[-1])], dim=1
+            [x, raw_style.unsqueeze(-1).repeat(1, 1, x.shape[-1])], dim=1
         )
         style = self.style_encoder(raw_style, x_lengths)
         style = style.unsqueeze(-1).repeat(1, 1, x.shape[-1])
