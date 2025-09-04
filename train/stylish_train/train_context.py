@@ -19,9 +19,10 @@ from stylish_lib.text_utils import TextCleaner
 import torchaudio, torch
 import torch.nn as nn
 
-# from transformers import HubertModel
+from transformers import HubertModel
 from torch.hub import download_url_to_file, get_dir
-import os
+from models.campplus.DTDNN import CAMPPlus, CAMPPLUS_PRETRAINED_MODEL
+from safetensors.torch import load_file
 
 
 class Manifest:
@@ -44,7 +45,7 @@ class Manifest:
                 setattr(self, key, value)
 
 
-"""class HubertModelWithFinalProj(HubertModel):
+class HubertModelWithFinalProj(HubertModel):
     def __init__(self, config):
         super().__init__(config)
         self.final_proj = nn.Linear(config.hidden_size, config.classifier_proj_size)
@@ -91,7 +92,31 @@ class AdaptiveHubert(nn.Module):
 
             xs.append(x)
 
-        return torch.cat(xs, 0)"""
+        return torch.cat(xs, 0)
+
+
+class SpeakerEmbeddingModel(nn.Module):
+    def __init__(self, model_sr: int):
+        super().__init__()
+        self.model = CAMPPlus(feat_dim=80, embedding_size=192)
+        self.model.load_state_dict(load_file(CAMPPLUS_PRETRAINED_MODEL))
+        self.resample = torchaudio.transforms.Resample(model_sr, 16000)
+
+    def forward(self, wave):
+        wave = self.resample(wave)
+        feat_list = []
+        for bib in range(wave.size(0)):
+            feat = torchaudio.compliance.kaldi.fbank(
+                wave[bib : bib + 1, :],
+                num_mel_bins=80,
+                dither=0,
+                sample_frequency=16000,
+            )
+            feat = feat - feat.mean(dim=0, keepdim=True)
+            feat_list.append(feat)
+        feat = torch.stack(feat_list, dim=0)
+        spk_emb = self.model(feat)
+        return spk_emb
 
 
 """class AdaptiveQuantizedHubert(nn.Module):
@@ -212,7 +237,7 @@ class AdaptiveHubert(nn.Module):
         return features[self.extract_layer - 1]"""
 
 
-class AdaptiveHubert(nn.Module):
+"""class AdaptiveHubert(nn.Module):
     def __init__(
         self,
         hubert_path: str,
@@ -232,7 +257,7 @@ class AdaptiveHubert(nn.Module):
             size=time_dim,
             mode="nearest",
         ).transpose(-1, -2)
-        return features, codes
+        return features, codes"""
 
 
 class TrainContext:
@@ -317,23 +342,27 @@ class TrainContext:
         #         "https://data.csail.mit.edu/public-release-sls/rspin/wavlm_rspin_32-40k.pt",
         #         hubert_path,
         #     )
-        # self.hubert = (
-        #     AdaptiveHubert(
-        #         hubert_path,
-        #         # "coml/hubert-phoneme-classification",
-        #         self.model_config.sample_rate,
-        #         hubert_config.sr,
-        #     )
-        #     .to(self.config.training.device)
-        #     .eval()
-        # )
+        self.hubert = (
+            AdaptiveHubert(
+                hubert_config.model,
+                # "coml/hubert-phoneme-classification",
+                self.model_config.sample_rate,
+                hubert_config.sr,
+            )
+            .to(self.config.training.device)
+            .eval()
+        )
+        self.spk_emb_model = (
+            SpeakerEmbeddingModel(self.model_config.sample_rate)
+            .to(self.config.training.device)
+            .eval()
+        )
         # with self.accelerator.main_process_first():
         #     self.hubert = AdaptiveQuantizedHubert(
         #         self.config.training.device,
         #         self.model_config.sample_rate,
         #         hubert_config.sr,
         #     )
-        self.byte_tokenizer = ByteTokenizer
         # with self.accelerator.main_process_first():
         #     self.whisper = AdaptiveWhisperEncoder(
         #         "openai/whisper-small",

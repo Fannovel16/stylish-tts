@@ -241,17 +241,23 @@ def train_pre_vevo_token_predictor(
     return log.detach(), None
 
 
-def train_pre_mspin(
+def train_pre_hubert_pe_predictor(
     batch, model, train, probing
 ) -> Tuple[LossLog, Optional[torch.Tensor]]:
     state = BatchContext(train=train, model=model)
     with train.accelerator.autocast():
-        metrics = state.pre_mspin(batch)
+        state.pre_hubert_pe_predictor(batch)
         train.stage.optimizer.zero_grad()
+        energy = state.acoustic_energy(batch.mel)
+        pitch = batch.pitch
         log = build_loss_log(train)
         log.add_loss(
-            "spin_ce",
-            metrics["loss_ce"],
+            "pitch",
+            F.smooth_l1_loss(pitch, state.pitch_prediction),
+        )
+        log.add_loss(
+            "energy",
+            F.smooth_l1_loss(energy, state.energy_prediction),
         )
         train.accelerator.backward(
             log.backwards_loss() * math.sqrt(batch.text.shape[0])

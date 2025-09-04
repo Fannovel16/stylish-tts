@@ -82,7 +82,7 @@ class TrainingPlanConfig(BaseModel):
         description="Configuration for pretraining stage of ByT5 Vevo-content-token predictor.",
     )
 
-    pre_mspin: TrainingStageConfig = Field(
+    pre_hubert_pe_predictor: TrainingStageConfig = Field(
         default_factory=TrainingStageConfig,
         description="Configuration for pretraining stage of Multilingual SPIN.",
     )

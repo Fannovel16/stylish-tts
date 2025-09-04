@@ -48,7 +48,7 @@ def build_model(model_config: ModelConfig):
             encode_feature=False,
         )
         mel_decoder = Decoder(
-            dim_in=acoustic_config.inter_dim,
+            dim_in=acoustic_config.inter_dim + acoustic_config.style_dim,
             style_dim=acoustic_config.style_dim,
             dim_out=model_config.generator.upsample_initial_channel,
             hidden_dim=model_config.decoder.hidden_dim,
@@ -68,18 +68,10 @@ def build_model(model_config: ModelConfig):
         )
         hubert_acoustic_extractor = HubertFeatureExtractor(
             hubert_dim=model_config.hubert.hidden_dim,
-            inter_dim=acoustic_config.inter_dim,
+            spk_dim=192,
             style_dim=acoustic_config.style_dim,
-            text_encoder_config=acoustic_config.text_encoder,
-            style_encoder_config=acoustic_config.style_encoder,
+            inter_dim=acoustic_config.inter_dim,
             feature_encoder_config=acoustic_config.feature_encoder,
-            encode_feature=False,
-        )
-        acoustic_config.text_encoder.hidden_dim = model_config.hubert.hidden_dim
-        text_acoustic_hubert_distiller = TextEncoder(
-            model_config.tokens,
-            inter_dim=model_config.hubert.hidden_dim,
-            **acoustic_config.text_encoder.model_dump(),
         )
 
     duration_config = model_config.text_duration_extractor
@@ -99,15 +91,6 @@ def build_model(model_config: ModelConfig):
     )
 
     spectral_config = model_config.text_spectral_extractor
-    text_spectral_extractor = TextFeatureExtractor(
-        tokens=model_config.tokens,
-        inter_dim=spectral_config.inter_dim,
-        style_dim=spectral_config.style_dim,
-        text_encoder_config=spectral_config.text_encoder,
-        style_encoder_config=spectral_config.style_encoder,
-        feature_encoder_config=spectral_config.feature_encoder,
-        encode_feature=True,
-    )
     pitch_energy_predictor = PitchEnergyPredictor(
         style_dim=spectral_config.style_dim,
         d_hid=spectral_config.inter_dim,
@@ -116,13 +99,10 @@ def build_model(model_config: ModelConfig):
 
     hubert_spectral_extractor = HubertFeatureExtractor(
         hubert_dim=model_config.hubert.hidden_dim,
-        inter_dim=spectral_config.inter_dim,
-        style_dim=spectral_config.style_dim,
-        text_encoder_config=spectral_config.text_encoder,
-        style_encoder_config=spectral_config.style_encoder,
-        feature_encoder_config=spectral_config.feature_encoder,
-        encode_feature=True,
-        f0=False,
+        spk_dim=192,
+        style_dim=acoustic_config.style_dim,
+        inter_dim=acoustic_config.inter_dim,
+        feature_encoder_config=acoustic_config.feature_encoder,
     )
 
     assert (
@@ -160,7 +140,7 @@ def build_model(model_config: ModelConfig):
             768,
         ),
         hubert_quantizer=hubert_quantizer,
-        mspin=MSpin(),
+        # mspin=MSpin(),
     )
 
     return nets

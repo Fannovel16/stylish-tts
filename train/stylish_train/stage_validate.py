@@ -151,15 +151,14 @@ def validate_pre_vevo_token_predictor(batch, train):
 
 
 @torch.no_grad()
-def validate_mspin(batch, train):
+def validate_pre_hubert_pe_predictor(batch, train):
     state = BatchContext(train=train, model=train.model)
-    metrics = state.pre_mspin(batch)
+    state.pre_hubert_pe_predictor(batch)
+    energy = state.acoustic_energy(batch.mel)
     log = build_loss_log(train)
-    num_codewords = train.model.mspin.loss.num_vars
-    log.add_loss("code_ce", metrics["loss_ce"])
-    log.add_loss("norm_code_perplexity", metrics["code_perplexity"] / num_codewords)
-    log.add_loss("norm_prob_perplexity", metrics["prob_perplexity"] / num_codewords)
-    log.add_loss("acc_both_view", metrics["acc"])
-    log.add_loss("acc_view_0", metrics["acc_1"])
-    log.add_loss("acc_view_1", metrics["acc_2"])
+    log.add_loss(
+        "pitch",
+        F.smooth_l1_loss(batch.pitch, state.pitch_prediction),
+    )
+    log.add_loss("energy", F.smooth_l1_loss(energy, state.energy_prediction))
     return log, None, None, None

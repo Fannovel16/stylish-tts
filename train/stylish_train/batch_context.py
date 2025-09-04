@@ -48,8 +48,9 @@ class BatchContext:
         # phones, _ = self.text_to_hubert(batch)
         # phones = (phones.transpose(-1, -2) @ batch.alignment).transpose(-1, -2)
         phones = self.extract_phones_from_audio(batch)
+        spk_emb = self.train.spk_emb_model(batch.audio_gt)
         acoustic_features, acoustic_styles = self.model.hubert_acoustic_extractor(
-            phones, batch.mel_length // 2
+            phones.transpose(-1, -2), batch.mel_length // 2, spk_emb
         )
         energy = self.acoustic_energy(batch.mel)
         pitch = batch.pitch
@@ -63,17 +64,17 @@ class BatchContext:
         return prediction
 
     def spectral_prediction_single(self, batch, use_random_mono=True):
-        phones, _ = self.text_to_hubert(batch)
-        # phones = (phones.transpose(-1, -2) @ batch.alignment).transpose(-1, -2)
+        phones = self.extract_phones_from_audio(batch)
+        spk_emb = self.train.spk_emb_model(batch.audio_gt)
         acoustic_features, acoustic_styles = self.model.hubert_acoustic_extractor(
-            phones, batch.mel_length // 2
+            phones.transpose(-1, -2), batch.mel_length // 2, spk_emb
         )
         spectral_features, spectral_styles = self.model.hubert_spectral_extractor(
-            phones, batch.mel_length // 2
+            phones.transpose(-1, -2), batch.mel_length // 2, spk_emb
         )
         self.pitch_prediction, self.energy_prediction = (
             self.model.pitch_energy_predictor(
-                spectral_features.transpose(-1, -2),
+                spectral_features,
                 spectral_styles,
             )
         )
@@ -175,17 +176,17 @@ class BatchContext:
 
     def extract_phones_from_audio(self, batch):
         with torch.no_grad():
-            phones, _ = self.model.mspin(batch.audio_gt)
+            """phones, _ = self.model.mspin(batch.audio_gt)
             phones = torch.nn.functional.interpolate(
                 phones.transpose(-1, -2),
                 size=batch.alignment.shape[-1],
                 mode="nearest",
             ).transpose(-1, -2)
-            """return self.train.hubert(
+            return phones"""
+            return self.train.hubert(
                 batch.audio_gt,
                 batch.alignment.shape[-1],
-            )"""
-            return phones
+            )
 
     def pre_hubert_quantizer(self, batch):
         self.phones = self.extract_phones_from_audio(batch)
@@ -336,6 +337,15 @@ class BatchContext:
         ctc, _ = self.model.vevo_token_predictor(grapheme_ids, grapheme_lengths)
         return ctc, grapheme_ids, grapheme_lengths, pphones, pphone_lengths
 
-    def pre_mspin(self, batch):
-        _, metrics = self.model.mspin(batch.audio_gt, batch.audio_p)
-        return metrics
+    def pre_hubert_pe_predictor(self, batch):
+        phones = self.extract_phones_from_audio(batch)
+        spk_emb = self.train.spk_emb_model(batch.audio_gt)
+        spectral_features, spectral_styles = self.model.hubert_spectral_extractor(
+            phones.transpose(-1, -2), batch.mel_length // 2, spk_emb
+        )
+        self.pitch_prediction, self.energy_prediction = (
+            self.model.pitch_energy_predictor(
+                spectral_features,
+                spectral_styles,
+            )
+        )

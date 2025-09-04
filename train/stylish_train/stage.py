@@ -18,7 +18,7 @@ from stage_train import (
     train_pre_hubert_quantizer,
     train_pre_feature_synthesizer,
     train_pre_vevo_token_predictor,
-    train_pre_mspin,
+    train_pre_hubert_pe_predictor,
 )
 
 from stage_validate import (
@@ -29,7 +29,7 @@ from stage_validate import (
     validate_pre_hubert_quantizer,
     validate_pre_feature_synthesizer,
     validate_pre_vevo_token_predictor,
-    validate_mspin,
+    validate_pre_hubert_pe_predictor,
 )
 
 from optimizers import build_optimizer
@@ -83,7 +83,7 @@ stages = {
             "hubert_acoustic_extractor",
             "generator",
         ],
-        eval_models=["hubert_quantizer", "hubert_feature_synthesizer", "bert", "mspin"],
+        eval_models=["hubert_quantizer", "hubert_feature_synthesizer", "bert"],
         discriminators=["mpd", "mrd"],
         inputs=[
             "text",
@@ -109,7 +109,6 @@ stages = {
             "hubert_feature_synthesizer",
             "hubert_acoustic_extractor",
             "generator",
-            "mspin",
         ],
         discriminators=[],
         inputs=[
@@ -201,11 +200,11 @@ stages = {
             "path",
         ],
     ),
-    "pre_mspin": StageConfig(
+    "pre_hubert_pe_predictor": StageConfig(
         next_stage=None,
-        train_fn=train_pre_mspin,
-        validate_fn=validate_mspin,
-        train_models=["mspin"],
+        train_fn=train_pre_hubert_pe_predictor,
+        validate_fn=validate_pre_hubert_pe_predictor,
+        train_models=["hubert_spectral_extractor", "pitch_energy_predictor"],
         eval_models=[],
         discriminators=[],
         inputs=[
