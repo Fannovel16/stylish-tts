@@ -57,26 +57,9 @@ class AdainResBlk1d(nn.Module):
     ):
         super().__init__()
         self.actv = actv
-        self.upsample_type = upsample
-        self.upsample = UpSample1d(upsample)
         self.learned_sc = dim_in != dim_out
         self._build_weights(dim_in, dim_out, style_dim)
         self.dropout = nn.Dropout(dropout_p)
-
-        if upsample == "none":
-            self.pool = nn.Identity()
-        else:
-            self.pool = weight_norm(
-                nn.ConvTranspose1d(
-                    dim_in,
-                    dim_in,
-                    kernel_size=3,
-                    stride=2,
-                    groups=dim_in,
-                    padding=1,
-                    output_padding=1,
-                )
-            )
 
     def _build_weights(self, dim_in, dim_out, style_dim):
         self.conv1 = weight_norm(nn.Conv1d(dim_in, dim_out, 3, 1, 1))
@@ -87,7 +70,6 @@ class AdainResBlk1d(nn.Module):
             self.conv1x1 = weight_norm(nn.Conv1d(dim_in, dim_out, 1, 1, 0, bias=False))
 
     def _shortcut(self, x):
-        x = self.upsample(x)
         if self.learned_sc:
             x = self.conv1x1(x)
         return x
@@ -95,9 +77,6 @@ class AdainResBlk1d(nn.Module):
     def _residual(self, x, s):
         x = self.norm1(x, s)
         x = self.actv(x)
-        x = self.pool(x)
-        if self.upsample_type == True:
-            s = torch.nn.functional.interpolate(s, scale_factor=2, mode="nearest")
         x = self.conv1(self.dropout(x))
         x = self.norm2(x, s)
         x = self.actv(x)
