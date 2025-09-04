@@ -71,7 +71,7 @@ class HubertFeatureExtractor(nn.Module):
         self.phone_quant = nn.Conv1d(hubert_dim, inter_dim, 1)
         self.spk_quant = nn.Linear(spk_dim, style_dim)
         self.style_encoder = TextStyleEncoder(
-            inter_dim + spk_dim, style_dim, style_encoder_config
+            inter_dim + style_dim, style_dim, style_encoder_config
         )
         self.feature_encoder = AdaptiveFeatureEncoder(
             sty_dim=style_dim,
