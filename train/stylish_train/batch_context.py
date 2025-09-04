@@ -9,7 +9,6 @@ import train_context
 from stylish_lib.config_loader import Config
 from utils import length_to_mask, log_norm, print_gpu_vram, sequence_mask
 from transformers import T5ForConditionalGeneration
-import evaluate
 from torch.nn.utils.rnn import pad_sequence
 
 SAMPLE_BLACK_LIST = set()
@@ -26,7 +25,6 @@ class BatchContext:
         self.config: Config = train.config
         # This is a subset containing only those models used this batch
         self.model = model
-        self.wer_metric = evaluate.load("wer")
 
         self.pitch_prediction = None
         self.energy_prediction = None
