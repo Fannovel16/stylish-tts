@@ -72,7 +72,7 @@ class BatchContext:
         )
         self.pitch_prediction, self.energy_prediction = (
             self.model.pitch_energy_predictor(
-                spectral_features,
+                spectral_features.transpose(-1, -2),
                 spectral_styles,
             )
         )
@@ -343,7 +343,7 @@ class BatchContext:
         )
         self.pitch_prediction, self.energy_prediction = (
             self.model.pitch_energy_predictor(
-                spectral_features,
+                spectral_features.transpose(-1, -2),
                 spectral_styles,
             )
         )
