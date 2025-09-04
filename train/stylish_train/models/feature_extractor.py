@@ -87,6 +87,7 @@ class HubertFeatureExtractor(nn.Module):
             [x, spk_emb.unsqueeze(-1).repeat(1, 1, x.shape[-1])], dim=1
         )
         style = self.style_encoder(raw_style, x_lengths)
+        style = style.unsqueeze(-1).repeat(1, 1, x.shape[-1])
         x = self.feature_encoder(x, x_lengths, style)
         return x, style
 
