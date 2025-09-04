@@ -84,7 +84,7 @@ class HubertFeatureExtractor(nn.Module):
         )
 
     def forward(self, x, x_lengths, spk_emb, pitch=None):
-        x, raw_style = self.phone_quant(x), self.spk_quant(spk_emb)
+        x, raw_style = self.phone_quant(x), self.spk_quant(spk_emb.squeeze(0))
         raw_style = torch.cat(
             [x, raw_style.unsqueeze(-1).repeat(1, 1, x.shape[-1])], dim=1
         )
