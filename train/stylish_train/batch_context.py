@@ -181,7 +181,7 @@ class BatchContext:
                 mode="nearest",
             ).transpose(-1, -2)
             return phones"""
-            return self.train.hubert(batch.audio_gt, batch.mel_length)
+            return self.train.hubert(batch.audio_gt, batch.alignment.shape[-1] * 2)
 
     def pre_hubert_quantizer(self, batch):
         self.phones = self.extract_phones_from_audio(batch)
