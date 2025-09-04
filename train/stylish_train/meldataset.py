@@ -67,8 +67,8 @@ class FilePathDataset(torch.utils.data.Dataset):
             sample_rate=model_config.sample_rate,
         )
 
-        # NANSY is CPU-intensive, only used in pre_hubert_pe_predictor stage
-        self.enable_nansy = stage == "pre_hubert_pe_predictor"
+        # NANSY is CPU-intensive, only used in pre_mspin stage
+        self.enable_nansy = stage == "pre_mspin"
         if self.enable_nansy:
             from models.mspin.model import Nansy
 
