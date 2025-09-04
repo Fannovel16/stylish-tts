@@ -68,8 +68,8 @@ class HubertFeatureExtractor(nn.Module):
         f0=False,
     ):
         super().__init__()
-        self.phone_quant = nn.Linear(hubert_dim, inter_dim)
-        self.spk_quant = nn.Conv1d(spk_dim, style_dim, 1)
+        self.phone_quant = nn.Conv1d(hubert_dim, inter_dim, 1)
+        self.spk_quant = nn.Linear(spk_dim, style_dim)
         self.style_encoder = TextStyleEncoder(
             inter_dim + spk_dim, style_dim, style_encoder_config
         )
