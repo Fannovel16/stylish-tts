@@ -164,7 +164,6 @@ class HubertPitchEnergyPredictor(torch.nn.Module):
             inter_dim + style_dim,
             style_dim,
             style_config,
-            kernel_size=31,
         )
 
         self.prosody_encoder = ProsodyEncoder(

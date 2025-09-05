@@ -77,7 +77,6 @@ class HubertSpeechPredictor(torch.nn.Module):
             model_config.inter_dim + model_config.style_dim,
             model_config.style_dim,
             model_config.style_encoder,
-            kernel_size=31,
         )
 
         self.decoder = Decoder(
