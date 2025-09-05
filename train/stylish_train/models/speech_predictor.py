@@ -65,12 +65,15 @@ class SpeechPredictor(torch.nn.Module):
 class HubertSpeechPredictor(torch.nn.Module):
     def __init__(self, model_config):
         super().__init__()
-        self.phone_quant = torch.nn.Conv1d(
+        self.phone_proj = torch.nn.Conv1d(
             model_config.hubert.hidden_dim, model_config.inter_dim, 1
+        )
+        self.phone_style_proj = torch.nn.Conv1d(
+            model_config.hubert.hidden_dim, model_config.hubert.hidden_dim // 2, 1
         )
 
         self.style_encoder = TextStyleEncoder(
-            model_config.hubert.hidden_dim,
+            model_config.hubert.hidden_dim // 2,
             model_config.style_dim,
             model_config.style_encoder,
         )
@@ -98,8 +101,8 @@ class HubertSpeechPredictor(torch.nn.Module):
         self.generator = Generator()
 
     def forward(self, phones, phone_lengths, spk_emb, pitch, energy):
-        style = self.style_encoder(phones, phone_lengths)
-        phones = self.phone_quant(phones)
+        style = self.style_encoder(self.phone_style_proj(phones), phone_lengths)
+        phones = self.phone_proj(phones)
         mel, f0_curve = self.decoder(
             phones,
             pitch,
