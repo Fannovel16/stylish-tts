@@ -74,17 +74,20 @@ class HubertSpeechPredictor(torch.nn.Module):
             model_config.spk_emb_model.hidden_dim, model_config.style_dim
         )
         config = model_config.text_encoder
-        self.encoder = Encoder(
-            model_config.inter_dim + model_config.style_dim,
-            config.filter_channels,
-            config.heads,
-            config.layers,
-            config.kernel_size,
-            config.dropout,
+        self.encoder = torch.nn.Sequential(
+            Encoder(
+                model_config.inter_dim + model_config.style_dim,
+                config.filter_channels,
+                config.heads,
+                config.layers,
+                config.kernel_size,
+                config.dropout,
+            ),
+            torch.nn.Conv1d(model_config.hubert.hidden_dim, model_config.inter_dim, 1),
         )
 
         self.style_encoder = TextStyleEncoder(
-            model_config.inter_dim + model_config.style_dim,
+            model_config.inter_dim,
             model_config.style_dim,
             model_config.style_encoder,
         )
