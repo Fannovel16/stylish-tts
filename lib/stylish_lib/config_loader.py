@@ -76,6 +76,14 @@ class TrainingPlanConfig(BaseModel):
         default_factory=TrainingStageConfig,
         description="Configuration for joint training of inference models.",
     )
+    hubert_acoustic: TrainingStageConfig = Field(
+        default_factory=TrainingStageConfig,
+        description="Configuration for training of acoustic branch with HuBERT input.",
+    )
+    hubert_textual: TrainingStageConfig = Field(
+        default_factory=TrainingStageConfig,
+        description="Configuration for training of textual branch with HuBERT input.",
+    )
 
     def get_stage(self, name: str) -> TrainingStageConfig:
         try:
@@ -279,6 +287,20 @@ class SlmConfig(BaseModel):
     sr: int = Field(..., description="Sampling rate used by the SLM.")
 
 
+class HubertConfig(BaseModel):
+    model: str = Field(..., description="Identifier or path for HuBERT model.")
+    hidden_dim: int = Field(
+        ..., description="Dimension of the last hidden layer in HuBERT."
+    )
+    sr: int = Field(..., description="Sampling rate used by HuBERT.")
+
+
+class SpeakerEmbeddingModelConfig(BaseModel):
+    hidden_dim: int = Field(
+        ..., description="Dimension of speaker embedding per utterance."
+    )
+
+
 class Config(BaseModel):
     """
     Top-level configuration model that encompasses all settings.
@@ -347,6 +369,10 @@ class ModelConfig(BaseModel):
         ..., description="Speech Language Model (SLM) configuration parameters."
     )
     symbol: SymbolConfig = Field(..., description="Text processing symbols.")
+    hubert: HubertConfig = Field(..., description="HuBERT configuration parameters.")
+    spk_emb_model: SpeakerEmbeddingModelConfig = Field(
+        ..., description="Speaker Embedding Model configuration parameters."
+    )
 
     def state_dict(self) -> dict:
         return self.model_dump()

@@ -4,9 +4,11 @@ from .conv_next import BasicConvNeXtBlock
 
 
 class TextStyleEncoder(torch.nn.Module):
-    def __init__(self, inter_dim, style_dim, config):
+    def __init__(self, inter_dim, style_dim, config, kernel_size=7):
         super().__init__()
-        self.conv_in = torch.nn.Conv1d(inter_dim, style_dim, kernel_size=7, padding=3)
+        self.conv_in = torch.nn.Conv1d(
+            inter_dim, style_dim, kernel_size=kernel_size, padding=3
+        )
         self.blocks = torch.nn.ModuleList(
             [
                 BasicConvNeXtBlock(
