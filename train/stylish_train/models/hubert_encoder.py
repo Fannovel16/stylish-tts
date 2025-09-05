@@ -34,7 +34,7 @@ class HubertEncoder(torch.nn.Module):
             self.final_proj = torch.nn.Identity()
 
     def forward(self, phones, phone_lengths, cond=None):
-        phones = self.phone_quant(phones)
+        phones = self.phone_emb(phones)
         if cond:
             cond = self.cond_proj(cond)
             phones = torch.cat(
