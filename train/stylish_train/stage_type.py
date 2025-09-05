@@ -486,8 +486,8 @@ stages["duration"] = StageType(
 ##### HuBERT Acoustic #####
 
 
-def pred_ssl_features(train, batch):
-    phones = train.hubert(batch.audio_gt, batch.alignment.shape[-1])
+def pred_ssl_features(train, batch, time_dim):
+    phones = train.hubert(batch.audio_gt, time_dim)
     spk_emb = train.spk_emb_model(batch.audio_gt)
     return phones, spk_emb
 
@@ -500,7 +500,7 @@ def train_hubert_acoustic(
         mel, mel_lengths = calculate_mel(batch.audio_gt, train.to_mel)
         with torch.no_grad():
             energy = log_norm(mel.unsqueeze(1)).squeeze(1)
-        phones, spk_emb = pred_ssl_features(train, batch)
+        phones, spk_emb = pred_ssl_features(train, batch, mel.shape[-1])
         pred = model.hubert_speech_predictor(
             phones, mel_lengths, spk_emb, batch.pitch, energy
         )
@@ -543,7 +543,7 @@ def validate_hubert_acoustic(batch, train):
     mel, mel_lengths = calculate_mel(batch.audio_gt, train.to_mel)
     with torch.no_grad():
         energy = log_norm(mel.unsqueeze(1)).squeeze(1)
-    phones, spk_emb = pred_ssl_features(train, batch)
+    phones, spk_emb = pred_ssl_features(train, batch, mel.shape[-1])
     pred = model.hubert_speech_predictor(
         phones, mel_lengths, spk_emb, batch.pitch, energy
     )
@@ -582,7 +582,7 @@ def train_hubert_textual(
     with train.accelerator.autocast():
         print_gpu_vram("init")
         mel, mel_lengths = calculate_mel(batch.audio_gt, train.to_mel)
-        phones, spk_emb = pred_ssl_features(train, batch)
+        phones, spk_emb = pred_ssl_features(train, batch, mel.shape[-1])
         pred_pitch, pred_energy = model.hubert_pitch_energy_predictor(
             phones, mel_lengths, spk_emb
         )
@@ -632,7 +632,7 @@ def train_hubert_textual(
 def validate_hubert_textual(batch, train):
     model = train.model
     mel, mel_lengths = calculate_mel(batch.audio_gt, train.to_mel)
-    phones, spk_emb = pred_ssl_features(train, batch)
+    phones, spk_emb = pred_ssl_features(train, batch, mel.shape[-1])
     pred_pitch, pred_energy = model.hubert_pitch_energy_predictor(
         phones, mel_lengths, spk_emb
     )

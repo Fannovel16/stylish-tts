@@ -101,3 +101,4 @@ loss_weight:
   align_loss: 1
   # discriminator loss (placeholder)
   discriminator: 1
+  phase: 5
