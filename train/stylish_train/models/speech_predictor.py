@@ -1,5 +1,5 @@
 import torch
-from .text_encoder import TextEncoder
+from .text_encoder import TextEncoder, Encoder
 from .text_style_encoder import TextStyleEncoder
 from .prosody_encoder import ProsodyEncoder
 from .duration_predictor import DurationPredictor
@@ -7,6 +7,7 @@ from .pitch_energy_predictor import PitchEnergyPredictor
 from .decoder import Decoder
 from .generator import Generator
 from einops import repeat
+from utils import sequence_mask
 
 
 class SpeechPredictor(torch.nn.Module):
@@ -65,11 +66,25 @@ class SpeechPredictor(torch.nn.Module):
 class HubertSpeechPredictor(torch.nn.Module):
     def __init__(self, model_config):
         super().__init__()
-        hubert_dim, spk_emb_dim = model_config.hubert.hidden_dim, 192
-        self.phone_emb = torch.nn.Conv1d(hubert_dim, model_config.inter_dim, 1)
+
+        self.phone_quant = torch.nn.Conv1d(
+            model_config.hubert.hidden_dim, model_config.inter_dim, 1
+        )
+        self.spk_quant = torch.nn.Linear(
+            model_config.spk_emb_model.hidden_dim, model_config.style_dim
+        )
+        config = model_config.text_encoder
+        self.encoder = Encoder(
+            model_config.inter_dim + model_config.style_dim,
+            config.filter_channels,
+            config.heads,
+            config.layers,
+            config.kernel_size,
+            config.dropout,
+        )
 
         self.style_encoder = TextStyleEncoder(
-            model_config.inter_dim,
+            model_config.inter_dim + model_config.style_dim,
             model_config.style_dim,
             model_config.style_encoder,
         )
@@ -97,7 +112,14 @@ class HubertSpeechPredictor(torch.nn.Module):
         self.generator = Generator()
 
     def forward(self, phones, phone_lengths, spk_emb, pitch, energy):
-        phones = self.phone_emb(phones)
+        phones, raw_style = self.phone_quant(phones), self.spk_quant(spk_emb)
+        phones = torch.cat(
+            [phones, repeat(raw_style, "b c -> b c t", t=phones.shape[-1])], dim=1
+        )
+        phones = self.encoder(
+            phones,
+            sequence_mask(phone_lengths, phones.size(2)).unsqueeze(1).to(phones.dtype),
+        )
         style = self.style_encoder(phones, phone_lengths)
         mel, f0_curve = self.decoder(
             phones,
