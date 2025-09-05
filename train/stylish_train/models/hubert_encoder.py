@@ -43,6 +43,5 @@ class HubertEncoder(torch.nn.Module):
         phone_mask = (
             sequence_mask(phone_lengths, phones.size(2)).unsqueeze(1).to(phones.dtype)
         )
-        phones = self.phone_proj(self.encoder(phones, phone_mask))
-        phones = self.final_proj(phones)
+        phones = self.final_proj(self.encoder(phones, phone_mask))
         return phones
