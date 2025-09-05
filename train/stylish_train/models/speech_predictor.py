@@ -72,7 +72,7 @@ class HubertSpeechPredictor(torch.nn.Module):
             torch.nn.GELU(),
         )
         self.spk_emb_proj = torch.nn.Sequential(
-            torch.nn.Conv1d(spk_emb_dim, spk_emb_dim // 2, 1),
+            torch.nn.Linear(spk_emb_dim, spk_emb_dim // 2),
             torch.nn.GELU(),
         )
 
