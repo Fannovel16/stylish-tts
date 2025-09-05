@@ -161,7 +161,7 @@ class HubertPitchEnergyPredictor(torch.nn.Module):
         self.spk_quant = torch.nn.Linear(spk_dim, style_dim)
 
         self.style_encoder = TextStyleEncoder(
-            inter_dim,
+            inter_dim + style_dim,
             style_dim,
             style_config,
             kernel_size=31,
