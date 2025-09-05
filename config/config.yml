@@ -44,6 +44,16 @@ training_plan:
     epochs: 15
     probe_batch_max: 32
     lr: 1e-4
+  hubert_acoustic:
+    # training of acoustic models and vocoder
+    epochs: 20
+    probe_batch_max: 32
+    lr: 1e-4
+  hubert_textual:
+    # training for duration/pitch/energy from text
+    epochs: 10
+    probe_batch_max: 32
+    lr: 1e-4
 
 dataset:
   train_data: "path/to/your/train-list.txt"
