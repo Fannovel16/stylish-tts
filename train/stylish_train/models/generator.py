@@ -499,10 +499,10 @@ from munch import Munch
 
 config_h = Munch(
     {
-        "ASP_channel": 512,
+        "ASP_channel": 1025,
         "ASP_input_conv_kernel_size": 7,
         "ASP_output_conv_kernel_size": 7,
-        "PSP_channel": 512,
+        "PSP_channel": 1025,
         "PSP_input_conv_kernel_size": 7,
         "PSP_output_R_conv_kernel_size": 7,
         "PSP_output_I_conv_kernel_size": 7,
@@ -585,8 +585,8 @@ class Generator(torch.nn.Module):
             padding=get_padding(h.PSP_output_I_conv_kernel_size, 1),
         )
 
-        self.amp_norm = nn.LayerNorm(self.dim, eps=1e-6)
-        self.phase_norm = nn.LayerNorm(self.dim, eps=1e-6)
+        self.amp_norm = nn.LayerNorm(h.ASP_channel, eps=1e-6)
+        self.phase_norm = nn.LayerNorm(h.PSP_channel, eps=1e-6)
         self.phase_convnext = nn.ModuleList(
             [
                 ConvNeXtBlock(
@@ -607,8 +607,8 @@ class Generator(torch.nn.Module):
                 for _ in range(self.num_layers)
             ]
         )
-        self.amp_final_layer_norm = nn.LayerNorm(self.dim, eps=1e-6)
-        self.phase_final_layer_norm = nn.LayerNorm(self.dim, eps=1e-6)
+        self.amp_final_layer_norm = nn.LayerNorm(h.ASP_channel, eps=1e-6)
+        self.phase_final_layer_norm = nn.LayerNorm(h.PSP_channel, eps=1e-6)
         self.apply(self._init_weights)
         # self.inverse_mel = InverseMel(
         #     n_fft=self.h.n_fft,
