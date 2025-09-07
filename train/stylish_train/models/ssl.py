@@ -52,4 +52,7 @@ class SpeakerEmbeddingModel(nn.Module):
             feat_list.append(feat)
         feat = torch.stack(feat_list, dim=0)
         spk_emb = self.model(feat)
+        spk_emb = torch.nn.functional.normalize(
+            spk_emb, p=2, dim=1
+        )  # As suggested by NANSY (https://arxiv.org/pdf/2110.14513)
         return spk_emb
