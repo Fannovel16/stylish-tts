@@ -82,7 +82,7 @@ class HubertSpeechPredictor(torch.nn.Module):
         self.decoder = Decoder(
             dim_in=model_config.inter_dim,
             style_dim=model_config.style_dim,
-            dim_out=model_config.generator.upsample_initial_channel,
+            dim_out=model_config.generator.input_dim,
             hidden_dim=model_config.decoder.hidden_dim,
             residual_dim=model_config.decoder.residual_dim,
         )
