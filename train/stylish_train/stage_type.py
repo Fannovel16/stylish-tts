@@ -127,7 +127,7 @@ def train_acoustic(
         with torch.no_grad():
             energy = log_norm(mel.unsqueeze(1)).squeeze(1)
         pred = model.speech_predictor(
-            batch.text, batch.text_length, batch.alignment, batch.pitch, energy
+            batch.text, batch.text_length, batch.alignment, batch.pitch, energy, mel
         )
         # pred_pitch, pred_energy = model.pitch_energy_predictor(
         #     batch.text, batch.text_length, batch.alignment
