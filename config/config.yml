@@ -44,6 +44,14 @@ training_plan:
     epochs: 15
     probe_batch_max: 32
     lr: 1e-4
+  hubert_acoustic:
+    epochs: 20
+    probe_batch_max: 32
+    lr: 1e-4
+  hubert_textual: 
+    epochs: 10
+    probe_batch_max: 32
+    lr: 1e-4
 
 dataset:
   train_data: "path/to/your/train-list.txt"

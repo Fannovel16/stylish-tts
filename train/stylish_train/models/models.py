@@ -11,8 +11,8 @@ from .pitch_energy_predictor import PitchEnergyPredictor
 from .text_encoder import TextEncoder
 from .text_style_encoder import TextStyleEncoder
 from .mel_style_encoder import MelStyleEncoder
-from .pitch_energy_predictor import PitchEnergyPredictor
-from .speech_predictor import SpeechPredictor
+from .pitch_energy_predictor import PitchEnergyPredictor, HubertPitchEnergyPredictor
+from .speech_predictor import SpeechPredictor, HubertSpeechPredictor
 from multi_spectrogram import multi_spectrogram_count
 
 from munch import Munch
@@ -69,6 +69,15 @@ def build_model(model_config: ModelConfig):
         pe_text_encoder=pe_text_encoder,
         pe_text_style_encoder=pe_text_style_encoder,
         pe_mel_style_encoder=pe_mel_style_encoder,
+        hubert_spech_predictor=HubertSpeechPredictor(model_config),
+        hubert_pitch_energy_predictor=HubertPitchEnergyPredictor(
+            hubert_dim=model_config.hubert.hidden_dim,
+            spk_dim=model_config.speaker_embedder.hidden_dim,
+            style_dim=model_config.style_dim,
+            inter_dim=model_config.inter_dim,
+            style_config=model_config.style_encoder,
+            pitch_energy_config=model_config.pitch_energy_predictor,
+        ),
     )
 
     return nets

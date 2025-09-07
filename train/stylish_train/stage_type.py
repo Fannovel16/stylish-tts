@@ -483,6 +483,189 @@ stages["duration"] = StageType(
 )
 
 
+##### HuBERT Acoustic #####
+
+
+def pred_ssl_features(train, batch, time_dim):
+    phones = train.hubert(batch.audio_gt, time_dim)
+    spk_emb = train.speaker_embedder(batch.audio_gt)
+    return phones, spk_emb
+
+
+def train_hubert_acoustic(
+    batch, model, train, probing
+) -> Tuple[LossLog, Optional[torch.Tensor]]:
+    with train.accelerator.autocast():
+        print_gpu_vram("init")
+        mel, mel_lengths = calculate_mel(batch.audio_gt, train.to_mel)
+        with torch.no_grad():
+            energy = log_norm(mel.unsqueeze(1)).squeeze(1)
+        phones, spk_emb = pred_ssl_features(train, batch, mel.shape[-1])
+        pred = model.hubert_speech_predictor(
+            phones, mel_lengths, spk_emb, batch.pitch, energy
+        )
+        print_gpu_vram("predicted")
+        train.stage.optimizer.zero_grad()
+
+        log = build_loss_log(train)
+        target_spec, pred_spec = train.multi_spectrogram(
+            target=batch.audio_gt, pred=pred.audio.squeeze(1)
+        )
+        train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
+        print_gpu_vram("stft_loss")
+        log.add_loss(
+            "generator",
+            train.generator_loss(
+                target_list=target_spec, pred_list=pred_spec, used=["mrd"]
+            ).mean(),
+        )
+        print_gpu_vram("generator_loss")
+        log.add_loss(
+            "slm",
+            train.wavlm_loss(batch.audio_gt.detach(), pred.audio),
+        )
+        print_gpu_vram("slm_loss")
+        train.magphase_loss(pred, batch.audio_gt, log)
+        print_gpu_vram("magphase_loss")
+        train.accelerator.backward(log.backwards_loss())
+        print_gpu_vram("backward")
+
+    return (
+        log.detach(),  # None, None
+        detach_all(target_spec),
+        detach_all(pred_spec),
+    )  # pred.audio.detach()
+
+
+@torch.no_grad()
+def validate_hubert_acoustic(batch, train):
+    model = train.model
+    mel, mel_lengths = calculate_mel(batch.audio_gt, train.to_mel)
+    with torch.no_grad():
+        energy = log_norm(mel.unsqueeze(1)).squeeze(1)
+    phones, spk_emb = pred_ssl_features(train, batch, mel.shape[-1])
+    pred = model.hubert_speech_predictor(
+        phones, mel_lengths, spk_emb, batch.pitch, energy
+    )
+
+    log = build_loss_log(train)
+    target_spec, pred_spec = train.multi_spectrogram(
+        target=batch.audio_gt, pred=pred.audio.squeeze(1)
+    )
+    train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
+    return log, batch.alignment[0], make_list(pred.audio), batch.audio_gt
+
+
+stages["hubert_acoustic"] = StageType(
+    next_stage="hubert_textual",
+    train_fn=train_hubert_acoustic,
+    validate_fn=validate_hubert_acoustic,
+    train_models=["hubert_speech_predictor"],
+    eval_models=[],
+    # discriminators=[],
+    discriminators=["mrd"],
+    inputs=[
+        "text",
+        "text_length",
+        "audio_gt",
+        "pitch",
+        "alignment",
+    ],
+)
+
+##### HuBERT textual #####
+
+
+def train_hubert_textual(
+    batch, model, train, probing
+) -> Tuple[LossLog, Optional[torch.Tensor]]:
+    with train.accelerator.autocast():
+        print_gpu_vram("init")
+        mel, mel_lengths = calculate_mel(batch.audio_gt, train.to_mel)
+        phones, spk_emb = pred_ssl_features(train, batch, mel.shape[-1])
+        pred_pitch, pred_energy = model.hubert_pitch_energy_predictor(
+            phones, mel_lengths, spk_emb
+        )
+        pred = model.hubert_speech_predictor(
+            phones, mel_lengths, spk_emb, pred_pitch, pred_energy
+        )
+        print_gpu_vram("predicted")
+        train.stage.optimizer.zero_grad()
+
+        log = build_loss_log(train)
+        target_spec, pred_spec = train.multi_spectrogram(
+            target=batch.audio_gt, pred=pred.audio.squeeze(1)
+        )
+        train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
+        print_gpu_vram("stft_loss")
+        log.add_loss(
+            "generator",
+            train.generator_loss(
+                target_list=target_spec, pred_list=pred_spec, used=["mrd"]
+            ).mean(),
+        )
+        print_gpu_vram("generator_loss")
+        log.add_loss(
+            "slm",
+            train.wavlm_loss(batch.audio_gt.detach(), pred.audio),
+        )
+        print_gpu_vram("slm_loss")
+        train.magphase_loss(pred, batch.audio_gt, log)
+        print_gpu_vram("magphase_loss")
+
+        log.add_loss(
+            "pitch",
+            torch.nn.functional.smooth_l1_loss(batch.pitch, pred_pitch),
+        )
+        with torch.no_grad():
+            energy = log_norm(mel.unsqueeze(1)).squeeze(1)
+        log.add_loss(
+            "energy",
+            torch.nn.functional.smooth_l1_loss(energy, pred_energy),
+        )
+        train.accelerator.backward(log.backwards_loss())
+
+    return log.detach(), None, None  # pred.audio.detach()
+
+
+@torch.no_grad()
+def validate_hubert_textual(batch, train):
+    model = train.model
+    mel, mel_lengths = calculate_mel(batch.audio_gt, train.to_mel)
+    phones, spk_emb = pred_ssl_features(train, batch, mel.shape[-1])
+    pred_pitch, pred_energy = model.hubert_pitch_energy_predictor(
+        phones, mel_lengths, spk_emb
+    )
+    pred = model.hubert_speech_predictor(
+        phones, mel_lengths, spk_emb, pred_pitch, pred_energy
+    )
+
+    log = build_loss_log(train)
+    target_spec, pred_spec = train.multi_spectrogram(
+        target=batch.audio_gt, pred=pred.audio.squeeze(1)
+    )
+    train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
+    return log, batch.alignment[0], make_list(pred.audio), batch.audio_gt
+
+
+stages["hubert_textual"] = StageType(
+    next_stage=None,
+    train_fn=train_hubert_textual,
+    validate_fn=validate_hubert_textual,
+    train_models=["hubert_pitch_energy_predictor"],
+    eval_models=["hubert_speech_predictor"],
+    # discriminators=[],
+    discriminators=["mrd"],
+    inputs=[
+        "text",
+        "text_length",
+        "audio_gt",
+        "pitch",
+        "alignment",
+    ],
+)
+
+
 ##### Joint #####
 
 

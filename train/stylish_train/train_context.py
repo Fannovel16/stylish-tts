@@ -20,6 +20,7 @@ from stylish_lib.text_utils import TextCleaner
 import torchaudio
 from utils import DurationProcessor
 from multi_spectrogram import MultiSpectrogram
+from models.ssl import AdaptiveHubert, SpeakerEmbeddingModel
 
 
 class Manifest:
@@ -136,6 +137,21 @@ class TrainContext:
             hop_length=self.model_config.hop_length,
             sample_rate=self.model_config.sample_rate,
         ).to(self.config.training.device)
+
+        self.hubert = (
+            AdaptiveHubert(
+                self.model_config.hubert.model,
+                self.model_config.sample_rate,
+                self.model_config.hubert.sr,
+            )
+            .to(self.config.training.device)
+            .eval()
+        )
+        self.speaker_embedder = (
+            SpeakerEmbeddingModel(self.model_config.sample_rate)
+            .to(self.config.training.device)
+            .eval()
+        )
 
     def reset_out_dir(self, stage_name):
         self.out_dir = osp.join(self.base_output_dir, stage_name)
