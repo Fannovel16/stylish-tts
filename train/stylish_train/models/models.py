@@ -69,7 +69,7 @@ def build_model(model_config: ModelConfig):
         pe_text_encoder=pe_text_encoder,
         pe_text_style_encoder=pe_text_style_encoder,
         pe_mel_style_encoder=pe_mel_style_encoder,
-        hubert_spech_predictor=HubertSpeechPredictor(model_config),
+        hubert_speech_predictor=HubertSpeechPredictor(model_config),
         hubert_pitch_energy_predictor=HubertPitchEnergyPredictor(
             hubert_dim=model_config.hubert.hidden_dim,
             spk_dim=model_config.speaker_embedder.hidden_dim,
