@@ -126,8 +126,9 @@ def train_acoustic(
         mel, _ = calculate_mel(batch.audio_gt, train.to_mel)
         with torch.no_grad():
             energy = log_norm(mel.unsqueeze(1)).squeeze(1)
+        spk_emb = train.speaker_embedder(batch.audio_gt)
         pred = model.speech_predictor(
-            batch.text, batch.text_length, batch.alignment, batch.pitch, energy, mel
+            batch.text, batch.text_length, batch.alignment, batch.pitch, energy, spk_emb
         )
         # pred_pitch, pred_energy = model.pitch_energy_predictor(
         #     batch.text, batch.text_length, batch.alignment
@@ -181,8 +182,9 @@ def validate_acoustic(batch, train):
     # pred_pitch, pred_energy = train.model.pitch_energy_predictor(
     #     batch.text, batch.text_length, batch.alignment
     # )
+    spk_emb = train.speaker_embedder(batch.audio_gt)
     pred = train.model.speech_predictor(
-        batch.text, batch.text_length, batch.alignment, batch.pitch, energy
+        batch.text, batch.text_length, batch.alignment, batch.pitch, energy, spk_emb
     )
     log = build_loss_log(train)
     target_spec, pred_spec = train.multi_spectrogram(

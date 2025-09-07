@@ -23,11 +23,8 @@ class SpeechPredictor(torch.nn.Module):
             model_config.style_encoder,
         )
 
-        self.mel_style_encoder =  MelStyleEncoder(
-            model_config.n_mels,
-            model_config.style_dim,
-            model_config.mel_style_encoder.max_channels,
-            model_config.mel_style_encoder.skip_downsample,
+        self.style_encoder = torch.nn.Linear(
+            model_config.speaker_embedder.hidden_dim, model_config.style_dim
         )
 
         self.decoder = Decoder(
@@ -58,10 +55,10 @@ class SpeechPredictor(torch.nn.Module):
             config=model_config.generator,
         )
 
-    def forward(self, texts, text_lengths, alignment, pitch, energy, mel):
+    def forward(self, texts, text_lengths, alignment, pitch, energy, spk_emb):
         text_encoding, _, _ = self.text_encoder(texts, text_lengths)
         # style = self.style_encoder(text_encoding, text_lengths)
-        style = self.mel_style_encoder(mel.unsqueeze(1))
+        style = self.style_encoder(spk_emb)
         mel, f0_curve = self.decoder(
             text_encoding @ alignment,
             pitch,
