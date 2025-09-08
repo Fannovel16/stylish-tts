@@ -2,9 +2,9 @@ import torch
 import torch.nn as nn
 import torchaudio
 from transformers import HubertModel
-from .campplus.DTDNN import CAMPPlus, CAMPPLUS_PRETRAINED_MODEL
-from safetensors.torch import load_file
 from einops import rearrange
+import wespeaker
+from wespeaker.models.samresnet import SimAM_ResNet34_ASP, SimAM_ResNet100_ASP
 
 
 class HubertModelWithFinalProj(HubertModel):
@@ -34,25 +34,19 @@ class AdaptiveHubert(nn.Module):
 class SpeakerEmbeddingModel(nn.Module):
     def __init__(self, model_sr: int):
         super().__init__()
-        self.model = CAMPPlus(feat_dim=80, embedding_size=192)
-        self.model.load_state_dict(load_file(CAMPPLUS_PRETRAINED_MODEL))
-        self.resample = torchaudio.transforms.Resample(model_sr, 16000)
+        self.model = wespeaker.load_model("vblinkp")
+        # Remove the final projection layer for (theoritically) richer infomation for style encoding
+        if type(self.model.model) not in [SimAM_ResNet34_ASP, SimAM_ResNet100_ASP]:
+            raise NotImplementedError(
+                "Any model arch rather than SimAM-ResNet are not supported."
+            )
+        self.model.model.bottleneck = nn.Identity()
+        self.out_dim = self.model.model.pooling.out_dim
+        self.global_sr = model_sr
 
     def forward(self, wave):
-        wave = self.resample(wave)
-        feat_list = []
-        for bib in range(wave.size(0)):
-            feat = torchaudio.compliance.kaldi.fbank(
-                wave[bib : bib + 1, :],
-                num_mel_bins=80,
-                dither=0,
-                sample_frequency=16000,
-            )
-            feat = feat - feat.mean(dim=0, keepdim=True)
-            feat_list.append(feat)
-        feat = torch.stack(feat_list, dim=0)
-        spk_emb = self.model(feat)
-        spk_emb = torch.nn.functional.normalize(
-            spk_emb, p=2, dim=1
-        )  # As suggested by NANSY (https://arxiv.org/pdf/2110.14513)
-        return spk_emb
+        spk_embs = []
+        for _wave in wave:
+            spk_emb = self.model.extract_embedding_from_pcm(_wave, self.global_sr)
+            spk_embs.append(spk_emb)
+        return torch.stack(spk_embs, 0)
