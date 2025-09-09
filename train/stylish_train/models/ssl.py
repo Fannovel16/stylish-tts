@@ -45,13 +45,16 @@ class SpeakerEmbeddingModel(nn.Module):
         self.model.model.bottleneck = nn.Identity()
         self.out_dim = self.model.model.pooling.out_dim
         self.global_sr = model_sr
+        self.max_half = 16000 * 1
 
     def forward(self, wave):
         spk_embs = []
         wave = wave.cpu()
+        middle = wave.shape[1] // 2
         for i in range(wave.shape[0]):
             spk_emb = self.model.extract_embedding_from_pcm(
-                wave[i : i + 1, :], self.global_sr
+                wave[i : i + 1, int(middle - self.max_half) : middle + self.max_half],
+                self.global_sr,
             )
             spk_embs.append(spk_emb)
         return torch.stack(spk_embs, 0).to(self.device)

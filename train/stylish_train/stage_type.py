@@ -141,7 +141,6 @@ def train_acoustic(
         target_spec, pred_spec, target_phase, pred_phase = train.multi_spectrogram(
             target=batch.audio_gt, pred=pred.audio.squeeze(1)
         )
-        target_wav, pred_wav = batch.audio_gt.unsqueeze(1), pred.audio
         train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
         log.add_loss(
             "multi_phase",
@@ -520,7 +519,6 @@ def train_hubert_acoustic(
         target_spec, pred_spec, target_phase, pred_phase = train.multi_spectrogram(
             target=batch.audio_gt, pred=pred.audio.squeeze(1)
         )
-        target_wav, pred_wav = batch.audio_gt.unsqueeze(1), pred.audio
         train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
         log.add_loss(
             "multi_phase",
