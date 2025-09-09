@@ -5,6 +5,7 @@ from transformers import HubertModel
 from einops import rearrange
 import wespeaker
 from wespeaker.models.samresnet import SimAM_ResNet34_ASP, SimAM_ResNet100_ASP
+import random
 
 
 class HubertModelWithFinalProj(HubertModel):
@@ -46,16 +47,25 @@ class SpeakerEmbeddingModel(nn.Module):
         self.out_dim = self.model.model.pooling.out_dim
         self.global_sr = model_sr
         self.max_half = 16000 * 1
+        self.resample = torchaudio.transforms.Resample(
+            model_sr, self.model.resample_rate
+        )
 
     def forward(self, wave):
-        spk_embs = []
+        feats = []
         wave = wave.cpu()
-        middle = wave.shape[1] // 2
+        num_batch, num_frames = wave.shape
+        middle = (
+            random.randrange(0, num_frames - self.max_half) if num_frames > 2 else 0
+        )
         start, end = max(middle - self.max_half, 0), middle + self.max_half + 1
-        for i in range(wave.shape[0]):
-            spk_emb = self.model.extract_embedding_from_pcm(
+        for i in range(num_batch):
+            _feats = self.model.compute_fbank(
                 wave[i : i + 1, start:end],
-                self.global_sr,
+                sample_rate=self.model.resample_rate,
+                cmn=True,
             )
-            spk_embs.append(spk_emb)
-        return torch.stack(spk_embs, 0).to(self.device)
+            feats.append(_feats)
+        with torch.no_grad():
+            outputs = self.model.model(torch.stack(feats, 0))
+        return outputs
