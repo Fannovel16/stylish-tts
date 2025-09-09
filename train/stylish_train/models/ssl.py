@@ -66,6 +66,7 @@ class SpeakerEmbeddingModel(nn.Module):
                 cmn=True,
             )
             feats.append(_feats)
+        feats = torch.stack(feats, 0).to(self.device)
         with torch.no_grad():
-            outputs = self.model.model(torch.stack(feats, 0))
+            outputs = self.model.model(feats)
         return outputs
