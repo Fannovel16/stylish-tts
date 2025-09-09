@@ -145,7 +145,7 @@ def train_acoustic(
         log.add_loss(
             "generator",
             train.generator_loss(
-                target_list=target_spec, pred_list=pred_spec, used=["mrd"]
+                target_list=target_spec, pred_list=pred_spec, used=["mrd", "mpd"]
             ).mean(),
         )
         print_gpu_vram("generator_loss")
@@ -209,7 +209,7 @@ stages["acoustic"] = StageType(
     train_models=["speech_predictor"],
     eval_models=[],
     # discriminators=[],
-    discriminators=["mrd"],
+    discriminators=["mrd", "mpd"],
     inputs=[
         "text",
         "text_length",
@@ -518,7 +518,7 @@ def train_hubert_acoustic(
         log.add_loss(
             "generator",
             train.generator_loss(
-                target_list=target_spec, pred_list=pred_spec, used=["mrd"]
+                target_list=target_spec, pred_list=pred_spec, used=["mrd", "mpd"]
             ).mean(),
         )
         print_gpu_vram("generator_loss")
@@ -565,7 +565,7 @@ stages["hubert_acoustic"] = StageType(
     train_models=["hubert_speech_predictor"],
     eval_models=[],
     # discriminators=[],
-    discriminators=["mrd"],
+    discriminators=["mrd", "mpd"],
     inputs=[
         "text",
         "text_length",

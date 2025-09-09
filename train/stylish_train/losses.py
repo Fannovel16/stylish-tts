@@ -8,7 +8,6 @@ from transformers import AutoModel
 import numpy as np
 import k2
 from einops import rearrange
-from multi_spectrogram import multi_spectrogram_count
 
 
 class MultiResolutionSTFTLoss(torch.nn.Module):
@@ -104,11 +103,13 @@ class MagPhaseLoss(torch.nn.Module):
 
 
 class DiscriminatorLoss(torch.nn.Module):
-    def __init__(self, *, mrd):
+    def __init__(self, **discs):
         super(DiscriminatorLoss, self).__init__()
+
         self.discriminators = torch.nn.ModuleDict(
             {
-                "mrd": DiscriminatorLossHelper(mrd, multi_spectrogram_count),
+                k: DiscriminatorLossHelper(disc, len(disc.discriminators))
+                for k, disc in discs.items()
             }
         )
 
@@ -202,12 +203,10 @@ class DiscriminatorLossHelper(torch.nn.Module):
 
 
 class GeneratorLoss(torch.nn.Module):
-    def __init__(self, *, mrd):
+    def __init__(self, **discs):
         super(GeneratorLoss, self).__init__()
         self.generators = torch.nn.ModuleDict(
-            {
-                "mrd": GeneratorLossHelper(mrd),
-            }
+            {k: GeneratorLossHelper(disc) for k, disc in discs.items()}
         )
 
     def forward(self, *, target_list, pred_list, used):
