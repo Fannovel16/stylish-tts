@@ -22,7 +22,6 @@ class MultiPeriodDiscriminator(torch.nn.Module):
         num_embeddings: Optional[int] = None,
     ):
         super().__init__()
-        self.resample = Resample(24000, 16000)
         self.discriminators = torch.nn.ModuleList(
             [DiscriminatorP(period=p, num_embeddings=num_embeddings) for p in periods]
         )
@@ -38,19 +37,22 @@ class MultiPeriodDiscriminator(torch.nn.Module):
         List[List[torch.Tensor]],
         List[List[torch.Tensor]],
     ]:
-        target_list = self.resample(target_list)
-        pred_list = self.resample(pred_list)
         y_d_rs = []
         y_d_gs = []
         fmap_rs = []
         fmap_gs = []
-        for d in self.discriminators:
-            y_d_r, fmap_r = d(x=target_list, cond_embedding_id=bandwidth_id)
-            y_d_g, fmap_g = d(x=pred_list, cond_embedding_id=bandwidth_id)
-            y_d_rs.append(y_d_r)
-            fmap_rs.append(fmap_r)
-            y_d_gs.append(y_d_g)
-            fmap_gs.append(fmap_g)
+        for bid in range(target_list.shape[0]):
+            for d in self.discriminators:
+                y_d_r, fmap_r = d(
+                    x=target_list[bid : bid + 1, :, :], cond_embedding_id=bandwidth_id
+                )
+                y_d_g, fmap_g = d(
+                    x=pred_list[bid : bid + 1, :, :], cond_embedding_id=bandwidth_id
+                )
+                y_d_rs.append(y_d_r)
+                fmap_rs.append(fmap_r)
+                y_d_gs.append(y_d_g)
+                fmap_gs.append(fmap_g)
 
         return y_d_rs, y_d_gs, fmap_rs, fmap_gs
 
