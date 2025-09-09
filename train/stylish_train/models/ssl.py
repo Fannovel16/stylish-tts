@@ -48,7 +48,10 @@ class SpeakerEmbeddingModel(nn.Module):
 
     def forward(self, wave):
         spk_embs = []
-        for _wave in wave:
-            spk_emb = self.model.extract_embedding_from_pcm(_wave.cpu(), self.global_sr)
+        wave = wave.cpu()
+        for i in range(wave.shape[0]):
+            spk_emb = self.model.extract_embedding_from_pcm(
+                wave[i : i + 1, :], self.global_sr
+            )
             spk_embs.append(spk_emb)
         return torch.stack(spk_embs, 0).to(self.device)
