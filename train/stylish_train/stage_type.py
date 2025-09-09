@@ -140,7 +140,7 @@ def train_acoustic(
         target_spec, pred_spec = train.multi_spectrogram(
             target=batch.audio_gt, pred=pred.audio.squeeze(1)
         )
-        target_wav, pred_wav = pred.audio_gt.unbind(0), pred.audio.squeeze(1).unbind(0)
+        target_wav, pred_wav = batch.audio_gt.unbind(0), pred.audio.squeeze(1).unbind(0)
         train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
         print_gpu_vram("stft_loss")
         gan_inputs = dict(
@@ -512,7 +512,7 @@ def train_hubert_acoustic(
         target_spec, pred_spec = train.multi_spectrogram(
             target=batch.audio_gt, pred=pred.audio.squeeze(1)
         )
-        target_wav, pred_wav = pred.audio_gt.unbind(0), pred.audio.squeeze(1).unbind(0)
+        target_wav, pred_wav = batch.audio_gt.unbind(0), pred.audio.squeeze(1).unbind(0)
         train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
         print_gpu_vram("stft_loss")
         gan_inputs = dict(
@@ -598,7 +598,7 @@ def train_hubert_textual(
         )
         train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
         print_gpu_vram("stft_loss")
-        target_wav, pred_wav = pred.audio_gt.unbind(0), pred.audio.squeeze(1).unbind(0)
+        target_wav, pred_wav = batch.audio_gt.unbind(0), pred.audio.squeeze(1).unbind(0)
         log.add_loss(
             "generator",
             train.generator_loss(
