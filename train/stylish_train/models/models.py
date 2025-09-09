@@ -14,7 +14,7 @@ from .mel_style_encoder import MelStyleEncoder
 from .pitch_energy_predictor import PitchEnergyPredictor, HubertPitchEnergyPredictor
 from .speech_predictor import SpeechPredictor, HubertSpeechPredictor
 from multi_spectrogram import multi_spectrogram_count
-from multi_period import MultiPeriodDiscriminator
+from .multi_period import MultiPeriodDiscriminator
 
 from munch import Munch
 
