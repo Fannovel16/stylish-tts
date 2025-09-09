@@ -171,7 +171,7 @@ def train_acoustic(
         train.accelerator.backward(log.backwards_loss())
         print_gpu_vram("backward")
 
-    return (log.detach(), gan_inputs)  # None, None  # pred.audio.detach()
+    return log.detach(), detach_all(gan_inputs)
 
 
 @torch.no_grad()
@@ -534,7 +534,7 @@ def train_hubert_acoustic(
         train.accelerator.backward(log.backwards_loss())
         print_gpu_vram("backward")
 
-    return log.detach(), gan_inputs
+    return log.detach(), detach_all(gan_inputs)
 
 
 @torch.no_grad()
@@ -596,14 +596,15 @@ def train_hubert_textual(
         target_spec, pred_spec = train.multi_spectrogram(
             target=batch.audio_gt, pred=pred.audio.squeeze(1)
         )
+        target_wav, pred_wav = batch.audio_gt.unbind(0), pred.audio.squeeze(1).unbind(0)
         train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
         print_gpu_vram("stft_loss")
-        target_wav, pred_wav = batch.audio_gt.unbind(0), pred.audio.squeeze(1).unbind(0)
+        gan_inputs = dict(
+            mrd={"target_list": target_spec, "pred_list": pred_spec},
+        )
         log.add_loss(
             "generator",
-            train.generator_loss(
-                mrd={"target_list": target_spec, "pred_list": pred_spec},
-            ).mean(),
+            train.generator_loss(**gan_inputs).mean(),
         )
         print_gpu_vram("generator_loss")
         log.add_loss(
@@ -628,10 +629,7 @@ def train_hubert_textual(
 
     return (
         log.detach(),  # None, None
-        detach_all(target_spec),
-        detach_all(pred_spec),
-        detach_all(target_wav),
-        detach_all(pred_wav),
+        detach_all(gan_inputs),
     )
 
 
@@ -797,10 +795,13 @@ stages["joint"] = StageType(
 #########################
 
 
-def detach_all(spec_list):
-    result = []
-    for item in spec_list:
-        result.append(item.detach())
+def detach_all(gan_inputs):
+    result = {}
+    for k, input in gan_inputs:
+        result[k] = {
+            "target_list": input["target_list"].detach(),
+            "pred_list": input["pred_list"].detach(),
+        }
     return result
 
 
