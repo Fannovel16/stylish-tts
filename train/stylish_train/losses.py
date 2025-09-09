@@ -8,6 +8,7 @@ from transformers import AutoModel
 import numpy as np
 import k2
 from einops import rearrange
+from multi_spectrogram import multi_spectrogram_count
 
 
 class MultiResolutionSTFTLoss(torch.nn.Module):
@@ -34,6 +35,52 @@ class MultiResolutionSTFTLoss(torch.nn.Module):
         return loss
 
 
+def anti_wrapping_loss(phase_diff, weights):
+    loss = torch.abs(phase_diff - 2 * math.pi * torch.round(phase_diff / (2 * math.pi)))
+    return loss * weights
+
+
+def differential_phase_loss(pred, target, n_fft):
+    weights = torch.arange(n_fft // 2 + 1).to(pred.device)
+    base = math.exp(math.log(2.5) / (n_fft // 2))
+    weights = torch.pow(base, weights)
+    weights = rearrange(weights, "w -> 1 w 1")
+
+    phase_loss = anti_wrapping_loss(pred - target, weights).mean()
+
+    freq_matrix = (
+        torch.triu(torch.ones(n_fft // 2 + 1, n_fft // 2 + 1), diagonal=1)
+        - torch.triu(torch.ones(n_fft // 2 + 1, n_fft // 2 + 1), diagonal=2)
+        - torch.eye(n_fft // 2 + 1)
+    )
+    freq_matrix = freq_matrix.to(pred.device)
+    pred_freq = torch.matmul(pred.transpose(1, 2), freq_matrix)
+    target_freq = torch.matmul(target.transpose(1, 2), freq_matrix)
+    phase_loss += anti_wrapping_loss(
+        (pred_freq - target_freq).transpose(1, 2), weights
+    ).mean()
+
+    frames = target.shape[2]
+    time_matrix = (
+        torch.triu(torch.ones(frames, frames), diagonal=1)
+        - torch.triu(torch.ones(frames, frames), diagonal=2)
+        - torch.eye(frames)
+    )
+    time_matrix = time_matrix.to(pred.device)
+    pred_time = torch.matmul(pred, time_matrix)
+    target_time = torch.matmul(target, time_matrix)
+    phase_loss += anti_wrapping_loss(pred_time - target_time, weights).mean()
+
+    return phase_loss
+
+
+def multi_phase_loss(pred_list, target_list, n_fft):
+    loss = 0
+    for pred, target in zip(pred_list, target_list):
+        loss += differential_phase_loss(pred, target, n_fft)
+    return loss / len(pred_list)
+
+
 class MagPhaseLoss(torch.nn.Module):
     """Magnitude/Phase Loss for Ringformer"""
 
@@ -45,17 +92,17 @@ class MagPhaseLoss(torch.nn.Module):
         self.hop_length = hop_length
         self.win_length = win_length
 
-        weights = torch.arange(n_fft // 2 + 1)
-        base = math.exp(math.log(2.5) / (n_fft // 2))
-        weights = torch.pow(base, weights)
-        weights = rearrange(weights, "w -> 1 w 1")
-        self.register_buffer("weights", weights)
+        # weights = torch.arange(n_fft // 2 + 1)
+        # base = math.exp(math.log(2.5) / (n_fft // 2))
+        # weights = torch.pow(base, weights)
+        # weights = rearrange(weights, "w -> 1 w 1")
+        # self.register_buffer("weights", weights)
 
-    def phase_loss(self, phase_diff):
-        loss = torch.abs(
-            phase_diff - 2 * math.pi * torch.round(phase_diff / (2 * math.pi))
-        )
-        return loss * self.weights
+    # def phase_loss(self, phase_diff):
+    #     loss = torch.abs(
+    #         phase_diff - 2 * math.pi * torch.round(phase_diff / (2 * math.pi))
+    #     )
+    #     return loss * self.weights
 
     def forward(self, pred, gt, log):
         y_stft = torch.stft(
@@ -75,29 +122,31 @@ class MagPhaseLoss(torch.nn.Module):
                 target_mag.log(),
             ),
         )
-        phase_loss = self.phase_loss(pred.phase - target_phase).mean()
+        # phase_loss = self.phase_loss(pred.phase - target_phase).mean()
 
-        n_fft = self.n_fft
-        freq_matrix = (
-            torch.triu(torch.ones(n_fft // 2 + 1, n_fft // 2 + 1), diagonal=1)
-            - torch.triu(torch.ones(n_fft // 2 + 1, n_fft // 2 + 1), diagonal=2)
-            - torch.eye(n_fft // 2 + 1)
-        )
-        freq_matrix = freq_matrix.to(pred.phase.device)
-        pred_freq = torch.matmul(pred.phase.transpose(1, 2), freq_matrix)
-        target_freq = torch.matmul(target_phase.transpose(1, 2), freq_matrix)
-        phase_loss += self.phase_loss((pred_freq - target_freq).transpose(1, 2)).mean()
+        # n_fft = self.n_fft
+        # freq_matrix = (
+        #     torch.triu(torch.ones(n_fft // 2 + 1, n_fft // 2 + 1), diagonal=1)
+        #     - torch.triu(torch.ones(n_fft // 2 + 1, n_fft // 2 + 1), diagonal=2)
+        #     - torch.eye(n_fft // 2 + 1)
+        # )
+        # freq_matrix = freq_matrix.to(pred.phase.device)
+        # pred_freq = torch.matmul(pred.phase.transpose(1, 2), freq_matrix)
+        # target_freq = torch.matmul(target_phase.transpose(1, 2), freq_matrix)
+        # phase_loss += self.phase_loss((pred_freq - target_freq).transpose(1, 2)).mean()
 
-        frames = target_phase.shape[2]
-        time_matrix = (
-            torch.triu(torch.ones(frames, frames), diagonal=1)
-            - torch.triu(torch.ones(frames, frames), diagonal=2)
-            - torch.eye(frames)
-        )
-        time_matrix = time_matrix.to(pred.phase.device)
-        pred_time = torch.matmul(pred.phase, time_matrix)
-        target_time = torch.matmul(target_phase, time_matrix)
-        phase_loss += self.phase_loss(pred_time - target_time).mean()
+        # frames = target_phase.shape[2]
+        # time_matrix = (
+        #     torch.triu(torch.ones(frames, frames), diagonal=1)
+        #     - torch.triu(torch.ones(frames, frames), diagonal=2)
+        #     - torch.eye(frames)
+        # )
+        # time_matrix = time_matrix.to(pred.phase.device)
+        # pred_time = torch.matmul(pred.phase, time_matrix)
+        # target_time = torch.matmul(target_phase, time_matrix)
+        # phase_loss += self.phase_loss(pred_time - target_time).mean()
+
+        phase_loss = differential_phase_loss(pred.phase, target_phase, self.n_fft)
 
         log.add_loss("phase", phase_loss)
 

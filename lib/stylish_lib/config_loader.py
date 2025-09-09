@@ -127,8 +127,11 @@ class LossWeightConfig(BaseModel):
         ..., description="Weight for duration cross-entropy loss."
     )
     style: float = Field(..., description="Weight for style reconstruction loss.")
-    mag: float = Field(..., description="Weight for magnitude loss.")
-    phase: float = Field(..., description="Weight for phase (y) loss.")
+    mag: float = Field(..., description="Weight for magnitude prediction loss.")
+    phase: float = Field(..., description="Weight for phase prediction loss.")
+    multi_phase: float = Field(
+        ..., description="Weight for multi-resolution phase loss."
+    )
     confidence: float = Field(..., description="Weight for alignment confidence")
     align_loss: float = Field(..., description="Weight for alignment loss")
     discriminator: float = Field(..., description="Weight for discriminator loss")
@@ -306,13 +309,16 @@ class SlmConfig(BaseModel):
     model: str = Field(..., description="Identifier or path for the SLM model.")
     sr: int = Field(..., description="Sampling rate used by the SLM.")
 
+
 class HubertConfig(BaseModel):
     model: str = Field(..., description="Identifier or path for the HuBERT model.")
     hidden_dim: int = Field(..., description="Dimension of HuBERT hidden state.")
     sr: int = Field(..., description="Sampling rate used by the HuBERT.")
 
+
 class SpeakerEmbeddingModel(BaseModel):
     hidden_dim: int = Field(..., description="Dimension of speaker embedding.")
+
 
 class Config(BaseModel):
     """
@@ -379,7 +385,9 @@ class ModelConfig(BaseModel):
         ..., description="Pitch/Energy predictor configuration parameters."
     )
     hubert: HubertConfig = Field(..., description="Pretrained Hubert model config.")
-    speaker_embedder: SpeakerEmbeddingModel = Field(..., description="Pretrained Speaker Embedding Model config.")
+    speaker_embedder: SpeakerEmbeddingModel = Field(
+        ..., description="Pretrained Speaker Embedding Model config."
+    )
     slm: SlmConfig = Field(
         ..., description="Speech Language Model (SLM) configuration parameters."
     )

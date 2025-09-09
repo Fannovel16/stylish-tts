@@ -97,6 +97,7 @@ loss_weight:
   # phase loss
   # -- if voice sounds autotuned, try increasing
   phase: 8
+  multi_phase: 8
   # confidence for alignment (placeholder)
   confidence: 1
   # alignment loss

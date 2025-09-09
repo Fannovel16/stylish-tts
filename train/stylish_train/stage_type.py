@@ -7,6 +7,7 @@ from einops import rearrange
 from loss_log import LossLog, build_loss_log
 from utils import print_gpu_vram, log_norm
 from typing import List
+from losses import multi_phase_loss
 
 
 stages = {}
@@ -137,11 +138,15 @@ def train_acoustic(
         train.stage.optimizer.zero_grad()
 
         log = build_loss_log(train)
-        target_spec, pred_spec = train.multi_spectrogram(
+        target_spec, pred_spec, target_phase, pred_phase = train.multi_spectrogram(
             target=batch.audio_gt, pred=pred.audio.squeeze(1)
         )
         target_wav, pred_wav = batch.audio_gt.unsqueeze(1), pred.audio
         train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
+        log.add_loss(
+            "multi_phase",
+            multi_phase_loss(pred_phase, target_phase, train.model_config.n_fft),
+        )
         print_gpu_vram("stft_loss")
         gan_inputs = dict(
             mrd={"target_list": target_spec, "pred_list": pred_spec},
@@ -186,10 +191,14 @@ def validate_acoustic(batch, train):
         batch.text, batch.text_length, batch.alignment, batch.pitch, energy, spk_emb
     )
     log = build_loss_log(train)
-    target_spec, pred_spec = train.multi_spectrogram(
+    target_spec, pred_spec, target_phase, pred_phase = train.multi_spectrogram(
         target=batch.audio_gt, pred=pred.audio.squeeze(1)
     )
     train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
+    log.add_loss(
+        "multi_phase",
+        multi_phase_loss(pred_phase, target_phase, train.model_config.n_fft),
+    )
     # log.add_loss(
     #     "pitch",
     #     torch.nn.functional.smooth_l1_loss(batch.pitch, pred_pitch),
@@ -509,11 +518,15 @@ def train_hubert_acoustic(
         train.stage.optimizer.zero_grad()
 
         log = build_loss_log(train)
-        target_spec, pred_spec = train.multi_spectrogram(
+        target_spec, pred_spec, target_phase, pred_phase = train.multi_spectrogram(
             target=batch.audio_gt, pred=pred.audio.squeeze(1)
         )
         target_wav, pred_wav = batch.audio_gt.unsqueeze(1), pred.audio
         train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
+        log.add_loss(
+            "multi_phase",
+            multi_phase_loss(pred_phase, target_phase, train.model_config.n_fft),
+        )
         print_gpu_vram("stft_loss")
         gan_inputs = dict(
             mrd={"target_list": target_spec, "pred_list": pred_spec},
@@ -549,10 +562,14 @@ def validate_hubert_acoustic(batch, train):
     )
 
     log = build_loss_log(train)
-    target_spec, pred_spec = train.multi_spectrogram(
+    target_spec, pred_spec, target_phase, pred_phase = train.multi_spectrogram(
         target=batch.audio_gt, pred=pred.audio.squeeze(1)
     )
     train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
+    log.add_loss(
+        "multi_phase",
+        multi_phase_loss(pred_phase, target_phase, train.model_config.n_fft),
+    )
     return log, batch.alignment[0], make_list(pred.audio), batch.audio_gt
 
 
