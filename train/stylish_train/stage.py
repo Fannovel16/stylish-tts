@@ -108,15 +108,13 @@ class Stage:
             config.discriminators,
             train,
         )
-        result, target_spec, pred_spec = self.train_fn(batch, model, train, probing)
+        result, gan_inputs = self.train_fn(batch, model, train, probing)
         optimizer_step(self.optimizer, config.train_models)
         if len(config.discriminators) > 0:
             # audio_gt = batch.audio_gt.unsqueeze(1)
             # audio = audio.detach()
             train.stage.optimizer.zero_grad()
-            d_loss = train.discriminator_loss(
-                target_list=target_spec, pred_list=pred_spec, used=config.discriminators
-            )
+            d_loss = train.discriminator_loss(**gan_inputs)
             train.accelerator.backward(d_loss * math.sqrt(batch.text.shape[0]))
             optimizer_step(self.optimizer, config.discriminators)
             train.stage.optimizer.zero_grad()

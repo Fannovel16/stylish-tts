@@ -140,13 +140,16 @@ def train_acoustic(
         target_spec, pred_spec = train.multi_spectrogram(
             target=batch.audio_gt, pred=pred.audio.squeeze(1)
         )
+        target_wav, pred_wav = pred.audio_gt.unbind(0), pred.audio.squeeze(1).unbind(0)
         train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
         print_gpu_vram("stft_loss")
+        gan_inputs = dict(
+            mrd={"target_list": target_spec, "pred_list": pred_spec},
+            mpd={"target_list": target_wav, "pred_list": pred_wav},
+        )
         log.add_loss(
             "generator",
-            train.generator_loss(
-                target_list=target_spec, pred_list=pred_spec, used=["mrd", "mpd"]
-            ).mean(),
+            train.generator_loss(**gan_inputs).mean(),
         )
         print_gpu_vram("generator_loss")
         log.add_loss(
@@ -168,11 +171,7 @@ def train_acoustic(
         train.accelerator.backward(log.backwards_loss())
         print_gpu_vram("backward")
 
-    return (
-        log.detach(),  # None, None
-        detach_all(target_spec),
-        detach_all(pred_spec),
-    )  # pred.audio.detach()
+    return (log.detach(), gan_inputs)  # None, None  # pred.audio.detach()
 
 
 @torch.no_grad()
@@ -261,7 +260,7 @@ def train_textual(
         # )
         train.accelerator.backward(log.backwards_loss())
 
-    return log.detach(), None, None  # pred.audio.detach()
+    return log.detach(), {}
 
 
 @torch.no_grad()
@@ -342,7 +341,7 @@ def train_style(batch, model, train, probing) -> Tuple[LossLog, Optional[torch.T
         log.add_loss("energy", torch.nn.functional.smooth_l1_loss(energy, pred_energy))
         train.accelerator.backward(log.backwards_loss())
 
-    return log.detach(), None, None
+    return log.detach(), {}
 
 
 @torch.no_grad()
@@ -416,7 +415,7 @@ def train_duration(
     log.add_loss("duration", loss_cdw)
     train.accelerator.backward(log.backwards_loss())
 
-    return log.detach(), None, None
+    return log.detach(), {}
 
 
 @torch.no_grad()
@@ -513,13 +512,16 @@ def train_hubert_acoustic(
         target_spec, pred_spec = train.multi_spectrogram(
             target=batch.audio_gt, pred=pred.audio.squeeze(1)
         )
+        target_wav, pred_wav = pred.audio_gt.unbind(0), pred.audio.squeeze(1).unbind(0)
         train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
         print_gpu_vram("stft_loss")
+        gan_inputs = dict(
+            mrd={"target_list": target_spec, "pred_list": pred_spec},
+            mpd={"target_list": target_wav, "pred_list": pred_wav},
+        )
         log.add_loss(
             "generator",
-            train.generator_loss(
-                target_list=target_spec, pred_list=pred_spec, used=["mrd", "mpd"]
-            ).mean(),
+            train.generator_loss(**gan_inputs).mean(),
         )
         print_gpu_vram("generator_loss")
         log.add_loss(
@@ -532,11 +534,7 @@ def train_hubert_acoustic(
         train.accelerator.backward(log.backwards_loss())
         print_gpu_vram("backward")
 
-    return (
-        log.detach(),  # None, None
-        detach_all(target_spec),
-        detach_all(pred_spec),
-    )  # pred.audio.detach()
+    return log.detach(), gan_inputs
 
 
 @torch.no_grad()
@@ -600,10 +598,11 @@ def train_hubert_textual(
         )
         train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
         print_gpu_vram("stft_loss")
+        target_wav, pred_wav = pred.audio_gt.unbind(0), pred.audio.squeeze(1).unbind(0)
         log.add_loss(
             "generator",
             train.generator_loss(
-                target_list=target_spec, pred_list=pred_spec, used=["mrd"]
+                mrd={"target_list": target_spec, "pred_list": pred_spec},
             ).mean(),
         )
         print_gpu_vram("generator_loss")
@@ -627,7 +626,13 @@ def train_hubert_textual(
         )
         train.accelerator.backward(log.backwards_loss())
 
-    return log.detach(), None, None  # pred.audio.detach()
+    return (
+        log.detach(),  # None, None
+        detach_all(target_spec),
+        detach_all(pred_spec),
+        detach_all(target_wav),
+        detach_all(pred_wav),
+    )
 
 
 @torch.no_grad()
@@ -705,7 +710,7 @@ def train_joint(batch, model, train, probing) -> Tuple[LossLog, Optional[torch.T
         log.add_loss(
             "generator",
             train.generator_loss(
-                target_list=target_spec, pred_list=pred_spec, used=["mrd"]
+                mrd={"target_list": target_spec, "pred_list": pred_spec},
             ).mean(),
         )
         print_gpu_vram("generator_loss")

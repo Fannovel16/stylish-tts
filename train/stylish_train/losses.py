@@ -116,12 +116,10 @@ class DiscriminatorLoss(torch.nn.Module):
     def get_disc_lr_multiplier(self, key):
         return self.discriminators[key].get_disc_lr_multiplier()
 
-    def forward(self, *, target_list, pred_list, used):
+    def forward(self, **disc_inputs):
         loss = 0
-        for key in used:
-            loss += self.discriminators[key](
-                target_list=target_list, pred_list=pred_list
-            )
+        for key, input in disc_inputs.items():
+            loss += self.discriminators[key](**input)
         return loss.mean()
 
     def state_dict(self, *args, **kwargs):
@@ -209,10 +207,10 @@ class GeneratorLoss(torch.nn.Module):
             {k: GeneratorLossHelper(disc) for k, disc in discs.items()}
         )
 
-    def forward(self, *, target_list, pred_list, used):
+    def forward(self, **gen_inputs):
         loss = 0
-        for key in used:
-            loss += self.generators[key](target_list=target_list, pred_list=pred_list)
+        for key, input in gen_inputs.items():
+            loss += self.generators[key](**input)
         return loss.mean()
 
 

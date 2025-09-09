@@ -31,8 +31,8 @@ class MultiPeriodDiscriminator(torch.nn.Module):
         fmap_rs = []
         fmap_gs = []
         for target, pred, disc in zip(target_list, pred_list, self.discriminators):
-            y_d_r, fmap_r = disc(target)
-            y_d_g, fmap_g = disc(pred)
+            y_d_r, fmap_r = disc(target.unsqueeze(0).unsqueeze(1))
+            y_d_g, fmap_g = disc(pred.unsqueeze(0).unsqueeze(1))
             y_d_rs.append(y_d_r)
             fmap_rs.append(fmap_r)
             y_d_gs.append(y_d_g)
@@ -114,7 +114,7 @@ class DiscriminatorP(torch.nn.Module):
     def forward(
         self, x: torch.Tensor, cond_embedding_id: Optional[torch.Tensor] = None
     ) -> Tuple[torch.Tensor, List[torch.Tensor]]:
-        x = x.squeeze(1)
+        # x = x.unsqueeze(1)
         fmap = []
         # 1d to 2d
         b, c, t = x.shape
