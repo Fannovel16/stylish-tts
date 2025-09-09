@@ -51,9 +51,10 @@ class SpeakerEmbeddingModel(nn.Module):
         spk_embs = []
         wave = wave.cpu()
         middle = wave.shape[1] // 2
+        start, end = max(middle - self.max_half, 0), middle + self.max_half + 1
         for i in range(wave.shape[0]):
             spk_emb = self.model.extract_embedding_from_pcm(
-                wave[i : i + 1, int(middle - self.max_half) : middle + self.max_half],
+                wave[i : i + 1, start:end],
                 self.global_sr,
             )
             spk_embs.append(spk_emb)
