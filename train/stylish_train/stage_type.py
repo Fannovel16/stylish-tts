@@ -150,7 +150,6 @@ def train_acoustic(
         print_gpu_vram("stft_loss")
         gan_inputs = dict(
             mrd={"target_list": target_spec, "pred_list": pred_spec},
-            mpd={"target_list": target_wav, "pred_list": pred_wav},
         )
         log.add_loss(
             "generator",
@@ -217,7 +216,7 @@ stages["acoustic"] = StageType(
     train_models=["speech_predictor"],
     eval_models=[],
     # discriminators=[],
-    discriminators=["mrd", "mpd"],
+    discriminators=["mrd"],
     inputs=[
         "text",
         "text_length",
@@ -530,7 +529,6 @@ def train_hubert_acoustic(
         print_gpu_vram("stft_loss")
         gan_inputs = dict(
             mrd={"target_list": target_spec, "pred_list": pred_spec},
-            mpd={"target_list": target_wav, "pred_list": pred_wav},
         )
         log.add_loss(
             "generator",
@@ -580,7 +578,7 @@ stages["hubert_acoustic"] = StageType(
     train_models=["hubert_speech_predictor"],
     eval_models=[],
     # discriminators=[],
-    discriminators=["mrd", "mpd"],
+    discriminators=["mrd"],
     inputs=[
         "text",
         "text_length",
