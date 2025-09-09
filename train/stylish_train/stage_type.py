@@ -140,7 +140,7 @@ def train_acoustic(
         target_spec, pred_spec = train.multi_spectrogram(
             target=batch.audio_gt, pred=pred.audio.squeeze(1)
         )
-        target_wav, pred_wav = batch.audio_gt, pred.audio.squeeze(1)
+        target_wav, pred_wav = batch.audio_gt.unsqueeze(1), pred.audio
         train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
         print_gpu_vram("stft_loss")
         gan_inputs = dict(
@@ -512,7 +512,7 @@ def train_hubert_acoustic(
         target_spec, pred_spec = train.multi_spectrogram(
             target=batch.audio_gt, pred=pred.audio.squeeze(1)
         )
-        target_wav, pred_wav = batch.audio_gt, pred.audio.squeeze(1)
+        target_wav, pred_wav = batch.audio_gt.unsqueeze(1), pred.audio
         train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
         print_gpu_vram("stft_loss")
         gan_inputs = dict(
