@@ -25,24 +25,14 @@ class MultiPeriodDiscriminator(torch.nn.Module):
             [DiscriminatorP(period=p, num_embeddings=num_embeddings) for p in periods]
         )
 
-    def forward(
-        self,
-        y: torch.Tensor,
-        y_hat: torch.Tensor,
-        bandwidth_id: Optional[torch.Tensor] = None,
-    ) -> Tuple[
-        List[torch.Tensor],
-        List[torch.Tensor],
-        List[List[torch.Tensor]],
-        List[List[torch.Tensor]],
-    ]:
+    def forward(self, *, target_list, pred_list):
         y_d_rs = []
         y_d_gs = []
         fmap_rs = []
         fmap_gs = []
-        for d in self.discriminators:
-            y_d_r, fmap_r = d(x=y, cond_embedding_id=bandwidth_id)
-            y_d_g, fmap_g = d(x=y_hat, cond_embedding_id=bandwidth_id)
+        for target, pred, disc in zip(target_list, pred_list, self.discriminators):
+            y_d_r, fmap_r = disc(target)
+            y_d_g, fmap_g = disc(pred)
             y_d_rs.append(y_d_r)
             fmap_rs.append(fmap_r)
             y_d_gs.append(y_d_g)
