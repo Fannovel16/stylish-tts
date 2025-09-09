@@ -147,11 +147,9 @@ class TrainContext:
             .to(self.config.training.device)
             .eval()
         )
-        self.speaker_embedder = (
-            SpeakerEmbeddingModel(self.model_config.sample_rate)
-            .to(self.config.training.device)
-            .eval()
-        )
+        self.speaker_embedder = SpeakerEmbeddingModel(
+            self.model_config.sample_rate, self.config.training.device
+        ).eval()
 
     def reset_out_dir(self, stage_name):
         self.out_dir = osp.join(self.base_output_dir, stage_name)

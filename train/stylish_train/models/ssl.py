@@ -32,9 +32,11 @@ class AdaptiveHubert(nn.Module):
 
 
 class SpeakerEmbeddingModel(nn.Module):
-    def __init__(self, model_sr: int):
+    def __init__(self, model_sr: int, device: str):
         super().__init__()
         self.model = wespeaker.load_model("vblinkp")
+        self.model.set_device(device)
+        self.device = device
         # Remove the final projection layer for (theoritically) richer infomation for style encoding
         if type(self.model.model) not in [SimAM_ResNet34_ASP, SimAM_ResNet100_ASP]:
             raise NotImplementedError(
@@ -47,6 +49,6 @@ class SpeakerEmbeddingModel(nn.Module):
     def forward(self, wave):
         spk_embs = []
         for _wave in wave:
-            spk_emb = self.model.extract_embedding_from_pcm(_wave, self.global_sr)
+            spk_emb = self.model.extract_embedding_from_pcm(_wave.cpu(), self.global_sr)
             spk_embs.append(spk_emb)
-        return torch.stack(spk_embs, 0)
+        return torch.stack(spk_embs, 0).to(self.device)
