@@ -2,6 +2,7 @@ from typing import List, Optional, Tuple
 import torch
 from torch.nn.utils.parametrizations import weight_norm
 from torch.nn import Conv2d
+from torchaudio.transforms import Resample
 
 
 class MultiPeriodDiscriminator(torch.nn.Module):
@@ -21,6 +22,7 @@ class MultiPeriodDiscriminator(torch.nn.Module):
         num_embeddings: Optional[int] = None,
     ):
         super().__init__()
+        self.resample = Resample(24000, 16000)
         self.discriminators = torch.nn.ModuleList(
             [DiscriminatorP(period=p, num_embeddings=num_embeddings) for p in periods]
         )
@@ -36,6 +38,8 @@ class MultiPeriodDiscriminator(torch.nn.Module):
         List[List[torch.Tensor]],
         List[List[torch.Tensor]],
     ]:
+        target_list = self.resample(target_list)
+        pred_list = self.resample(pred_list)
         y_d_rs = []
         y_d_gs = []
         fmap_rs = []
