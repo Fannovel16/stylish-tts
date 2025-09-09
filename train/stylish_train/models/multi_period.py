@@ -114,7 +114,7 @@ class DiscriminatorP(torch.nn.Module):
     def forward(
         self, x: torch.Tensor, cond_embedding_id: Optional[torch.Tensor] = None
     ) -> Tuple[torch.Tensor, List[torch.Tensor]]:
-        # x = x.unsqueeze(1)
+        x = x.unsqueeze(1)
         fmap = []
         # 1d to 2d
         b, c, t = x.shape
