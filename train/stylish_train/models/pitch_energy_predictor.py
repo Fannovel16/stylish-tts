@@ -210,12 +210,12 @@ class HubertPitchEnergyPredictor(torch.nn.Module):
         style = self.style_encoder(raw_style, phone_lengths)
         x = self.prosody_encoder(phones, style, phone_lengths)
 
-        F0 = x  # .transpose(1, 2)
+        F0 = x.transpose(1, 2)
         for block in self.F0:
             F0 = block(F0, style)
         F0 = self.F0_proj(F0)
 
-        N = x  # .transpose(1, 2)
+        N = x.transpose(1, 2)
         for block in self.N:
             N = block(N, style)
         N = self.N_proj(N)
