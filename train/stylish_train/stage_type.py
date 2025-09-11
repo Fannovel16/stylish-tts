@@ -142,10 +142,10 @@ def train_acoustic(
             target=batch.audio_gt, pred=pred.audio.squeeze(1)
         )
         train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
-        log.add_loss(
-            "multi_phase",
-            multi_phase_loss(pred_phase, target_phase, train.model_config.n_fft),
-        )
+        # log.add_loss(
+        #     "multi_phase",
+        #     multi_phase_loss(pred_phase, target_phase, train.model_config.n_fft),
+        # )
         print_gpu_vram("stft_loss")
         gan_inputs = dict(
             mrd={"target_list": target_spec, "pred_list": pred_spec},
@@ -194,10 +194,10 @@ def validate_acoustic(batch, train):
         target=batch.audio_gt, pred=pred.audio.squeeze(1)
     )
     train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
-    log.add_loss(
-        "multi_phase",
-        multi_phase_loss(pred_phase, target_phase, train.model_config.n_fft),
-    )
+    # log.add_loss(
+    #     "multi_phase",
+    #     multi_phase_loss(pred_phase, target_phase, train.model_config.n_fft),
+    # )
     # log.add_loss(
     #     "pitch",
     #     torch.nn.functional.smooth_l1_loss(batch.pitch, pred_pitch),
@@ -524,10 +524,10 @@ def train_hubert_acoustic(
             target=batch.audio_gt, pred=pred.audio.squeeze(1)
         )
         train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
-        log.add_loss(
-            "multi_phase",
-            multi_phase_loss(pred_phase, target_phase, train.model_config.n_fft),
-        )
+        # log.add_loss(
+        #     "multi_phase",
+        #     multi_phase_loss(pred_phase, target_phase, train.model_config.n_fft),
+        # )
         print_gpu_vram("stft_loss")
         gan_inputs = dict(
             mrd={"target_list": target_spec, "pred_list": pred_spec},
@@ -578,10 +578,10 @@ def validate_hubert_acoustic(batch, train):
         target=batch.audio_gt, pred=pred.audio.squeeze(1)
     )
     train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
-    log.add_loss(
-        "multi_phase",
-        multi_phase_loss(pred_phase, target_phase, train.model_config.n_fft),
-    )
+    # log.add_loss(
+    #     "multi_phase",
+    #     multi_phase_loss(pred_phase, target_phase, train.model_config.n_fft),
+    # )
     pred_pitch, pred_energy = model.hubert_pitch_energy_predictor(
         phones, mel_lengths, spk_emb
     )
@@ -639,10 +639,10 @@ def train_hubert_textual(
             target=batch.audio_gt, pred=pred.audio.squeeze(1)
         )
         train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
-        log.add_loss(
-            "multi_phase",
-            multi_phase_loss(pred_phase, target_phase, train.model_config.n_fft),
-        )
+        # log.add_loss(
+        #     "multi_phase",
+        #     multi_phase_loss(pred_phase, target_phase, train.model_config.n_fft),
+        # )
         print_gpu_vram("stft_loss")
         gan_inputs = dict(
             mrd={"target_list": target_spec, "pred_list": pred_spec},
@@ -696,10 +696,10 @@ def validate_hubert_textual(batch, train):
         target=batch.audio_gt, pred=pred.audio.squeeze(1)
     )
     train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
-    log.add_loss(
-        "multi_phase",
-        multi_phase_loss(pred_phase, target_phase, train.model_config.n_fft),
-    )
+    # log.add_loss(
+    #     "multi_phase",
+    #     multi_phase_loss(pred_phase, target_phase, train.model_config.n_fft),
+    # )
     return log, batch.alignment[0], make_list(pred.audio), batch.audio_gt
 
 
