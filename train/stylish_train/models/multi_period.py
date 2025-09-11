@@ -41,18 +41,13 @@ class MultiPeriodDiscriminator(torch.nn.Module):
         y_d_gs = []
         fmap_rs = []
         fmap_gs = []
-        for bid in range(target_list.shape[0]):
-            for d in self.discriminators:
-                y_d_r, fmap_r = d(
-                    x=target_list[bid : bid + 1, :, :], cond_embedding_id=bandwidth_id
-                )
-                y_d_g, fmap_g = d(
-                    x=pred_list[bid : bid + 1, :, :], cond_embedding_id=bandwidth_id
-                )
-                y_d_rs.append(y_d_r)
-                fmap_rs.append(fmap_r)
-                y_d_gs.append(y_d_g)
-                fmap_gs.append(fmap_g)
+        for d in self.discriminators:
+            y_d_r, fmap_r = d(x=target_list, cond_embedding_id=bandwidth_id)
+            y_d_g, fmap_g = d(x=pred_list, cond_embedding_id=bandwidth_id)
+            y_d_rs.append(y_d_r)
+            fmap_rs.append(fmap_r)
+            y_d_gs.append(y_d_g)
+            fmap_gs.append(fmap_g)
 
         return y_d_rs, y_d_gs, fmap_rs, fmap_gs
 
