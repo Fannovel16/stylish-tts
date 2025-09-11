@@ -149,6 +149,7 @@ def train_acoustic(
         print_gpu_vram("stft_loss")
         gan_inputs = dict(
             mrd={"target_list": target_spec, "pred_list": pred_spec},
+            mpd={"target_list": batch.audio_gt.unsqueeze(1), "pred_list": pred.audio},
         )
         log.add_loss(
             "generator",
@@ -215,7 +216,7 @@ stages["acoustic"] = StageType(
     train_models=["speech_predictor"],
     eval_models=[],
     # discriminators=[],
-    discriminators=["mrd"],
+    discriminators=["mrd", "mpd"],
     inputs=[
         "text",
         "text_length",
@@ -530,6 +531,7 @@ def train_hubert_acoustic(
         print_gpu_vram("stft_loss")
         gan_inputs = dict(
             mrd={"target_list": target_spec, "pred_list": pred_spec},
+            mpd={"target_list": batch.audio_gt.unsqueeze(1), "pred_list": pred.audio},
         )
         log.add_loss(
             "generator",
@@ -603,7 +605,7 @@ stages["hubert_acoustic"] = StageType(
     train_models=["hubert_speech_predictor", "hubert_pitch_energy_predictor"],
     eval_models=[],
     # discriminators=[],
-    discriminators=["mrd"],
+    discriminators=["mrd", "mpd"],
     inputs=[
         "text",
         "text_length",
@@ -644,6 +646,7 @@ def train_hubert_textual(
         print_gpu_vram("stft_loss")
         gan_inputs = dict(
             mrd={"target_list": target_spec, "pred_list": pred_spec},
+            mpd={"target_list": batch.audio_gt.unsqueeze(1), "pred_list": pred.audio},
         )
         log.add_loss(
             "generator",
@@ -707,7 +710,7 @@ stages["hubert_textual"] = StageType(
     train_models=["hubert_pitch_energy_predictor"],
     eval_models=["hubert_speech_predictor"],
     # discriminators=[],
-    discriminators=["mrd"],
+    discriminators=["mrd", "mpd"],
     inputs=[
         "text",
         "text_length",
@@ -756,6 +759,10 @@ def train_joint(batch, model, train, probing) -> Tuple[LossLog, Optional[torch.T
             "generator",
             train.generator_loss(
                 mrd={"target_list": target_spec, "pred_list": pred_spec},
+                mpd={
+                    "target_list": batch.audio_gt.unsqueeze(1),
+                    "pred_list": pred.audio,
+                },
             ).mean(),
         )
         print_gpu_vram("generator_loss")
