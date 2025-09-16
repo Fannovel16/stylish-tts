@@ -159,6 +159,8 @@ class BatchManager:
         )
 
         del lodestone
+        import gc
+
         gc.collect()
         torch.cuda.empty_cache()
         train.stage.save_batch_sizes()
