@@ -24,7 +24,7 @@ class AdaptiveHubert(nn.Module):
     def forward(self, wave, time_dim):
         wave = self.resample(wave)
         xs = []
-        for bid in wave.shape[0]:
+        for bid in range(wave.shape[0]):
             x = self.model(wave[bid : bid + 1, :])["last_hidden_state"]
             x = torch.nn.functional.interpolate(
                 x.transpose(-1, -2),
