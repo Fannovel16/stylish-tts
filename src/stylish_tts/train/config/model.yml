@@ -3,8 +3,8 @@
 multispeaker: false
 n_mels: 80
 sample_rate: 24000
-n_fft: 1024
-win_length: 1024
+n_fft: 512
+win_length: 512
 hop_length: 300
 style_dim: 64
 inter_dim: 128
@@ -32,7 +32,7 @@ decoder:
 generator:
   type: 'freegan'
   input_dim: 512
-  hidden_dim: 513
+  hidden_dim: 257
   conv_intermediate_dim: 1536
   io_conv_kernel_size: 7
   conformer_layers: 1
