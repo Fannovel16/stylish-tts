@@ -504,7 +504,7 @@ class Generator(torch.nn.Module):
     ):
         super(Generator, self).__init__()
 
-        channels = 16
+        channels = 8
         n_bins = n_fft // 2 + 1
         mult_channels = 3
         kernel_size = [13, 7]
