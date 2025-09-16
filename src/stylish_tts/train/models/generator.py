@@ -845,6 +845,7 @@ class Generator(torch.nn.Module):
         with torch.no_grad():
             prior, _, _ = self.prior_generator(pitch.unsqueeze(-1))
             prior = prior.transpose(1, 2).squeeze(1)
+            print(prior.shape)
             prior_spec = self.stft.transform(prior)
             prior_spec = prior_spec[:, :, :-1]
             prior_mag = torch.log(torch.abs(prior_spec) + 1e-9)
