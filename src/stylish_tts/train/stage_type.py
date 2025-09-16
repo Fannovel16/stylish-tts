@@ -163,7 +163,7 @@ def train_acoustic(
         target_spec, pred_spec, target_phase, pred_phase, target_fft, pred_fft = (
             train.multi_spectrogram(target=batch.audio_gt, pred=pred.audio.squeeze(1))
         )
-        train.stft_loss(target_list=target_fft, pred_list=pred_fft, log=log)
+        train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
         log.add_loss(
             "multi_phase",
             multi_phase_loss(pred_phase, target_phase, train.model_config.n_fft),
@@ -172,7 +172,7 @@ def train_acoustic(
         log.add_loss(
             "generator",
             train.generator_loss(
-                target_list=target_fft, pred_list=pred_fft, used=["mrd"]
+                target_list=target_spec, pred_list=pred_spec, used=["mrd"]
             ).mean(),
         )
         print_gpu_vram("generator_loss")
@@ -227,7 +227,7 @@ def validate_acoustic(batch, train):
     target_spec, pred_spec, target_phase, pred_phase, target_fft, pred_fft = (
         train.multi_spectrogram(target=batch.audio_gt, pred=pred.audio.squeeze(1))
     )
-    train.stft_loss(target_list=target_fft, pred_list=pred_fft, log=log)
+    train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
     log.add_loss(
         "multi_phase",
         multi_phase_loss(pred_phase, target_phase, train.model_config.n_fft),
@@ -297,7 +297,7 @@ def train_textual(
         target_spec, pred_spec, target_phase, pred_phase, target_fft, pred_fft = (
             train.multi_spectrogram(target=batch.audio_gt, pred=pred.audio.squeeze(1))
         )
-        train.stft_loss(target_list=target_fft, pred_list=pred_fft, log=log)
+        train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
         log.add_loss(
             "multi_phase",
             multi_phase_loss(pred_phase, target_phase, train.model_config.n_fft),
@@ -305,7 +305,7 @@ def train_textual(
         log.add_loss(
             "generator",
             train.generator_loss(
-                target_list=target_fft, pred_list=pred_fft, used=["mrd"]
+                target_list=target_spec, pred_list=pred_spec, used=["mrd"]
             ).mean(),
         )
         train.magphase_loss(pred, batch.audio_gt, log)
@@ -347,7 +347,7 @@ def validate_textual(batch, train):
     target_spec, pred_spec, target_phase, pred_phase, target_fft, pred_fft = (
         train.multi_spectrogram(target=batch.audio_gt, pred=pred.audio.squeeze(1))
     )
-    train.stft_loss(target_list=target_fft, pred_list=pred_fft, log=log)
+    train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
     log.add_loss(
         "multi_phase",
         multi_phase_loss(pred_phase, target_phase, train.model_config.n_fft),
@@ -448,7 +448,7 @@ def validate_style(batch, train):
     target_spec, pred_spec, target_phase, pred_phase, target_fft, pred_fft = (
         train.multi_spectrogram(target=batch.audio_gt, pred=pred.audio.squeeze(1))
     )
-    train.stft_loss(target_list=target_fft, pred_list=pred_fft, log=log)
+    train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
     log.add_loss(
         "pitch",
         torch.nn.functional.smooth_l1_loss(batch.pitch, pred_pitch),
@@ -607,7 +607,7 @@ def train_joint(batch, model, train, probing) -> Tuple[LossLog, Optional[torch.T
         target_spec, pred_spec, target_phase, pred_phase, target_fft, pred_fft = (
             train.multi_spectrogram(target=batch.audio_gt, pred=pred.audio.squeeze(1))
         )
-        train.stft_loss(target_list=target_fft, pred_list=pred_fft, log=log)
+        train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
         log.add_loss(
             "multi_phase",
             multi_phase_loss(pred_phase, target_phase, train.model_config.n_fft),
@@ -616,7 +616,7 @@ def train_joint(batch, model, train, probing) -> Tuple[LossLog, Optional[torch.T
         log.add_loss(
             "generator",
             train.generator_loss(
-                target_list=target_fft, pred_list=pred_fft, used=["mrd"]
+                target_list=target_spec, pred_list=pred_spec, used=["mrd"]
             ).mean(),
         )
         print_gpu_vram("generator_loss")
@@ -677,7 +677,7 @@ def validate_joint(batch, train):
     target_spec, pred_spec, target_phase, pred_phase, target_fft, pred_fft = (
         train.multi_spectrogram(target=batch.audio_gt, pred=pred.audio.squeeze(1))
     )
-    train.stft_loss(target_list=target_fft, pred_list=pred_fft, log=log)
+    train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
     log.add_loss(
         "multi_phase",
         multi_phase_loss(pred_phase, target_phase, train.model_config.n_fft),
@@ -753,7 +753,7 @@ def train_hubert_acoustic(
         target_spec, pred_spec, target_phase, pred_phase, target_fft, pred_fft = (
             train.multi_spectrogram(target=batch.audio_gt, pred=pred.audio.squeeze(1))
         )
-        train.stft_loss(target_list=target_fft, pred_list=pred_fft, log=log)
+        train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
         log.add_loss(
             "multi_phase",
             multi_phase_loss(pred_phase, target_phase, train.model_config.n_fft),
@@ -761,7 +761,7 @@ def train_hubert_acoustic(
         log.add_loss(
             "generator",
             train.generator_loss(
-                target_list=target_fft, pred_list=pred_fft, used=["mrd"]
+                target_list=target_spec, pred_list=pred_spec, used=["mrd"]
             ).mean(),
         )
         print_gpu_vram("generator_loss")
@@ -815,7 +815,7 @@ def validate_hubert_acoustic(batch, train):
     target_spec, pred_spec, target_phase, pred_phase = train.multi_spectrogram(
         target=batch.audio_gt, pred=pred.audio.squeeze(1)
     )
-    train.stft_loss(target_list=target_fft, pred_list=pred_fft, log=log)
+    train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
     # log.add_loss(
     #     "multi_phase",
     #     multi_phase_loss(pred_phase, target_phase, train.model_config.n_fft),
@@ -885,7 +885,7 @@ def train_hubert_textual(
         target_spec, pred_spec, target_phase, pred_phase, target_fft, pred_fft = (
             train.multi_spectrogram(target=batch.audio_gt, pred=pred.audio.squeeze(1))
         )
-        train.stft_loss(target_list=target_fft, pred_list=pred_fft, log=log)
+        train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
         log.add_loss(
             "multi_phase",
             multi_phase_loss(pred_phase, target_phase, train.model_config.n_fft),
@@ -893,7 +893,7 @@ def train_hubert_textual(
         log.add_loss(
             "generator",
             train.generator_loss(
-                target_list=target_fft, pred_list=pred_fft, used=["mrd"]
+                target_list=target_spec, pred_list=pred_spec, used=["mrd"]
             ).mean(),
         )
         print_gpu_vram("generator_loss")
@@ -949,7 +949,7 @@ def validate_hubert_textual(batch, train):
     target_spec, pred_spec, target_phase, pred_phase = train.multi_spectrogram(
         target=batch.audio_gt, pred=pred.audio.squeeze(1)
     )
-    train.stft_loss(target_list=target_fft, pred_list=pred_fft, log=log)
+    train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
     # log.add_loss(
     #     "multi_phase",
     #     multi_phase_loss(pred_phase, target_phase, train.model_config.n_fft),

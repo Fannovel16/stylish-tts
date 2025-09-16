@@ -39,23 +39,23 @@ class SpecDiscriminator(nn.Module):
         norm_f = weight_norm if use_spectral_norm == False else spectral_norm
         self.discriminators = nn.ModuleList(
             [
-                norm_f(nn.Conv2d(1, 8, kernel_size=(3, 9), padding=(1, 4))),
+                norm_f(nn.Conv2d(1, 16, kernel_size=(3, 9), padding=(1, 4))),
                 norm_f(
-                    nn.Conv2d(8, 8, kernel_size=(3, 9), stride=(1, 2), padding=(1, 4))
+                    nn.Conv2d(16, 16, kernel_size=(3, 9), stride=(1, 2), padding=(1, 4))
                 ),
                 norm_f(
-                    nn.Conv2d(8, 8, kernel_size=(3, 9), stride=(1, 2), padding=(1, 4))
+                    nn.Conv2d(16, 16, kernel_size=(3, 9), stride=(1, 2), padding=(1, 4))
                 ),
                 norm_f(
-                    nn.Conv2d(8, 8, kernel_size=(3, 9), stride=(1, 2), padding=(1, 4))
+                    nn.Conv2d(16, 16, kernel_size=(3, 9), stride=(1, 2), padding=(1, 4))
                 ),
                 norm_f(
-                    nn.Conv2d(8, 8, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+                    nn.Conv2d(16, 16, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
                 ),
             ]
         )
 
-        self.out = norm_f(nn.Conv2d(8, 1, 3, 1, 1))
+        self.out = norm_f(nn.Conv2d(16, 1, 3, 1, 1))
 
     def forward(self, y):
 
