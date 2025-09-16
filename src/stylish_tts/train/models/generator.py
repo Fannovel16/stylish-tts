@@ -510,6 +510,7 @@ class Generator(torch.nn.Module):
         kernel_size = [13, 7]
 
         # Prior waveform generator
+        self.hop_length = hop_length
         self.prior_generator = partial(
             generate_pcph,
             hop_length=hop_length,
@@ -636,7 +637,10 @@ class Generator(torch.nn.Module):
         prior_mags, prior_phases = [], []
         with torch.no_grad():
             for bid in range(mel.shape[0]):
-                prior = self.prior_generator(pitch[bid : bid + 1, :])
+                # prior = self.prior_generator(pitch[bid : bid + 1, :])
+                prior = torch.rand(
+                    1, 1, self.hop_length * mel.shape[-1], device=mel.device
+                )
                 prior = prior.squeeze(1)
                 prior_spec = self.stft.transform(prior)
                 prior_spec = prior_spec[:, :, :-1]
