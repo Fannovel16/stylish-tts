@@ -22,7 +22,7 @@ from stylish_tts.train.utils import DurationProcessor
 from stylish_tts.train.multi_spectrogram import MultiSpectrogram
 from pathlib import Path
 import traceback
-from models.ssl import AdaptiveHubert, SpeakerEmbeddingModel
+from stylish_tts.train.models.ssl import AdaptiveHubert, SpeakerEmbeddingModel
 
 
 class Manifest:
