@@ -734,7 +734,11 @@ def train_hubert_acoustic(
             train.normalization.mel_log_std,
         )
         with torch.no_grad():
-            energy = log_norm(mel.unsqueeze(1)).squeeze(1)
+            energy = log_norm(
+                mel.unsqueeze(1),
+                train.normalization.mel_log_mean,
+                train.normalization.mel_log_std,
+            ).squeeze(1)
         phones, spk_emb = pred_ssl_features(train, batch, mel.shape[-1])
         pred = model.hubert_speech_predictor(
             phones, mel_lengths, spk_emb, batch.pitch, energy
@@ -773,8 +777,6 @@ def train_hubert_acoustic(
             "pitch",
             torch.nn.functional.smooth_l1_loss(batch.pitch, pred_pitch),
         )
-        with torch.no_grad():
-            energy = log_norm(mel.unsqueeze(1)).squeeze(1)
         log.add_loss(
             "energy",
             torch.nn.functional.smooth_l1_loss(energy, pred_energy),
@@ -792,9 +794,18 @@ def train_hubert_acoustic(
 @torch.no_grad()
 def validate_hubert_acoustic(batch, train):
     model = train.model
-    mel, mel_lengths = calculate_mel(batch.audio_gt, train.to_mel)
+    mel, mel_lengths = calculate_mel(
+        batch.audio_gt,
+        train.to_mel,
+        train.normalization.mel_log_mean,
+        train.normalization.mel_log_std,
+    )
     with torch.no_grad():
-        energy = log_norm(mel.unsqueeze(1)).squeeze(1)
+        energy = log_norm(
+            mel.unsqueeze(1),
+            train.normalization.mel_log_mean,
+            train.normalization.mel_log_std,
+        ).squeeze(1)
     phones, spk_emb = pred_ssl_features(train, batch, mel.shape[-1])
     pred = model.hubert_speech_predictor(
         phones, mel_lengths, spk_emb, batch.pitch, energy
@@ -816,8 +827,6 @@ def validate_hubert_acoustic(batch, train):
         "pitch",
         torch.nn.functional.smooth_l1_loss(batch.pitch, pred_pitch),
     )
-    with torch.no_grad():
-        energy = log_norm(mel.unsqueeze(1)).squeeze(1)
     log.add_loss(
         "energy",
         torch.nn.functional.smooth_l1_loss(energy, pred_energy),
@@ -856,6 +865,12 @@ def train_hubert_textual(
             train.normalization.mel_log_mean,
             train.normalization.mel_log_std,
         )
+        with torch.no_grad():
+            energy = log_norm(
+                mel.unsqueeze(1),
+                train.normalization.mel_log_mean,
+                train.normalization.mel_log_std,
+            ).squeeze(1)
         phones, spk_emb = pred_ssl_features(train, batch, mel.shape[-1])
         pred_pitch, pred_energy = model.hubert_pitch_energy_predictor(
             phones, mel_lengths, spk_emb
@@ -894,8 +909,6 @@ def train_hubert_textual(
             "pitch",
             torch.nn.functional.smooth_l1_loss(batch.pitch, pred_pitch),
         )
-        with torch.no_grad():
-            energy = log_norm(mel.unsqueeze(1)).squeeze(1)
         log.add_loss(
             "energy",
             torch.nn.functional.smooth_l1_loss(energy, pred_energy),
@@ -912,7 +925,18 @@ def train_hubert_textual(
 @torch.no_grad()
 def validate_hubert_textual(batch, train):
     model = train.model
-    mel, mel_lengths = calculate_mel(batch.audio_gt, train.to_mel)
+    mel, mel_lengths = calculate_mel(
+        batch.audio_gt,
+        train.to_mel,
+        train.normalization.mel_log_mean,
+        train.normalization.mel_log_std,
+    )
+    with torch.no_grad():
+        energy = log_norm(
+            mel.unsqueeze(1),
+            train.normalization.mel_log_mean,
+            train.normalization.mel_log_std,
+        ).squeeze(1)
     phones, spk_emb = pred_ssl_features(train, batch, mel.shape[-1])
     pred_pitch, pred_energy = model.hubert_pitch_energy_predictor(
         phones, mel_lengths, spk_emb
