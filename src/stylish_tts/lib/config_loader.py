@@ -80,6 +80,14 @@ class TrainingPlanConfig(BaseModel):
         default_factory=TrainingStageConfig,
         description="Configuration for joint training of inference models.",
     )
+    hubert_acoustic: TrainingStageConfig = Field(
+        default_factory=TrainingStageConfig,
+        description="Configuration for Hubert acoustic stage.",
+    )
+    hubert_textual: TrainingStageConfig = Field(
+        default_factory=TrainingStageConfig,
+        description="Configuration for Hubert textual stage.",
+    )
 
     def get_stage(self, name: str) -> TrainingStageConfig:
         try:
@@ -318,6 +326,16 @@ class SlmConfig(BaseModel):
     sr: int = Field(..., description="Sampling rate used by the SLM.")
 
 
+class HubertConfig(BaseModel):
+    model: str = Field(..., description="Identifier or path for the HuBERT model.")
+    hidden_dim: int = Field(..., description="Dimension of HuBERT hidden state.")
+    sr: int = Field(..., description="Sampling rate used by the HuBERT.")
+
+
+class SpeakerEmbeddingModel(BaseModel):
+    hidden_dim: int = Field(..., description="Dimension of speaker embedding.")
+
+
 class Config(BaseModel):
     """
     Top-level configuration model that encompasses all settings.
@@ -381,6 +399,10 @@ class ModelConfig(BaseModel):
     )
     pitch_energy_predictor: PitchEnergyPredictorConfig = Field(
         ..., description="Pitch/Energy predictor configuration parameters."
+    )
+    hubert: HubertConfig = Field(..., description="Pretrained Hubert model config.")
+    speaker_embedder: SpeakerEmbeddingModel = Field(
+        ..., description="Pretrained Speaker Embedding Model config."
     )
     slm: SlmConfig = Field(
         ..., description="Speech Language Model (SLM) configuration parameters."
