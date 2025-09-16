@@ -23,13 +23,17 @@ class AdaptiveHubert(nn.Module):
 
     def forward(self, wave, time_dim):
         wave = self.resample(wave)
-        x = self.model(wave)["last_hidden_state"]
-        x = torch.nn.functional.interpolate(
-            x.transpose(-1, -2),
-            size=time_dim,
-            mode="nearest",
-        ).transpose(-1, -2)
-        return rearrange(x, "b t c -> b c t")
+        xs = []
+        for bid in wave.shape[0]:
+            x = self.model(wave[bid : bid + 1, :])["last_hidden_state"]
+            x = torch.nn.functional.interpolate(
+                x.transpose(-1, -2),
+                size=time_dim,
+                mode="nearest",
+            ).transpose(-1, -2)
+            xs.append(x)
+        xs = torch.cat(xs, dim=0)
+        return rearrange(xs, "b t c -> b c t")
 
 
 class SpeakerEmbeddingModel(nn.Module):
