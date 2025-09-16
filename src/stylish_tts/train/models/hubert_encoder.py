@@ -1,7 +1,7 @@
 import torch
 from .text_encoder import Encoder
 from einops import repeat
-from utils import sequence_mask
+from ..utils import sequence_mask
 
 
 class HubertEncoder(torch.nn.Module):
