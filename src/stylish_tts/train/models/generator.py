@@ -516,7 +516,7 @@ class Generator(torch.nn.Module):
         #     sample_rate=sample_rate,
         # )
         self.f0_upsamp = torch.nn.Upsample(scale_factor=hop_length, mode="linear")
-        self.prior_generator = SourceModuleHnNSF(
+        self.m_source = SourceModuleHnNSF(
             sampling_rate=sample_rate,
             upsample_scale=hop_length,
             harmonic_num=8,
