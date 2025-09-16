@@ -727,7 +727,12 @@ def train_hubert_acoustic(
 ) -> Tuple[LossLog, Optional[torch.Tensor]]:
     with train.accelerator.autocast():
         print_gpu_vram("init")
-        mel, mel_lengths = calculate_mel(batch.audio_gt, train.to_mel)
+        mel, mel_lengths = calculate_mel(
+            batch.audio_gt,
+            train.to_mel,
+            train.normalization.mel_log_mean,
+            train.normalization.mel_log_std,
+        )
         with torch.no_grad():
             energy = log_norm(mel.unsqueeze(1)).squeeze(1)
         phones, spk_emb = pred_ssl_features(train, batch, mel.shape[-1])
@@ -845,7 +850,12 @@ def train_hubert_textual(
 ) -> Tuple[LossLog, Optional[torch.Tensor]]:
     with train.accelerator.autocast():
         print_gpu_vram("init")
-        mel, mel_lengths = calculate_mel(batch.audio_gt, train.to_mel)
+        mel, mel_lengths = calculate_mel(
+            batch.audio_gt,
+            train.to_mel,
+            train.normalization.mel_log_mean,
+            train.normalization.mel_log_std,
+        )
         phones, spk_emb = pred_ssl_features(train, batch, mel.shape[-1])
         pred_pitch, pred_energy = model.hubert_pitch_energy_predictor(
             phones, mel_lengths, spk_emb
