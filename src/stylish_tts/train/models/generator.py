@@ -633,13 +633,19 @@ class Generator(torch.nn.Module):
 
     def forward(self, *, mel, style, pitch, energy):
         # Generate prior waveform and compute spectrogram
+        prior_mags, prior_phases = [], []
         with torch.no_grad():
-            prior = self.prior_generator(pitch)
-            prior = prior.squeeze(1)
-            prior_spec = self.stft.transform(prior)
-            prior_spec = prior_spec[:, :, :-1]
-            prior_mag = torch.log(torch.abs(prior_spec) + 1e-9)
-            prior_phase = torch.angle(prior_spec)
+            for bid in range(mel.shape[0]):
+                prior = self.prior_generator(pitch[bid : bid + 1, :])
+                prior = prior.squeeze(1)
+                prior_spec = self.stft.transform(prior)
+                prior_spec = prior_spec[:, :, :-1]
+                prior_mag = torch.log(torch.abs(prior_spec) + 1e-9)
+                prior_phase = torch.angle(prior_spec)
+                prior_mags.append(prior_mag)
+                prior_phases.append(prior_phase)
+        prior_mag = torch.cat(prior_mags, 0)
+        prior_phase = torch.cat(prior_phases, 0)
 
         # Apply input projection
         prior_mag_proj = self.prior_mag_proj(prior_mag)
