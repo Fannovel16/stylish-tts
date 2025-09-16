@@ -648,17 +648,16 @@ class Generator(torch.nn.Module):
         #     prior_mag = torch.log(torch.abs(prior_spec) + 1e-9)
         #     prior_phase = torch.angle(prior_spec)
 
-        with torch.no_grad():
-            f0 = pitch
-            f0_len = f0.shape[1]
-            f0 = self.f0_upsamp(f0[:, None]).transpose(1, 2)  # bs,n,t
-            har_source, noi_source, uv = self.m_source(f0, f0_len)
-            har_source = har_source.transpose(1, 2).squeeze(1)
-            prior = har_source
-            prior_spec = self.stft.transform(prior)
-            prior_spec = prior_spec[:, :, :-1]
-            prior_mag = torch.log(torch.abs(prior_spec) + 1e-9)
-            prior_phase = torch.angle(prior_spec)
+        f0 = pitch
+        f0_len = f0.shape[1]
+        f0 = self.f0_upsamp(f0[:, None]).transpose(1, 2)  # bs,n,t
+        har_source, noi_source, uv = self.m_source(f0, f0_len)
+        har_source = har_source.transpose(1, 2).squeeze(1)
+        prior = har_source
+        prior_spec = self.stft.transform(prior)
+        prior_spec = prior_spec[:, :, :-1]
+        prior_mag = torch.log(torch.abs(prior_spec) + 1e-9)
+        prior_phase = torch.angle(prior_spec)
 
         # Apply input projection
         prior_mag_proj = self.prior_mag_proj(prior_mag)
