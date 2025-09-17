@@ -60,7 +60,6 @@ def count_parameters(model):
     return total_params
 
 
-_config = get_config("../config/config.yml")
 model_config = get_model_config("")
 model = build_model(model_config)
 
@@ -89,7 +88,7 @@ model = Model(
     pe_text_style_encoder=model.pe_text_style_encoder,
 )
 count_parameters(model)
-t, c, ph = 10 * 80, 128, 100
+b, t, c, ph = 5, 10 * 80, 128, 100
 import numpy as np
 import psutil
 
@@ -101,20 +100,19 @@ args = (
         0,
         178,
         (
-            1,
+            b,
             ph,
         ),
     ),
-    torch.full((1,), ph),
-    torch.rand(1, ph, t),
+    torch.full((b,), ph),
+    torch.rand(b, ph, t),
 )
 print("memory use:", memory_use)
 ts = []
 for _ in range(10):
     start = perf_counter()
-    with torch.no_grad():
-        model(*args)
+    model(*args)
     memory_use = python_process.memory_info()[0] / 2.0**30
     print("memory use:", memory_use)
     ts.append(perf_counter() - start)
-print(np.mean(ts))
+print(np.mean(ts) / b)

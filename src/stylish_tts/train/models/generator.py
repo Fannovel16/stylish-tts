@@ -510,18 +510,18 @@ class Generator(torch.nn.Module):
         kernel_size = [13, 7]
 
         # Prior waveform generator
-        # self.prior_generator = partial(
-        #     generate_pcph,
-        #     hop_length=hop_length,
-        #     sample_rate=sample_rate,
-        # )
-        self.f0_upsamp = torch.nn.Upsample(scale_factor=hop_length, mode="linear")
-        self.m_source = SourceModuleHnNSF(
-            sampling_rate=sample_rate,
-            upsample_scale=hop_length,
-            harmonic_num=8,
-            voiced_threshod=10,
+        self.prior_generator = partial(
+            generate_pcph,
+            hop_length=hop_length,
+            sample_rate=sample_rate,
         )
+        # self.f0_upsamp = torch.nn.Upsample(scale_factor=hop_length, mode="linear")
+        # self.m_source = SourceModuleHnNSF(
+        #     sampling_rate=sample_rate,
+        #     upsample_scale=hop_length,
+        #     harmonic_num=8,
+        #     voiced_threshod=10,
+        # )
 
         self.prior_mag_proj = Conv1d(
             n_bins,
@@ -640,23 +640,23 @@ class Generator(torch.nn.Module):
 
     def forward(self, *, mel, style, pitch, energy):
         # Generate prior waveform and compute spectrogram
-        # with torch.no_grad():
-        #     prior = self.prior_generator(pitch)
-        #     prior = prior.squeeze(1)
-        #     prior_spec = self.stft.transform(prior)
-        #     prior_spec = prior_spec[:, :, :-1]
-        #     prior_mag = torch.log(torch.abs(prior_spec) + 1e-9)
-        #     prior_phase = torch.angle(prior_spec)
+        with torch.no_grad():
+            prior = self.prior_generator(pitch)
+            prior = prior.squeeze(1)
+            prior_spec = self.stft.transform(prior)
+            prior_spec = prior_spec[:, :, :-1]
+            prior_mag = torch.log(torch.abs(prior_spec) + 1e-9)
+            prior_phase = torch.angle(prior_spec)
 
-        f0 = pitch
-        f0_len = f0.shape[1]
-        f0 = self.f0_upsamp(f0[:, None]).transpose(1, 2)  # bs,n,t
-        har_source, noi_source, uv = self.m_source(f0, f0_len)
-        prior = har_source.transpose(1, 2).squeeze(1)
-        prior_spec = self.stft.transform(prior)
-        prior_spec = prior_spec[:, :, :-1]
-        prior_mag = torch.log(torch.abs(prior_spec) + 1e-9)
-        prior_phase = torch.angle(prior_spec)
+        # f0 = pitch
+        # f0_len = f0.shape[1]
+        # f0 = self.f0_upsamp(f0[:, None]).transpose(1, 2)  # bs,n,t
+        # har_source, noi_source, uv = self.m_source(f0, f0_len)
+        # prior = har_source.transpose(1, 2).squeeze(1)
+        # prior_spec = self.stft.transform(prior)
+        # prior_spec = prior_spec[:, :, :-1]
+        # prior_mag = torch.log(torch.abs(prior_spec) + 1e-9)
+        # prior_phase = torch.angle(prior_spec)
 
         # Apply input projection
         prior_mag_proj = self.prior_mag_proj(prior_mag)
