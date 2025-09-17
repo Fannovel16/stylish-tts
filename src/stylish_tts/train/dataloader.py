@@ -246,9 +246,6 @@ class Collater(object):
             if self.stage != "alignment":
                 if alignment.shape[1] != mel_length:
                     exit(f"Alignment for segment {path} did not match audio length")
-                    pass
-                else:
-                    alignments[bid, :text_size, :mel_length] = alignment
 
         result = (
             waves,
