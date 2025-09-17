@@ -88,7 +88,7 @@ model = Model(
     pe_text_style_encoder=model.pe_text_style_encoder,
 )
 count_parameters(model)
-b, t, c, ph = 5, 10 * 80, 128, 100
+b, t, c, ph = 1, 10 * 80, 128, 100
 import numpy as np
 import psutil
 
