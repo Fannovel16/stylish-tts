@@ -288,7 +288,9 @@ def train_model(
             save_git_diff(train.out_dir)
             # Copy normalization stats into the new stage directory
             try:
-                with open(osp.join(train.out_dir, "normalization.json"), "w", encoding="utf-8") as f:
+                with open(
+                    osp.join(train.out_dir, "normalization.json"), "w", encoding="utf-8"
+                ) as f:
                     json.dump(
                         {
                             "mel_log_mean": train.normalization.mel_log_mean,

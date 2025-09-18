@@ -188,8 +188,8 @@ def train_acoustic(
         log.detach(),  # None, None
         {
             "mpd": DiscriminatorInput(target_list=target_fft, pred_list=pred_fft),
-            "mrd": DiscriminatorInput(target_list=batch.audio_gt, pred_list=pred.audio)
-        }
+            "mrd": DiscriminatorInput(target_list=batch.audio_gt, pred_list=pred.audio),
+        },
     )
 
 
@@ -300,8 +300,8 @@ def train_textual(
         log.detach(),  # None, None
         {
             "mpd": DiscriminatorInput(target_list=target_fft, pred_list=pred_fft),
-            "mrd": DiscriminatorInput(target_list=batch.audio_gt, pred_list=pred.audio)
-        }
+            "mrd": DiscriminatorInput(target_list=batch.audio_gt, pred_list=pred.audio),
+        },
     )
 
 
@@ -615,8 +615,8 @@ def train_joint(batch, model, train, probing) -> Tuple[LossLog, Optional[torch.T
         log.detach(),  # None, None
         {
             "mpd": DiscriminatorInput(target_list=target_fft, pred_list=pred_fft),
-            "mrd": DiscriminatorInput(target_list=batch.audio_gt, pred_list=pred.audio)
-        }
+            "mrd": DiscriminatorInput(target_list=batch.audio_gt, pred_list=pred.audio),
+        },
     )
 
 
@@ -680,6 +680,7 @@ stages["joint"] = StageType(
 
 
 #########################
+
 
 @torch.no_grad()
 def calculate_mel(audio, to_mel, mean, std):

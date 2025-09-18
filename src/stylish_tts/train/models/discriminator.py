@@ -98,6 +98,7 @@ class MultiResolutionDiscriminator(torch.nn.Module):
 
         return y_d_rs, y_d_gs, fmap_rs, fmap_gs
 
+
 class MultiPeriodDiscriminator(torch.nn.Module):
     """
     Multi-Period Discriminator module adapted from https://github.com/jik876/hifi-gan.

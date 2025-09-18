@@ -18,6 +18,7 @@ from stylish_tts.train.utils import (
     plot_mel_signed_difference_to_figure,
 )
 
+
 def detach_all(spec_list):
     if isinstance(spec_list, torch.Tensor):
         return spec_list.detach()
@@ -25,6 +26,7 @@ def detach_all(spec_list):
     for item in spec_list:
         result.append(item.detach())
     return result
+
 
 class Stage:
     def __init__(
@@ -126,7 +128,9 @@ class Stage:
             # audio_gt = batch.audio_gt.unsqueeze(1)
             # audio = audio.detach()
             train.stage.optimizer.zero_grad()
-            d_loss = train.discriminator_loss(**{k: detach_all(v)} for k, v in disc_inputs.items())
+            d_loss = train.discriminator_loss(
+                **{k: detach_all(v) for k, v in disc_inputs.items()}
+            )
             train.accelerator.backward(d_loss * math.sqrt(batch.text.shape[0]))
             optimizer_step(self.optimizer, config.discriminators)
             train.stage.optimizer.zero_grad()

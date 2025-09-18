@@ -177,6 +177,7 @@ class TrainContext:
         import json
         import os.path as osp
         from stylish_tts.train.utils import compute_log_mel_stats, get_data_path_list
+
         try:
             import tqdm as _tqdm
         except Exception:
@@ -213,12 +214,8 @@ class TrainContext:
             try:
                 with open(out_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                self.normalization.mel_log_mean = float(
-                    data.get("mel_log_mean", -4.0)
-                )
-                self.normalization.mel_log_std = float(
-                    data.get("mel_log_std", 4.0)
-                )
+                self.normalization.mel_log_mean = float(data.get("mel_log_mean", -4.0))
+                self.normalization.mel_log_std = float(data.get("mel_log_std", 4.0))
                 self.normalization.frames = int(data.get("frames", 0))
                 self.logger.info(
                     f"Loaded normalization stats: mean={self.normalization.mel_log_mean:.4f}, std={self.normalization.mel_log_std:.4f}, frames={self.normalization.frames}"
@@ -299,8 +296,6 @@ class TrainContext:
                         f2,
                     )
             except Exception as e:
-                self.logger.warning(
-                    f"Failed to write dataset normalization.json: {e}"
-                )
+                self.logger.warning(f"Failed to write dataset normalization.json: {e}")
         except Exception as e:
             self.logger.warning(f"Failed to write normalization.json: {e}")
