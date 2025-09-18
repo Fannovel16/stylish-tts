@@ -706,7 +706,7 @@ def train_cfm_mel(
                 train.normalization.mel_log_std,
             ).squeeze(1)
         phones, spk_emb = pred_ssl_features(train, batch, mel.shape[-1])
-        phones = train.hubert_encoder(phones, mel_length)
+        phones = model.hubert_encoder(phones, mel_length)
         print_gpu_vram("predicted")
         mel_l2_loss = model.cfm_mel_decoder.compute_loss(
             phones, batch.pitch, energy, spk_emb, mel
@@ -735,7 +735,7 @@ def validate_cfm_mel(batch, train):
             train.normalization.mel_log_std,
         ).squeeze(1)
     phones, spk_emb = pred_ssl_features(train, batch, mel.shape[-1])
-    phones = train.hubert_encoder(phones, mel_length)
+    phones = train.model.hubert_encoder(phones, mel_length)
     print_gpu_vram("predicted")
     pred_mel = train.model.cfm_mel_decoder(
         phones, batch.pitch, energy, spk_emb, n_timesteps=10, temperature=1
