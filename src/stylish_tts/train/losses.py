@@ -153,10 +153,24 @@ class MagPhaseLoss(torch.nn.Module):
         log.add_loss("phase", phase_loss)
 
 
+def detach_all(spec_list):
+    if isinstance(spec_list, torch.Tensor):
+        return spec_list.detach()
+    result = []
+    for item in spec_list:
+        result.append(item.detach())
+    return result
+
+
 class DiscriminatorInput:
     def __init__(self, target_list, pred_list):
         self.target_list = target_list
         self.pred_list = pred_list
+
+    def detach(self):
+        self.target_list = detach_all(self.target_list)
+        self.pred_list = detach_all(self.pred_list)
+        return self
 
 
 class DiscriminatorLoss(torch.nn.Module):
