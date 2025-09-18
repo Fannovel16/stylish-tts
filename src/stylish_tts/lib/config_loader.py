@@ -318,6 +318,16 @@ class SlmConfig(BaseModel):
     sr: int = Field(..., description="Sampling rate used by the SLM.")
 
 
+class HubertConfig(BaseModel):
+    model: str = Field(..., description="Identifier or path for the HuBERT model.")
+    hidden_dim: int = Field(..., description="Dimension of HuBERT hidden state.")
+    sr: int = Field(..., description="Sampling rate used by the HuBERT.")
+
+
+class SpeakerEmbeddingModel(BaseModel):
+    hidden_dim: int = Field(..., description="Dimension of speaker embedding.")
+
+
 class Config(BaseModel):
     """
     Top-level configuration model that encompasses all settings.
@@ -384,6 +394,10 @@ class ModelConfig(BaseModel):
     )
     slm: SlmConfig = Field(
         ..., description="Speech Language Model (SLM) configuration parameters."
+    )
+    hubert: HubertConfig = Field(..., description="Pretrained Hubert model config.")
+    speaker_embedder: SpeakerEmbeddingModel = Field(
+        ..., description="Pretrained Speaker Embedding Model config."
     )
     symbol: SymbolConfig = Field(..., description="Text processing symbols.")
 

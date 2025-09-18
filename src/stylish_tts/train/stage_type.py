@@ -679,6 +679,97 @@ stages["joint"] = StageType(
 #########################
 
 
+##### CFM Mel #####
+
+
+def pred_ssl_features(train, batch, time_dim):
+    phones = train.hubert(batch.audio_gt, time_dim)
+    spk_emb = train.speaker_embedder(batch.audio_gt)
+    return phones, spk_emb
+
+
+def train_cfm_mel(
+    batch, model, train, probing
+) -> Tuple[LossLog, Optional[torch.Tensor]]:
+    with train.accelerator.autocast():
+        print_gpu_vram("init")
+        mel, mel_length = calculate_mel(
+            batch.audio_gt,
+            train.to_mel,
+            train.normalization.mel_log_mean,
+            train.normalization.mel_log_std,
+        )
+        with torch.no_grad():
+            energy = log_norm(
+                mel.unsqueeze(1),
+                train.normalization.mel_log_mean,
+                train.normalization.mel_log_std,
+            ).squeeze(1)
+        phones, spk_emb = pred_ssl_features(train, batch, mel.shape[-1])
+        phones = train.hubert_encoder(phones, mel_length)
+        print_gpu_vram("predicted")
+        mel_l2_loss = model.cfm_mel_decoder.compute_loss(
+            phones, batch.pitch, energy, spk_emb, mel
+        )
+        train.stage.optimizer.zero_grad()
+        log = build_loss_log(train)
+        log.add_loss("mel_l2", mel_l2_loss)
+        train.accelerator.backward(log.backwards_loss())
+        print_gpu_vram("backward")
+
+    return (log.detach(), None)  # None, None
+
+
+@torch.no_grad()
+def validate_acoustic(batch, train):
+    mel, mel_length = calculate_mel(
+        batch.audio_gt,
+        train.to_mel,
+        train.normalization.mel_log_mean,
+        train.normalization.mel_log_std,
+    )
+    with torch.no_grad():
+        energy = log_norm(
+            mel.unsqueeze(1),
+            train.normalization.mel_log_mean,
+            train.normalization.mel_log_std,
+        ).squeeze(1)
+    phones, spk_emb = pred_ssl_features(train, batch, mel.shape[-1])
+    phones = train.hubert_encoder(phones, mel_length)
+    print_gpu_vram("predicted")
+    pred_mel = train.model.cfm_mel_decoder(
+        phones, batch.pitch, energy, spk_emb, n_timesteps=10, temperature=1
+    )
+    log = build_loss_log(train)
+    log.add_loss("mel_l2", F.mse_loss(pred_mel, mel))
+    return log, None, None, None
+
+
+stages["acoustic"] = StageType(
+    next_stage="textual",
+    train_fn=train_acoustic,
+    validate_fn=validate_acoustic,
+    train_models=[
+        "speech_predictor",
+        "pitch_energy_predictor",
+        "pe_text_encoder",
+        "pe_mel_style_encoder",
+    ],
+    eval_models=[],
+    # discriminators=[],
+    discriminators=["mrd"],
+    inputs=[
+        "text",
+        "text_length",
+        "audio_gt",
+        "pitch",
+        "alignment",
+    ],
+)
+
+##### Acoustic #####
+
+
 @torch.no_grad()
 def calculate_mel(audio, to_mel, mean, std):
     mel = to_mel(audio)
