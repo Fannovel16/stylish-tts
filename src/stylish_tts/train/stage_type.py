@@ -146,7 +146,7 @@ def train_acoustic(
                 train.normalization.mel_log_std,
             ).squeeze(1)
         pred = model.speech_predictor(
-            mel, mel_length, batch.alignment, batch.pitch, energy
+            batch.text, batch.text_length, batch.alignment, batch.pitch, energy
         )
         pe_text_encoding, _, _ = model.pe_text_encoder(batch.text, batch.text_length)
         pe_mel_style = model.pe_mel_style_encoder(mel.unsqueeze(1))
@@ -211,7 +211,7 @@ def validate_acoustic(batch, train):
         pe_text_encoding, batch.text_length, batch.alignment, pe_mel_style
     )
     pred = train.model.speech_predictor(
-        mel, mel_length, batch.alignment, batch.pitch, energy
+        batch.text, batch.text_length, batch.alignment, batch.pitch, energy
     )
     log = build_loss_log(train)
     target_spec, pred_spec, target_phase, pred_phase, target_fft, pred_fft = (

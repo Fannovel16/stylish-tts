@@ -49,10 +49,11 @@ class SpeechPredictor(torch.nn.Module):
             config=model_config.generator,
         )
 
-    def forward(self, mel, mel_lengths, alignment, pitch, energy):
-        style = self.style_encoder(mel, mel_lengths)
+    def forward(self, texts, text_lengths, alignment, pitch, energy):
+        text_encoding, _, _ = self.text_encoder(texts, text_lengths)
+        style = self.style_encoder(text_encoding, text_lengths)
         mel, f0_curve = self.decoder(
-            mel,
+            text_encoding @ alignment,
             pitch,
             energy,
             style,
