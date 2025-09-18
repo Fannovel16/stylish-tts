@@ -721,7 +721,7 @@ def train_cfm_mel(
 
 
 @torch.no_grad()
-def validate_acoustic(batch, train):
+def validate_cfm_mel(batch, train):
     mel, mel_length = calculate_mel(
         batch.audio_gt,
         train.to_mel,
@@ -745,19 +745,16 @@ def validate_acoustic(batch, train):
     return log, None, None, None
 
 
-stages["acoustic"] = StageType(
-    next_stage="textual",
-    train_fn=train_acoustic,
-    validate_fn=validate_acoustic,
+stages["cfm_mel"] = StageType(
+    next_stage=None,
+    train_fn=train_cfm_mel,
+    validate_fn=validate_cfm_mel,
     train_models=[
-        "speech_predictor",
-        "pitch_energy_predictor",
-        "pe_text_encoder",
-        "pe_mel_style_encoder",
+        "cfm_mel_decoder",
     ],
     eval_models=[],
     # discriminators=[],
-    discriminators=["mrd"],
+    discriminators=[],
     inputs=[
         "text",
         "text_length",
