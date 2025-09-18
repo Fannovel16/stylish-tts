@@ -32,11 +32,11 @@ decoder:
 generator:
   type: 'freegan'
   input_dim: 512
-  hidden_dim: 1025
+  hidden_dim: 512
   conv_intermediate_dim: 1536
   io_conv_kernel_size: 7
   conformer_layers: 1
-  conv_layers: 8
+  conv_layers: 4
 
 text_encoder:
   tokens: 178 # number of phoneme tokens
@@ -62,7 +62,7 @@ duration_predictor:
   last_dropout: 0.5
 
 pitch_energy_predictor:
-  inter_dim: 512
+  inter_dim: 128
   dropout: 0.2
 
 # speech language model config
