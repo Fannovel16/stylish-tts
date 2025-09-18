@@ -65,6 +65,15 @@ pitch_energy_predictor:
   inter_dim: 128
   dropout: 0.2
 
+hubert:
+  model: 'dr87/spinv2_rvc'
+  hidden_dim: 768
+  sr: 16000
+
+# https://github.com/wenet-e2e/wespeaker/blob/58071902625ae6b072befda2932a38e9b38d5f26/wespeaker/models/samresnet.py#L134
+speaker_embedder:
+  hidden_dim: 10240
+
 # speech language model config
 slm:
   model: 'microsoft/wavlm-base-plus'
