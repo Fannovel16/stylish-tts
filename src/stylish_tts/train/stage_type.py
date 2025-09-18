@@ -187,8 +187,8 @@ def train_acoustic(
     return (
         log.detach(),  # None, None
         {
-            "mpd": DiscriminatorInput(target_list=target_fft, pred_list=pred_fft),
-            "mrd": DiscriminatorInput(target_list=batch.audio_gt, pred_list=pred.audio),
+            "mrd": DiscriminatorInput(target_list=target_fft, pred_list=pred_fft),
+            "mpd": DiscriminatorInput(target_list=batch.audio_gt, pred_list=pred.audio),
         },
     )
 
@@ -299,8 +299,8 @@ def train_textual(
     return (
         log.detach(),  # None, None
         {
-            "mpd": DiscriminatorInput(target_list=target_fft, pred_list=pred_fft),
-            "mrd": DiscriminatorInput(target_list=batch.audio_gt, pred_list=pred.audio),
+            "mrd": DiscriminatorInput(target_list=target_fft, pred_list=pred_fft),
+            "mpd": DiscriminatorInput(target_list=batch.audio_gt, pred_list=pred.audio),
         },
     )
 
@@ -614,8 +614,8 @@ def train_joint(batch, model, train, probing) -> Tuple[LossLog, Optional[torch.T
     return (
         log.detach(),  # None, None
         {
-            "mpd": DiscriminatorInput(target_list=target_fft, pred_list=pred_fft),
-            "mrd": DiscriminatorInput(target_list=batch.audio_gt, pred_list=pred.audio),
+            "mrd": DiscriminatorInput(target_list=target_fft, pred_list=pred_fft),
+            "mpd": DiscriminatorInput(target_list=batch.audio_gt, pred_list=pred.audio),
         },
     )
 
