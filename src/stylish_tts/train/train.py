@@ -25,6 +25,7 @@ from stylish_tts.train.losses import (
 from stylish_tts.train.utils import get_data_path_list, save_git_diff
 from stylish_tts.train.loss_log import combine_logs
 from stylish_tts.train.convert_to_onnx import convert_to_onnx
+from stylish_tts.train.stage_type import stages
 import tqdm
 
 import os.path as osp
@@ -192,10 +193,10 @@ def train_model(
         train.model[key].to(train.config.training.device)
 
     train.generator_loss = GeneratorLoss(
-        mrd=train.model.mrd,
+        **{k: train.model[k] for k in stages[stage].discriminators}
     ).to(train.config.training.device)
     train.discriminator_loss = DiscriminatorLoss(
-        mrd=train.model.mrd,
+        **{k: train.model[k] for k in stages[stage].discriminators}
     ).to(train.config.training.device)
     train.wavlm_loss = WavLMLoss(
         train.model_config.slm.model,

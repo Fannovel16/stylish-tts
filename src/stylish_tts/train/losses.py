@@ -8,7 +8,6 @@ from transformers import AutoModel
 import numpy as np
 import k2
 from einops import rearrange
-from stylish_tts.train.multi_spectrogram import multi_spectrogram_count
 
 
 class MultiResolutionSTFTLoss(torch.nn.Module):
@@ -153,25 +152,27 @@ class MagPhaseLoss(torch.nn.Module):
 
         log.add_loss("phase", phase_loss)
 
+class DiscriminatorInput:
+    def __init__(self, target_list, pred_list):
+        self.target_list = target_list
+        self.pred_list = pred_list
 
 class DiscriminatorLoss(torch.nn.Module):
-    def __init__(self, *, mrd):
+    def __init__(self, **discs):
         super(DiscriminatorLoss, self).__init__()
         self.discriminators = torch.nn.ModuleDict(
             {
-                "mrd": DiscriminatorLossHelper(mrd, multi_spectrogram_count),
+                k: DiscriminatorLossHelper(v, len(v.discriminators)) for k, v in discs.items()
             }
         )
 
     def get_disc_lr_multiplier(self, key):
         return self.discriminators[key].get_disc_lr_multiplier()
 
-    def forward(self, *, target_list, pred_list, used):
+    def forward(self, **disc_inputs:DiscriminatorInput):
         loss = 0
-        for key in used:
-            loss += self.discriminators[key](
-                target_list=target_list, pred_list=pred_list
-            )
+        for key in self.discriminators:
+            loss += self.discriminators[key](target_list=disc_inputs[key].target_list, pred_list=disc_inputs[key].pred_list)
         return loss.mean()
 
     def state_dict(self, *args, **kwargs):
@@ -254,20 +255,19 @@ class DiscriminatorLossHelper(torch.nn.Module):
         self.last_loss = self.last_loss * 0.95 + disc.item() * 0.05
         return disc + tprls
 
-
 class GeneratorLoss(torch.nn.Module):
-    def __init__(self, *, mrd):
+    def __init__(self, **discs):
         super(GeneratorLoss, self).__init__()
         self.generators = torch.nn.ModuleDict(
             {
-                "mrd": GeneratorLossHelper(mrd),
+                k: GeneratorLossHelper(v) for k, v in discs.items()
             }
         )
 
-    def forward(self, *, target_list, pred_list, used):
+    def forward(self, **disc_inputs:DiscriminatorInput):
         loss = 0
-        for key in used:
-            loss += self.generators[key](target_list=target_list, pred_list=pred_list)
+        for key in self.generators:
+            loss += self.generators[key](target_list=disc_inputs[key].target_list, pred_list=disc_inputs[key].pred_list)
         return loss.mean()
 
 

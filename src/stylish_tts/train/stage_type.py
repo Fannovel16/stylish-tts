@@ -7,6 +7,7 @@ from einops import rearrange
 from stylish_tts.train.loss_log import LossLog, build_loss_log
 from stylish_tts.train.utils import print_gpu_vram, log_norm
 from typing import List
+from stylish_tts.train.losses import DiscriminatorInput
 
 stages = {}
 
@@ -71,7 +72,7 @@ def train_alignment(
         loss_ctc,
     )
     train.accelerator.backward(log.backwards_loss())
-    return log.detach(), None, None
+    return log.detach(), None
 
 
 @torch.no_grad()
@@ -165,13 +166,6 @@ def train_acoustic(
         train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
         print_gpu_vram("stft_loss")
         log.add_loss(
-            "generator",
-            train.generator_loss(
-                target_list=target_fft, pred_list=pred_fft, used=["mrd"]
-            ).mean(),
-        )
-        print_gpu_vram("generator_loss")
-        log.add_loss(
             "slm",
             train.wavlm_loss(batch.audio_gt.detach(), pred.audio),
         )
@@ -192,8 +186,10 @@ def train_acoustic(
 
     return (
         log.detach(),  # None, None
-        detach_all(target_fft),
-        detach_all(pred_fft),
+        {
+            "mpd": DiscriminatorInput(target_list=target_fft, pred_list=pred_fft),
+            "mrd": DiscriminatorInput(target_list=batch.audio_gt, pred_list=pred.audio)
+        }
     )
 
 
@@ -246,7 +242,7 @@ stages["acoustic"] = StageType(
     ],
     eval_models=[],
     # discriminators=[],
-    discriminators=["mrd"],
+    discriminators=["mrd", "mpd"],
     inputs=[
         "text",
         "text_length",
@@ -289,12 +285,6 @@ def train_textual(
             train.multi_spectrogram(target=batch.audio_gt, pred=pred.audio.squeeze(1))
         )
         train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
-        log.add_loss(
-            "generator",
-            train.generator_loss(
-                target_list=target_fft, pred_list=pred_fft, used=["mrd"]
-            ).mean(),
-        )
         train.magphase_loss(pred, batch.audio_gt, log)
         log.add_loss(
             "pitch",
@@ -306,7 +296,13 @@ def train_textual(
         )
         train.accelerator.backward(log.backwards_loss())
 
-    return log.detach(), detach_all(target_fft), detach_all(pred_fft)
+    return (
+        log.detach(),  # None, None
+        {
+            "mpd": DiscriminatorInput(target_list=target_fft, pred_list=pred_fft),
+            "mrd": DiscriminatorInput(target_list=batch.audio_gt, pred_list=pred.audio)
+        }
+    )
 
 
 @torch.no_grad()
@@ -400,7 +396,7 @@ def train_style(batch, model, train, probing) -> Tuple[LossLog, Optional[torch.T
         log.add_loss("energy", torch.nn.functional.smooth_l1_loss(energy, pred_energy))
         train.accelerator.backward(log.backwards_loss())
 
-    return log.detach(), None, None
+    return log.detach(), None
 
 
 @torch.no_grad()
@@ -483,7 +479,7 @@ def train_duration(
     log.add_loss("duration", loss_cdw)
     train.accelerator.backward(log.backwards_loss())
 
-    return log.detach(), None, None
+    return log.detach(), None
 
 
 @torch.no_grad()
@@ -593,13 +589,6 @@ def train_joint(batch, model, train, probing) -> Tuple[LossLog, Optional[torch.T
         train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
         print_gpu_vram("stft_loss")
         log.add_loss(
-            "generator",
-            train.generator_loss(
-                target_list=target_fft, pred_list=pred_fft, used=["mrd"]
-            ).mean(),
-        )
-        print_gpu_vram("generator_loss")
-        log.add_loss(
             "slm",
             train.wavlm_loss(batch.audio_gt.detach(), pred.audio),
         )
@@ -624,9 +613,11 @@ def train_joint(batch, model, train, probing) -> Tuple[LossLog, Optional[torch.T
 
     return (
         log.detach(),  # None, None
-        detach_all(target_fft),
-        detach_all(pred_fft),
-    )  # pred.audio.detach()
+        {
+            "mpd": DiscriminatorInput(target_list=target_fft, pred_list=pred_fft),
+            "mrd": DiscriminatorInput(target_list=batch.audio_gt, pred_list=pred.audio)
+        }
+    )
 
 
 @torch.no_grad()
@@ -676,7 +667,7 @@ stages["joint"] = StageType(
         "speech_predictor",
     ],
     eval_models=["pe_mel_style_encoder"],
-    discriminators=["mrd"],
+    discriminators=["mrd", "mpd"],
     # discriminators=[],
     inputs=[
         "text",
@@ -689,14 +680,6 @@ stages["joint"] = StageType(
 
 
 #########################
-
-
-def detach_all(spec_list):
-    result = []
-    for item in spec_list:
-        result.append(item.detach())
-    return result
-
 
 @torch.no_grad()
 def calculate_mel(audio, to_mel, mean, std):

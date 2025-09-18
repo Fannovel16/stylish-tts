@@ -10,8 +10,6 @@ logger = logging.getLogger(__name__)
 logical_step_limit = 10000
 logical_step_warmup = 0
 
-discriminators = {"mrd"}
-
 
 class MultiOptimizer:
     def __init__(
@@ -29,13 +27,13 @@ class MultiOptimizer:
     def prepare(self, accelerator):
         for key in self.optimizers.keys():
             self.optimizers[key] = accelerator.prepare(self.optimizers[key])
-            if key not in discriminators:
+            if key not in self.discriminator_loss.discriminators:
                 self.schedulers[key] = accelerator.prepare(self.schedulers[key])
         accelerator.register_for_checkpointing(self.discriminator_loss)
 
     def reset_lr(self, stage_name, train):
         for key in train.model.keys():
-            if key not in discriminators:
+            if key not in self.discriminator_loss.discriminators:
                 lr, _, _ = calculate_lr(key, stage_name, train=train)
                 for param_group in self.optimizers[key].param_groups:
                     if isinstance(param_group["lr"], torch.Tensor):
@@ -55,7 +53,7 @@ class MultiOptimizer:
         gen_lr = self.optimizers["speech_predictor"].param_groups[0]["lr"]
         if isinstance(gen_lr, torch.Tensor):
             gen_lr = gen_lr.item()
-        for key in discriminators:
+        for key in self.discriminator_loss.discriminators:
             multiplier = self.discriminator_loss.get_disc_lr_multiplier(key)
             lr = gen_lr * multiplier
             for param_group in self.optimizers[key].param_groups:
@@ -68,7 +66,7 @@ class MultiOptimizer:
         lr = self.optimizers["speech_predictor"].param_groups[0]["lr"]
         if isinstance(lr, torch.Tensor):
             lr = lr.item()
-        for key in discriminators:
+        for key in self.discriminator_loss.discriminators:
             # self.discriminator_loss.discriminators[key].last_loss = 0.5
             for param_group in self.optimizers[key].param_groups:
                 if isinstance(param_group["lr"], torch.Tensor):
@@ -98,7 +96,7 @@ class MultiOptimizer:
         plateau = 0.9
         logical_step = min(logical_step, logical_step_limit * plateau)
         for key in self.keys:
-            if key not in discriminators:
+            if key not in self.discriminator_loss.discriminators:
                 self.schedulers[key].scheduler.last_epoch = logical_step
                 self.schedulers[key].step()
 
@@ -115,7 +113,7 @@ def build_optimizer(stage_name: str, *, train):
             betas=betas,
             eps=1e-9,
         )
-        if key not in discriminators:
+        if key not in train.discriminator_loss.discriminators:
             schedulers[key] = transformers.get_cosine_schedule_with_warmup(
                 optim[key],
                 num_warmup_steps=logical_step_warmup,

@@ -302,7 +302,8 @@ def convert(config_path, model_config_path, duration, speech, checkpoint):
         model[key] = accelerator.prepare(model[key])
         model[key].to(config.training.device)
 
-    disc_loss = DiscriminatorLoss(mrd=model.mrd)
+    # Discriminator loss log is not important for ONNX
+    disc_loss = DiscriminatorLoss()
 
     from stylish_tts.train.train_context import NormalizationStats
     norm = NormalizationStats()
