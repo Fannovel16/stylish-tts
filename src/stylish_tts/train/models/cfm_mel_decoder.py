@@ -3,7 +3,7 @@ import torch
 import torch
 from torch.nn.utils.parametrizations import weight_norm
 from .ada_norm import AdaptiveDecoderBlock
-from .conv_next import BasicConvNeXtBlock
+from .generator import ConvNeXtBlock
 import torch.nn.functional as F
 import math
 
@@ -56,9 +56,7 @@ class CfmMelDecoder(torch.nn.Module):
         )
         self.decode = torch.nn.ModuleList(
             [
-                BasicConvNeXtBlock(
-                    hidden_dim + residual_dim + 2, (hidden_dim + residual_dim + 2) * 4
-                )
+                ConvNeXtBlock(hidden_dim + residual_dim + 2, hidden_dim * 4, style_dim)
                 for _ in range(8)
             ]
         )
@@ -93,7 +91,7 @@ class CfmMelDecoder(torch.nn.Module):
 
         for block, proj in zip(self.decode, self.decode_proj):
             x = torch.cat([x, asr_res, F0, N], axis=1)
-            x = block(x, s, mask=mask)
+            x = block(x, s)
             x = proj(x)
 
         return self.output_proj(x)
