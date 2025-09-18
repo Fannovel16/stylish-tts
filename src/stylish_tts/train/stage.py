@@ -17,6 +17,7 @@ from stylish_tts.train.utils import (
     plot_spectrogram_to_figure,
     plot_mel_signed_difference_to_figure,
 )
+from stylish_tts.train.losses import DiscriminatorInput
 
 
 def detach_all(spec_list):
@@ -129,7 +130,12 @@ class Stage:
             # audio = audio.detach()
             train.stage.optimizer.zero_grad()
             d_loss = train.discriminator_loss(
-                **{k: detach_all(v) for k, v in disc_inputs.items()}
+                **{
+                    k: DiscriminatorInput(
+                        detach_all(v.target_list), detach_all(v.pred_list)
+                    )
+                    for k, v in disc_inputs.items()
+                }
             )
             train.accelerator.backward(d_loss * math.sqrt(batch.text.shape[0]))
             optimizer_step(self.optimizer, config.discriminators)
