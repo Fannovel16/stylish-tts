@@ -133,7 +133,7 @@ def train_acoustic(
 ) -> Tuple[LossLog, Optional[torch.Tensor]]:
     with train.accelerator.autocast():
         print_gpu_vram("init")
-        mel, _ = calculate_mel(
+        mel, mel_length = calculate_mel(
             batch.audio_gt,
             train.to_mel,
             train.normalization.mel_log_mean,
@@ -146,7 +146,7 @@ def train_acoustic(
                 train.normalization.mel_log_std,
             ).squeeze(1)
         pred = model.speech_predictor(
-            batch.text, batch.text_length, batch.alignment, batch.pitch, energy
+            mel, mel_length, batch.alignment, batch.pitch, energy
         )
         pe_text_encoding, _, _ = model.pe_text_encoder(batch.text, batch.text_length)
         pe_mel_style = model.pe_mel_style_encoder(mel.unsqueeze(1))
@@ -188,14 +188,13 @@ def train_acoustic(
         log.detach(),  # None, None
         {
             "mrd": DiscriminatorInput(target_list=target_fft, pred_list=pred_fft),
-            "mpd": DiscriminatorInput(target_list=batch.audio_gt, pred_list=pred.audio),
         },
     )
 
 
 @torch.no_grad()
 def validate_acoustic(batch, train):
-    mel, _ = calculate_mel(
+    mel, mel_length = calculate_mel(
         batch.audio_gt,
         train.to_mel,
         train.normalization.mel_log_mean,
@@ -212,7 +211,7 @@ def validate_acoustic(batch, train):
         pe_text_encoding, batch.text_length, batch.alignment, pe_mel_style
     )
     pred = train.model.speech_predictor(
-        batch.text, batch.text_length, batch.alignment, batch.pitch, energy
+        mel, mel_length, batch.alignment, batch.pitch, energy
     )
     log = build_loss_log(train)
     target_spec, pred_spec, target_phase, pred_phase, target_fft, pred_fft = (
@@ -242,7 +241,7 @@ stages["acoustic"] = StageType(
     ],
     eval_models=[],
     # discriminators=[],
-    discriminators=["mrd", "mpd"],
+    discriminators=["mrd"],
     inputs=[
         "text",
         "text_length",
@@ -300,7 +299,6 @@ def train_textual(
         log.detach(),  # None, None
         {
             "mrd": DiscriminatorInput(target_list=target_fft, pred_list=pred_fft),
-            "mpd": DiscriminatorInput(target_list=batch.audio_gt, pred_list=pred.audio),
         },
     )
 
@@ -615,7 +613,6 @@ def train_joint(batch, model, train, probing) -> Tuple[LossLog, Optional[torch.T
         log.detach(),  # None, None
         {
             "mrd": DiscriminatorInput(target_list=target_fft, pred_list=pred_fft),
-            "mpd": DiscriminatorInput(target_list=batch.audio_gt, pred_list=pred.audio),
         },
     )
 
@@ -667,7 +664,7 @@ stages["joint"] = StageType(
         "speech_predictor",
     ],
     eval_models=["pe_mel_style_encoder"],
-    discriminators=["mrd", "mpd"],
+    discriminators=["mrd"],
     # discriminators=[],
     inputs=[
         "text",
