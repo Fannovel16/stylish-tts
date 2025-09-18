@@ -751,6 +751,7 @@ stages["cfm_mel"] = StageType(
     validate_fn=validate_cfm_mel,
     train_models=[
         "cfm_mel_decoder",
+        "hubert_encoder",
     ],
     eval_models=[],
     # discriminators=[],
