@@ -6,9 +6,10 @@ from .ada_norm import AdaptiveDecoderBlock
 from .generator import ConvNeXtBlock
 import torch.nn.functional as F
 import math
+import torch.nn as nn
 
 
-class SinusoidalPosEmb(torch.nn.Module):
+class SinusoidalPosEmb(nn.Module):
     def __init__(self, dim):
         super().__init__()
         self.dim = dim
@@ -26,7 +27,7 @@ class SinusoidalPosEmb(torch.nn.Module):
         return emb
 
 
-class CfmMelDecoder(torch.nn.Module):
+class CfmMelDecoder(nn.Module):
     def __init__(
         self,
         *,
@@ -46,44 +47,41 @@ class CfmMelDecoder(torch.nn.Module):
             style_dim=style_dim,
         )
         self.F0_conv = weight_norm(
-            torch.nn.Conv1d(1, 1, kernel_size=3, stride=1, groups=1, padding=1)
+            nn.Conv1d(1, 1, kernel_size=3, stride=1, groups=1, padding=1)
         )
         self.N_conv = weight_norm(
-            torch.nn.Conv1d(1, 1, kernel_size=3, stride=1, groups=1, padding=1)
+            nn.Conv1d(1, 1, kernel_size=3, stride=1, groups=1, padding=1)
         )
-        self.asr_res = torch.nn.Sequential(
-            weight_norm(torch.nn.Conv1d(asr_dim, residual_dim, kernel_size=1))
+        self.asr_res = nn.Sequential(
+            weight_norm(nn.Conv1d(asr_dim, residual_dim, kernel_size=1))
         )
-        self.decode = torch.nn.ModuleList(
+        self.decode = nn.ModuleList(
             [
                 ConvNeXtBlock(hidden_dim + residual_dim + 2, hidden_dim * 4, style_dim)
                 for _ in range(8)
             ]
         )
-        self.decode_proj = torch.nn.ModuleList(
-            [
-                torch.nn.Conv1d(hidden_dim + residual_dim + 2, hidden_dim, 1)
-                for _ in range(8)
-            ]
+        self.decode_proj = nn.ModuleList(
+            [nn.Conv1d(hidden_dim + residual_dim + 2, hidden_dim, 1) for _ in range(8)]
         )
-        self.output_proj = torch.nn.Conv1d(hidden_dim, feat_dim, 1)
+        self.output_proj = nn.Conv1d(hidden_dim, feat_dim, 1)
 
         self.sampler = CfmSampler(self._forward)
-        self.spk_emb = torch.nn.Sequential(
-            torch.nn.Linear(spk_dim, hidden_dim),
-            torch.nn.SiLU(),
-            torch.nn.Linear(hidden_dim, style_dim),
+        self.spk_emb = nn.Sequential(
+            nn.Linear(spk_dim, hidden_dim),
+            nn.SiLU(),
+            nn.Linear(hidden_dim, style_dim),
         )
-        self.time_emb = torch.nn.Sequential(
+        self.time_emb = nn.Sequential(
             SinusoidalPosEmb(hidden_dim),
-            torch.nn.Linear(hidden_dim, hidden_dim * 4),
-            torch.nn.SiLU(),
-            torch.nn.Linear(hidden_dim * 4, style_dim),
+            nn.Linear(hidden_dim, hidden_dim * 4),
+            nn.SiLU(),
+            nn.Linear(hidden_dim * 4, style_dim),
         )
 
     def _forward(self, x, asr, F0_curve, N, spk_emb, t, mask=None):
-        F0 = self.F0_conv(F0_curve.unsqueeze(1))
-        N = self.N_conv(N.unsqueeze(1))
+        F0 = self.F0_conv(F.interpolate(F0_curve.unsqueeze(1), x.shape[-1]))
+        N = self.N_conv(F.interpolate(N.unsqueeze(1), x.shape[-1]))
         s = self.spk_emb(spk_emb) + self.time_emb(t)
         x = self.encode(torch.cat([x, asr, F0, N], axis=1), s)
 
@@ -118,7 +116,7 @@ class CfmMelDecoder(torch.nn.Module):
         return loss
 
 
-class CfmSampler(torch.nn.Module):
+class CfmSampler(nn.Module):
     def __init__(
         self,
         estimator,
