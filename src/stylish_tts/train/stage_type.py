@@ -711,7 +711,6 @@ def train_cfm_mel(
             )
             energy = log_norm(normed_mel.unsqueeze(1), mean, std).squeeze(1)
             phones, spk_emb = pred_ssl_features(train, batch, mel.shape[-1])
-        phones = train.model.hubert_encoder(phones, mel_length)
         # During training flow-matching, the target always has a little bit of noise
         # Use true ground truth audio will make the disc too overpower (theoritically)
         pred_normed_mel, target_normed_mel = model.cfm_mel_decoder.compute_pred_target(

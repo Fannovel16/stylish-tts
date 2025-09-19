@@ -64,7 +64,7 @@ def build_model(model_config: ModelConfig):
 
     cfm_mel_decoder = CfmMelDecoder(
         feat_dim=model_config.n_mels,
-        asr_dim=model_config.inter_dim,
+        asr_dim=model_config.hubert.hidden_dim,
         spk_dim=model_config.speaker_embedder.hidden_dim,
         style_dim=model_config.style_dim,
         hidden_dim=model_config.decoder.hidden_dim,
