@@ -66,7 +66,7 @@ class CfmMelDecoder(nn.Module):
         )
         self.output_proj = nn.Conv1d(hidden_dim, feat_dim, 1)
 
-        self.sampler = CfmSampler(self._forward)
+        self.sampler = CfmSampler(self._forward, non_drop_conds=["spk_emb"])
         self.spk_emb = nn.Sequential(
             nn.Linear(spk_dim, hidden_dim),
             nn.SiLU(),
@@ -119,13 +119,20 @@ class CfmSampler(nn.Module):
     def __init__(
         self,
         estimator,
+        guidance_w=0.7,
+        cond_drop_prob=0.2,
+        non_drop_conds=[],
         sigma_min=1e-4,
     ):
         """
+        A versatile implementation of Model-Guidance Conditional Flow Matching based on https://arxiv.org/pdf/2504.20334
         The estimator's forward must have keyword arguments t (timestep) and mask
         """
         super().__init__()
         self.estimator = estimator
+        self.guidance_w = guidance_w
+        self.cond_drop_prob = cond_drop_prob
+        self.non_drop_conds = non_drop_conds
         self.sigma_min = sigma_min
 
     @torch.inference_mode()
@@ -170,7 +177,7 @@ class CfmSampler(nn.Module):
         return x
 
     def compute_pred_target(self, x1, mask, **estimator_args):
-        """Computes prediction and target
+        """Computes prediction and target.
 
         Args:
             x1 (torch.Tensor): Target
@@ -192,6 +199,27 @@ class CfmSampler(nn.Module):
         y = (1 - (1 - self.sigma_min) * t) * z + t * x1
         u = x1 - (1 - self.sigma_min) * z
 
-        pred = self.estimator(y, t=t.squeeze(), mask=mask, **estimator_args)
-        target = u
+        cond_args, uncond_args = {}, {}
+        for k, arg in estimator_args.items():
+            cond, uncond = arg, arg
+            if isinstance(arg, torch.Tensor):
+                if k not in self.non_drop_conds:
+                    drop_mask = (
+                        torch.rand(
+                            [b] + [1] * (cond.ndim - 1),
+                            device=x1.device,
+                            dtype=x1.dtype,
+                        )
+                        > self.cond_drop_prob
+                    )
+                    cond = cond * drop_mask
+                    uncond = torch.zeros_like(cond)
+            cond_args[k] = cond
+            uncond_args[k] = uncond
+
+        v_cond = self.estimator(y, t=t.squeeze(), mask=mask, **cond_args)
+        v_uncond = self.estimator(y, t=t.squeeze(), mask=mask, **uncond_args)
+        delta_stop_grad = torch.detach(v_cond - v_uncond)
+        v_cfg = v_cond + self.guidance_w * delta_stop_grad
+        pred, target = v_cfg, u
         return pred, target
