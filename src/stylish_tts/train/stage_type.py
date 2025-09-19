@@ -732,7 +732,6 @@ def validate_cfm_mel(batch, train):
     phones = train.model.hubert_encoder(phones, mel_length)
     print_gpu_vram("predicted")
     pred_mel = train.model.cfm_mel_decoder(
-        torch.rand_like(mel),
         phones,
         batch.pitch,
         energy,
