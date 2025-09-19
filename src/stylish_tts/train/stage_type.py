@@ -745,14 +745,13 @@ def validate_cfm_mel(batch, train):
         )
         energy = log_norm(normed_mel.unsqueeze(1), mean, std).squeeze(1)
         phones, spk_emb = pred_ssl_features(train, batch, mel.shape[-1])
-    phones = train.model.hubert_encoder(phones, mel_length)
     pred_normed_mel = train.model.cfm_mel_decoder(
         phones,
         batch.pitch,
         energy,
         spk_emb,
         n_timesteps=20,
-        temperature=1,
+        temperature=0.3,
     )
     audio_gt, audio_pred = train.vocos.decode(mel), train.vocos.decode(
         (pred_normed_mel * std) + mean
