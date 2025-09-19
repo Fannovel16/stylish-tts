@@ -739,11 +739,11 @@ def validate_cfm_mel(batch, train):
         n_timesteps=10,
         temperature=1,
     )
-    audio_pred = train.vocos.decode(mel)
+    audio_gt, audio_pred = train.vocos.decode(mel), train.vocos.decode(pred_mel)
     log = build_loss_log(train)
     log.add_loss("mel_l2", F.mse_loss(pred_mel, mel))
     target_spec, pred_spec, target_phase, pred_phase, target_fft, pred_fft = (
-        train.multi_spectrogram(target=batch.audio_gt, pred=audio_pred)
+        train.multi_spectrogram(target=audio_gt, pred=audio_pred)
     )
     train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
     return log, batch.alignment[0], make_list(audio_pred.unsqueeze(1)), batch.audio_gt
