@@ -149,7 +149,7 @@ class CfmSampler(torch.nn.Module):
                 shape: (batch_size, n_feats, mel_timesteps)
         """
         z = z * temperature
-        t_span = torch.linspace(0, 1, n_timesteps + 1, device=mask.device)
+        t_span = torch.linspace(0, 1, n_timesteps + 1, device=z.device)
         return self.solve_euler(z, t_span=t_span, mask=mask, **estimator_args)
 
     def solve_euler(self, x, t_span, mask, **estimator_args):

@@ -693,18 +693,18 @@ def train_cfm_mel(
 ) -> Tuple[LossLog, Optional[torch.Tensor]]:
     with train.accelerator.autocast():
         print_gpu_vram("init")
-        mel, mel_length = calculate_mel(
-            batch.audio_gt,
-            train.to_mel,
-            train.normalization.mel_log_mean,
-            train.normalization.mel_log_std,
+        # mel, mel_length = calculate_mel(
+        #     batch.audio_gt,
+        #     train.to_mel,
+        #     train.normalization.mel_log_mean,
+        #     train.normalization.mel_log_std,
+        # )
+        mel = train.vocos.feature_extractor(batch.audio_gt)
+        mel_length = torch.full(
+            [mel.shape[0]], mel.shape[2], dtype=torch.long, device=mel.device
         )
         with torch.no_grad():
-            energy = log_norm(
-                mel.unsqueeze(1),
-                train.normalization.mel_log_mean,
-                train.normalization.mel_log_std,
-            ).squeeze(1)
+            energy = log_norm(mel.unsqueeze(1), 0, 1).squeeze(1)
         phones, spk_emb = pred_ssl_features(train, batch, mel.shape[-1])
         phones = model.hubert_encoder(phones, mel_length)
         print_gpu_vram("predicted")
@@ -722,27 +722,32 @@ def train_cfm_mel(
 
 @torch.no_grad()
 def validate_cfm_mel(batch, train):
-    mel, mel_length = calculate_mel(
-        batch.audio_gt,
-        train.to_mel,
-        train.normalization.mel_log_mean,
-        train.normalization.mel_log_std,
+    mel = train.vocos.feature_extractor(batch.audio_gt)
+    mel_length = torch.full(
+        [mel.shape[0]], mel.shape[2], dtype=torch.long, device=mel.device
     )
     with torch.no_grad():
-        energy = log_norm(
-            mel.unsqueeze(1),
-            train.normalization.mel_log_mean,
-            train.normalization.mel_log_std,
-        ).squeeze(1)
+        energy = log_norm(mel.unsqueeze(1), 0, 1).squeeze(1)
     phones, spk_emb = pred_ssl_features(train, batch, mel.shape[-1])
     phones = train.model.hubert_encoder(phones, mel_length)
     print_gpu_vram("predicted")
     pred_mel = train.model.cfm_mel_decoder(
-        phones, batch.pitch, energy, spk_emb, n_timesteps=10, temperature=1
+        torch.rand_like(mel),
+        phones,
+        batch.pitch,
+        energy,
+        spk_emb,
+        n_timesteps=10,
+        temperature=1,
     )
+    audio_pred = train.vocos.decode(mel)
     log = build_loss_log(train)
     log.add_loss("mel_l2", F.mse_loss(pred_mel, mel))
-    return log, None, None, None
+    target_spec, pred_spec, target_phase, pred_phase, target_fft, pred_fft = (
+        train.multi_spectrogram(target=batch.audio_gt, pred=audio_pred)
+    )
+    train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
+    return log, batch.alignment[0], make_list(audio_pred.unsqueeze(1)), batch.audio_gt
 
 
 stages["cfm_mel"] = StageType(

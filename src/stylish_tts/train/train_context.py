@@ -23,6 +23,7 @@ from stylish_tts.train.multi_spectrogram import MultiSpectrogram
 from pathlib import Path
 import traceback
 from stylish_tts.train.models.ssl import AdaptiveHubert, SpeakerEmbeddingModel
+from vocos import Vocos
 
 
 class Manifest:
@@ -173,6 +174,11 @@ class TrainContext:
         self.speaker_embedder = SpeakerEmbeddingModel(
             self.model_config.sample_rate, self.config.training.device
         ).eval()
+        self.vocos = (
+            Vocos.from_pretrained("charactr/vocos-mel-24khz")
+            .to(self.config.training.device)
+            .eval()
+        )
 
     def reset_out_dir(self, stage_name):
         self.out_dir = osp.join(self.base_output_dir, stage_name)
