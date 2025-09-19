@@ -743,7 +743,7 @@ def validate_cfm_mel(batch, train):
         batch.pitch,
         energy,
         spk_emb,
-        n_timesteps=10,
+        n_timesteps=20,
         temperature=1,
     )
     pred_mel = (pred_normed_mel * std) + mean
