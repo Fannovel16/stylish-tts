@@ -110,7 +110,7 @@ class CfmMelDecoder(nn.Module):
         )
 
     def compute_pred_target(self, asr, F0_curve, N, spk_emb, x1):
-        return self.sampler.compute_loss(
+        return self.sampler.compute_pred_target(
             x1, None, asr=asr, F0_curve=F0_curve, N=N, spk_emb=spk_emb
         )
 
