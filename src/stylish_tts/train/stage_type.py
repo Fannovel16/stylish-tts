@@ -732,12 +732,7 @@ def train_cfm_mel(
         train.accelerator.backward(log.backwards_loss())
         print_gpu_vram("backward")
 
-    return (
-        log.detach(),
-        {
-            "mrd": DiscriminatorInput(target_list=target_fft, pred_list=pred_fft),
-        },
-    )
+    return (log.detach(), None)
 
 
 @torch.no_grad()
@@ -781,7 +776,7 @@ stages["cfm_mel"] = StageType(
         "hubert_encoder",
     ],
     eval_models=[],
-    discriminators=["mrd"],
+    discriminators=[],
     inputs=[
         "text",
         "text_length",
