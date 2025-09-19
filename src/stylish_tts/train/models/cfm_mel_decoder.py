@@ -109,11 +109,10 @@ class CfmMelDecoder(nn.Module):
             spk_emb=spk_emb,
         )
 
-    def compute_loss(self, asr, F0_curve, N, spk_emb, x1):
-        loss, _ = self.sampler.compute_loss(
+    def compute_pred_target(self, asr, F0_curve, N, spk_emb, x1):
+        return self.sampler.compute_loss(
             x1, None, asr=asr, F0_curve=F0_curve, N=N, spk_emb=spk_emb
         )
-        return loss
 
 
 class CfmSampler(nn.Module):
@@ -170,16 +169,17 @@ class CfmSampler(nn.Module):
                 dt = t_span[step + 1] - t
         return x
 
-    def compute_loss(self, x1, mask, **estimator_args):
-        """Computes diffusion loss
+    def compute_pred_target(self, x1, mask, **estimator_args):
+        """Computes prediction and target
 
         Args:
             x1 (torch.Tensor): Target
                 shape: (batch_size, n_feats, mel_timesteps)
             **estimator_args (keyword arguments): Argument passing to the estimator.
         Returns:
-            loss: conditional flow matching loss
-            y: conditional flow
+            pred: (torch.Tensor): Prediction
+                shape: (batch_size, n_feats, mel_timesteps)
+            target: (torch.Tensor): Target of Flow Matching
                 shape: (batch_size, n_feats, mel_timesteps)
         """
         b, _, t = x1.shape
@@ -192,14 +192,6 @@ class CfmSampler(nn.Module):
         y = (1 - (1 - self.sigma_min) * t) * z + t * x1
         u = x1 - (1 - self.sigma_min) * z
 
-        if mask is not None:
-            loss = F.mse_loss(
-                self.estimator(y, t=t.squeeze(), mask=mask, **estimator_args),
-                u,
-                reduction="sum",
-            ) / (torch.sum(mask) * u.shape[1])
-        else:
-            loss = F.mse_loss(
-                self.estimator(y, t=t.squeeze(), mask=mask, **estimator_args), u
-            )
-        return loss, y
+        pred = self.estimator(y, t=t.squeeze(), mask=mask, **estimator_args)
+        target = u
+        return pred, target

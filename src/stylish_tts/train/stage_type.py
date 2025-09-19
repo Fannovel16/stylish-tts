@@ -701,21 +701,24 @@ def train_cfm_mel(
         # )
         mean, std = train.normalization.mel_log_mean, train.normalization.mel_log_std
         mel = train.vocos.feature_extractor(batch.audio_gt)
-        norm_mel = (mel - mean) / std
+        normed_mel = (mel - mean) / std
         mel_length = torch.full(
-            [mel.shape[0]], mel.shape[2], dtype=torch.long, device=mel.device
+            [normed_mel.shape[0]],
+            normed_mel.shape[2],
+            dtype=torch.long,
+            device=normed_mel.device,
         )
         with torch.no_grad():
-            energy = log_norm(norm_mel.unsqueeze(1), 0, 1).squeeze(1)
-        phones, spk_emb = pred_ssl_features(train, batch, mel.shape[-1])
+            energy = log_norm(normed_mel.unsqueeze(1), mean, std).squeeze(1)
+        phones, spk_emb = pred_ssl_features(train, batch, normed_mel.shape[-1])
         phones = model.hubert_encoder(phones, mel_length)
         print_gpu_vram("predicted")
-        mel_l2_loss = model.cfm_mel_decoder.compute_loss(
-            phones, batch.pitch, energy, spk_emb, norm_mel
+        pred_normed_mel, target_normed_mel = model.cfm_mel_decoder.compute_pred_target(
+            phones, batch.pitch, energy, spk_emb, normed_mel
         )
         train.stage.optimizer.zero_grad()
         log = build_loss_log(train)
-        log.add_loss("mel_l2", mel_l2_loss)
+        log.add_loss("mel_l2", F.mse_loss(pred_normed_mel, target_normed_mel))
         train.accelerator.backward(log.backwards_loss())
         print_gpu_vram("backward")
 
@@ -726,16 +729,16 @@ def train_cfm_mel(
 def validate_cfm_mel(batch, train):
     mean, std = train.normalization.mel_log_mean, train.normalization.mel_log_std
     mel = train.vocos.feature_extractor(batch.audio_gt)
-    norm_mel = (mel - mean) / std
+    normed_mel = (mel - mean) / std
     mel_length = torch.full(
         [mel.shape[0]], mel.shape[2], dtype=torch.long, device=mel.device
     )
     with torch.no_grad():
-        energy = log_norm(mel.unsqueeze(1), 0, 1).squeeze(1)
+        energy = log_norm(normed_mel.unsqueeze(1), mean, std).squeeze(1)
     phones, spk_emb = pred_ssl_features(train, batch, mel.shape[-1])
     phones = train.model.hubert_encoder(phones, mel_length)
     print_gpu_vram("predicted")
-    pred_norm_mel = train.model.cfm_mel_decoder(
+    pred_normed_mel = train.model.cfm_mel_decoder(
         phones,
         batch.pitch,
         energy,
@@ -743,10 +746,10 @@ def validate_cfm_mel(batch, train):
         n_timesteps=10,
         temperature=1,
     )
-    pred_mel = (pred_norm_mel * std) + mean
+    pred_mel = (pred_normed_mel * std) + mean
     audio_gt, audio_pred = train.vocos.decode(mel), train.vocos.decode(pred_mel)
     log = build_loss_log(train)
-    log.add_loss("mel_l2", F.mse_loss(pred_norm_mel, norm_mel))
+    log.add_loss("mel_l2", F.mse_loss(pred_normed_mel, normed_mel))
     target_spec, pred_spec, target_phase, pred_phase, target_fft, pred_fft = (
         train.multi_spectrogram(target=audio_gt, pred=audio_pred)
     )
