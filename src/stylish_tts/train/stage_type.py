@@ -717,8 +717,8 @@ def train_cfm_mel(
         pred_normed_mel, target_normed_mel = model.cfm_mel_decoder.compute_pred_target(
             phones, batch.pitch, energy, spk_emb, normed_mel
         )
-        audio_resynth = train.vocos.decode((pred_normed_mel * std) + mean)
-        audio_pred = train.vocos.decode((target_normed_mel * std) + mean)
+        audio_resynth = train.vocos.decode(mel)
+        audio_pred = train.vocos.decode((pred_normed_mel * std) + mean)
         print_gpu_vram("predicted")
 
         train.stage.optimizer.zero_grad()
@@ -755,8 +755,9 @@ def validate_cfm_mel(batch, train):
         n_timesteps=20,
         temperature=1,
     )
-    pred_mel = (pred_normed_mel * std) + mean
-    audio_gt, audio_pred = train.vocos.decode(mel), train.vocos.decode(pred_mel)
+    audio_gt, audio_pred = train.vocos.decode(mel), train.vocos.decode(
+        (pred_normed_mel * std) + mean
+    )
     print_gpu_vram("predicted")
     log = build_loss_log(train)
     log.add_loss("mel_l2", F.mse_loss(pred_normed_mel, normed_mel))

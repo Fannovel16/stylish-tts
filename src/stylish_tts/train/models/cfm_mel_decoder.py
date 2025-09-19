@@ -176,6 +176,22 @@ class CfmSampler(nn.Module):
                 dt = t_span[step + 1] - t
         return x
 
+    def prepare_cond_uncond(self, x1, **estimator_args):
+        cond_args, uncond_args = {}, {}
+        for k, arg in estimator_args.items():
+            cond, uncond = arg, arg
+            if isinstance(arg, torch.Tensor):
+                if k not in self.non_drop_conds:
+                    drop_mask = (
+                        torch.rand([x1.shape[0]] + [1] * (cond.ndim - 1)).to(x1.device)
+                        > self.cond_drop_prob
+                    )
+                    cond = cond * drop_mask
+                    uncond = torch.zeros_like(cond)
+            cond_args[k] = cond
+            uncond_args[k] = uncond
+        return cond_args, uncond_args
+
     def compute_pred_target(self, x1, mask, **estimator_args):
         """Computes prediction and target.
 
@@ -199,24 +215,7 @@ class CfmSampler(nn.Module):
         y = (1 - (1 - self.sigma_min) * t) * z + t * x1
         u = x1 - (1 - self.sigma_min) * z
 
-        cond_args, uncond_args = {}, {}
-        for k, arg in estimator_args.items():
-            cond, uncond = arg, arg
-            if isinstance(arg, torch.Tensor):
-                if k not in self.non_drop_conds:
-                    drop_mask = (
-                        torch.rand(
-                            [b] + [1] * (cond.ndim - 1),
-                            device=x1.device,
-                            dtype=x1.dtype,
-                        )
-                        > self.cond_drop_prob
-                    )
-                    cond = cond * drop_mask
-                    uncond = torch.zeros_like(cond)
-            cond_args[k] = cond
-            uncond_args[k] = uncond
-
+        cond_args, uncond_args = self.prepare_cond_uncond(x1, **estimator_args)
         v_cond = self.estimator(y, t=t.squeeze(), mask=mask, **cond_args)
         v_uncond = self.estimator(y, t=t.squeeze(), mask=mask, **uncond_args)
         delta_stop_grad = torch.detach(v_cond - v_uncond)
