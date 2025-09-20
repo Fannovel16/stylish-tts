@@ -175,7 +175,7 @@ class CfmMelDecoder(nn.Module):
     def _forward(self, x, asr, F0_curve, N, spk_emb, t, mask=None):
         F0 = self.F0_conv(F.interpolate(F0_curve.unsqueeze(1), x.shape[-1]))
         N = self.N_conv(F.interpolate(N.unsqueeze(1), x.shape[-1]))
-        s = self.cat(self.time_emb(t), self.spk_emb(spk_emb))
+        s = self.concat(self.time_emb(t), self.spk_emb(spk_emb))
 
         x = self.encode(self.concat(x, asr, F0, N), s)
         asr_res = self.asr_res(asr)
