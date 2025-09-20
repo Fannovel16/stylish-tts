@@ -80,7 +80,7 @@ class TrainingPlanConfig(BaseModel):
         default_factory=TrainingStageConfig,
         description="Configuration for joint training of inference models.",
     )
-    cfm_mel: TrainingStageConfig = Field(
+    cfm_hubert_mel: TrainingStageConfig = Field(
         default_factory=TrainingStageConfig,
         description="Configuration for training of Conditional Flow Matching Mel Decoder.",
     )
