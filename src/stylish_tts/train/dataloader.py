@@ -243,7 +243,7 @@ class Collater(object):
                         pred_dur[i] -= 1
                         pred_dur[i + 1] += 1
             alignment = self.train.duration_processor.duration_to_alignment(pred_dur)
-            if self.stage != "alignment":
+            if self.stage != "alignment" and "hubert" not in self.stage:
                 if alignment.shape[1] != mel_length:
                     exit(f"Alignment for segment {path} did not match audio length")
                 alignments[bid, :text_size, :mel_length] = alignment

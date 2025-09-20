@@ -766,7 +766,7 @@ def validate_cfm_mel(batch, train):
     return log, batch.alignment[0], make_list(audio_pred.unsqueeze(1)), batch.audio_gt
 
 
-stages["cfm_mel"] = StageType(
+stages["cfm_hubert_mel"] = StageType(
     next_stage=None,
     train_fn=train_cfm_mel,
     validate_fn=validate_cfm_mel,
