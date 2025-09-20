@@ -711,23 +711,14 @@ def train_cfm_mel(
             )
             energy = log_norm(normed_mel.unsqueeze(1), mean, std).squeeze(1)
             phones, spk_emb = pred_ssl_features(train, batch, mel.shape[-1])
-        # During training flow-matching, the target always has a little bit of noise
-        # Use true ground truth audio will make the disc too overpower (theoritically)
         pred_normed_mel, target_normed_mel = model.cfm_mel_decoder.compute_pred_target(
             phones, batch.pitch, energy, spk_emb, normed_mel
         )
-        audio_resynth = train.vocos.decode(mel)
-        audio_pred = train.vocos.decode((pred_normed_mel * std) + mean)
         print_gpu_vram("predicted")
 
         train.stage.optimizer.zero_grad()
         log = build_loss_log(train)
         log.add_loss("mel_l2", F.mse_loss(pred_normed_mel, target_normed_mel))
-        target_spec, pred_spec, target_phase, pred_phase, target_fft, pred_fft = (
-            train.multi_spectrogram(target=audio_resynth, pred=audio_pred)
-        )
-        train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
-        print_gpu_vram("stft_loss")
         train.accelerator.backward(log.backwards_loss())
         print_gpu_vram("backward")
 
