@@ -9,7 +9,6 @@ import math
 import torch.nn as nn
 import numpy as np
 from einops.layers.torch import Rearrange
-from einops import repeat
 
 
 class SinusoidalPosEmb(nn.Module):
@@ -133,7 +132,7 @@ class CfmMelDecoder(nn.Module):
 
         self.feat_dim = feat_dim
         self.encode = AdaptiveDecoderBlock(
-            dim_in=feat_dim + asr_dim + style_dim + 2,
+            dim_in=feat_dim + asr_dim + 2,
             dim_out=hidden_dim,
             style_dim=style_dim,
         )
@@ -145,7 +144,7 @@ class CfmMelDecoder(nn.Module):
         )
         self.N_conv = weight_norm(nn.Conv1d(1, 1, kernel_size=7, padding=3))
         self.asr_res = nn.Sequential(
-            weight_norm(nn.Conv1d(asr_dim + style_dim, residual_dim, kernel_size=1))
+            weight_norm(nn.Conv1d(asr_dim, residual_dim, kernel_size=1))
         )
         self.decode = nn.ModuleList(
             [
@@ -157,17 +156,17 @@ class CfmMelDecoder(nn.Module):
             [nn.Conv1d(hidden_dim + residual_dim + 2, hidden_dim, 1) for _ in range(8)]
         )
         self.output_proj = nn.Conv1d(hidden_dim, feat_dim, 1)
-        self.sampler = CfmSampler(self._forward)
+        self.sampler = CfmSampler(self._forward, non_drop_conds=["spk_emb"])
         self.spk_emb = nn.Sequential(
             nn.Linear(spk_dim, hidden_dim),
             nn.SiLU(),
-            nn.Linear(hidden_dim, style_dim),
+            nn.Linear(hidden_dim, style_dim // 2),
         )
         self.time_emb = nn.Sequential(
             SinusoidalPosEmb(hidden_dim),
             nn.Linear(hidden_dim, hidden_dim * 4),
             nn.SiLU(),
-            nn.Linear(hidden_dim * 4, style_dim),
+            nn.Linear(hidden_dim * 4, style_dim // 2),
         )
 
     def concat(self, *xs):
@@ -176,11 +175,10 @@ class CfmMelDecoder(nn.Module):
     def _forward(self, x, asr, F0_curve, N, spk_emb, t, mask=None):
         F0 = self.F0_conv(F.interpolate(F0_curve.unsqueeze(1), x.shape[-1]))
         N = self.N_conv(F.interpolate(N.unsqueeze(1), x.shape[-1]))
-        spk_emb = repeat(self.spk_emb(spk_emb), "b c -> b c t", t=x.shape[-1])
-        s = self.time_emb(t)
+        s = self.cat(self.time_emb(t), self.spk_emb(spk_emb))
 
-        x = self.encode(self.concat(x, asr, F0, N, spk_emb), s)
-        asr_res = self.asr_res(self.concat(asr, spk_emb))
+        x = self.encode(self.concat(x, asr, F0, N), s)
+        asr_res = self.asr_res(asr)
         for block, proj in zip(self.decode, self.decode_proj):
             x = block(self.concat(x, asr_res, F0, N), s)
             x = proj(x)
