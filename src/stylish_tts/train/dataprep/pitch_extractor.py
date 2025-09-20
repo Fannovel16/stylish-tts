@@ -122,6 +122,7 @@ def calculate_pitch_pyworld(
 
 
 def calculate_pitch_rmvpe(name, text_raw, wave, sample_rate, hop_length, model, device):
+    frame_count = get_frame_count(get_time_bin(wave.shape[0], hop_length))
     zero_value = -10
     wave_16k = librosa.resample(
         wave, orig_sr=sample_rate, target_sr=16000, res_type="kaiser_best"
