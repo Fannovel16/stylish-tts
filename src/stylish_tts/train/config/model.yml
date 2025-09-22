@@ -70,9 +70,9 @@ hubert:
   hidden_dim: 768
   sr: 16000
 
-# https://github.com/wenet-e2e/wespeaker/blob/58071902625ae6b072befda2932a38e9b38d5f26/wespeaker/models/samresnet.py#L134
+# Stats layer of xvector in CAM++
 speaker_embedder:
-  hidden_dim: 10240
+  hidden_dim: 1024
 
 # speech language model config
 slm:

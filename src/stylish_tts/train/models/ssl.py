@@ -4,7 +4,6 @@ import torchaudio
 from transformers import HubertModel
 from einops import rearrange
 import wespeaker
-from wespeaker.models.samresnet import SimAM_ResNet34_ASP, SimAM_ResNet100_ASP
 import random
 
 
@@ -35,18 +34,12 @@ class AdaptiveHubert(nn.Module):
 class SpeakerEmbeddingModel(nn.Module):
     def __init__(self, model_sr: int, device: str):
         super().__init__()
-        self.model = wespeaker.load_model("vblinkp")
+        self.model = wespeaker.load_model("campplus")
+        self.model.model.xvector.dense = nn.Identity()
         self.model.set_device(device)
         self.device = device
-        # Remove the final projection layer for (theoritically) richer infomation for style encoding
-        if type(self.model.model) not in [SimAM_ResNet34_ASP, SimAM_ResNet100_ASP]:
-            raise NotImplementedError(
-                "Any model arch rather than SimAM-ResNet are not supported."
-            )
-        self.model.model.bottleneck = nn.Identity()
-        self.out_dim = self.model.model.pooling.out_dim
         self.global_sr = model_sr
-        self.max_half = 16000 * 1
+        self.max_half = 16000 * 2
         self.resample = torchaudio.transforms.Resample(
             model_sr, self.model.resample_rate
         )
