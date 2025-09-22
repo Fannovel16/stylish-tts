@@ -38,7 +38,6 @@ class SpeakerEmbeddingModel(nn.Module):
         self.model.model.xvector.dense = nn.Identity()
         self.model.set_device(device)
         self.device = device
-        self.global_sr = model_sr
         self.max_half = 16000 * 2
         self.resample = torchaudio.transforms.Resample(
             model_sr, self.model.resample_rate
@@ -46,10 +45,12 @@ class SpeakerEmbeddingModel(nn.Module):
 
     def forward(self, wave):
         feats = []
-        wave = wave.cpu()
+        wave = self.resample(wave)
         num_batch, num_frames = wave.shape
         middle = (
-            random.randrange(0, num_frames - self.max_half) if num_frames > 2 else 0
+            random.randrange(0, num_frames - self.max_half)
+            if num_frames > 2 * self.max_half
+            else 0
         )
         start, end = max(middle - self.max_half, 0), middle + self.max_half + 1
         for i in range(num_batch):
