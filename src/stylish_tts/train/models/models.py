@@ -66,9 +66,7 @@ def build_model(model_config: ModelConfig):
         feat_dim=model_config.n_mels,
         asr_dim=model_config.hubert.hidden_dim,
         spk_dim=model_config.speaker_embedder.hidden_dim,
-        style_dim=model_config.decoder.hidden_dim // 2,
         hidden_dim=model_config.decoder.hidden_dim,
-        residual_dim=model_config.decoder.residual_dim,
     )
 
     hubert_encoder = HubertEncoder(model_config)

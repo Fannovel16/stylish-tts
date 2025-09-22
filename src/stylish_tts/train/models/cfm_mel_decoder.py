@@ -2,13 +2,15 @@ import torch
 
 import torch
 from torch.nn.utils.parametrizations import weight_norm
-from .ada_norm import AdaptiveDecoderBlock
-from .generator import ConvNeXtBlock
 import torch.nn.functional as F
 import math
 import torch.nn as nn
 import numpy as np
 from einops.layers.torch import Rearrange
+from einops import rearrange, repeat
+from .conv_next import BasicConvNeXtBlock
+from .xut.xut import XUTBackBone
+from .xut.time_emb import TimestepEmbedding
 
 
 class SinusoidalPosEmb(nn.Module):
@@ -117,7 +119,7 @@ class SineGenerator(nn.Module):
         return self.merge(sine_waves)
 
 
-class CfmMelDecoder(nn.Module):
+"""class CfmMelDecoder(nn.Module):
     def __init__(
         self,
         *,
@@ -136,7 +138,7 @@ class CfmMelDecoder(nn.Module):
             dim_out=hidden_dim,
             style_dim=style_dim,
         )
-        self.F0_conv = nn.Sequential(
+        f0_conv = nn.Sequential(
             Rearrange("b c t -> b t c"),
             SineGenerator(24000),
             Rearrange("b t c -> b c t"),
@@ -173,7 +175,7 @@ class CfmMelDecoder(nn.Module):
         return torch.cat(xs, 1)
 
     def _forward(self, x, asr, F0_curve, N, spk_emb, t, mask=None):
-        F0 = self.F0_conv(F.interpolate(F0_curve.unsqueeze(1), x.shape[-1]))
+        F0 = f0_conv(F.interpolate(F0_curve.unsqueeze(1), x.shape[-1]))
         N = self.N_conv(F.interpolate(N.unsqueeze(1), x.shape[-1]))
         s = self.concat(self.time_emb(t), self.spk_emb(spk_emb))
 
@@ -203,6 +205,163 @@ class CfmMelDecoder(nn.Module):
     def compute_pred_target(self, asr, F0_curve, N, spk_emb, x1):
         return self.sampler.compute_pred_target(
             x1, None, asr=asr, F0_curve=F0_curve, N=N, spk_emb=spk_emb
+        )"""
+
+
+class CfmMelDecoder(nn.Module):
+    def __init__(
+        self,
+        feat_dim=80,
+        asr_dim=768,
+        spk_dim=10000,
+        hidden_dim=512,
+        emb_dim=128,
+        mixer_conv_layers=4,
+        xut_depth=4,
+        xut_heads=8,
+        xut_enc_blocks=1,
+        xut_dec_blocks=2,
+    ):
+        super().__init__()
+        self.time_emb = TimestepEmbedding(hidden_dim)
+        self.f0_bin = 256
+        self.f0_max = torch.tensor(1100.0)
+        self.f0_min = torch.tensor(50.0)
+        self.f0_emb = nn.Embedding(self.f0_bin, emb_dim)
+        self.N_emb = nn.Sequential(
+            Rearrange("b t -> b t 1"),
+            nn.Linear(1, emb_dim * 4),
+            nn.Mish(),
+            nn.Linear(emb_dim * 4, emb_dim),
+        )
+        self.spk_emb = nn.Sequential(
+            nn.Linear(spk_dim, hidden_dim * 2),
+            nn.Mish(),
+            nn.Linear(hidden_dim * 2, hidden_dim),
+        )
+
+        # text encoder + pitch + energy
+        total_ctx_dim = asr_dim + emb_dim + emb_dim
+        self.ctx_mixer = nn.Sequential(
+            Rearrange("b t c -> b c t"),
+            *[
+                BasicConvNeXtBlock(total_ctx_dim, total_ctx_dim * 2)
+                for _ in range(mixer_conv_layers)
+            ],
+            Rearrange("b c t -> b t c"),
+            nn.Linear(total_ctx_dim, hidden_dim),
+        )
+
+        self.backbone = XUTBackBone(
+            dim=hidden_dim,
+            ctx_dim=None,
+            heads=xut_heads,
+            mlp_dim=hidden_dim * 3,
+            pos_dim=1,
+            depth=xut_depth,
+            enc_blocks=xut_enc_blocks,
+            dec_blocks=xut_dec_blocks,
+            use_adaln=True,
+            use_shared_adaln=True,
+        )
+        self.feat_dim = feat_dim
+        self.in_proj = nn.Linear(feat_dim + hidden_dim, hidden_dim)
+        self.out_proj = nn.Linear(hidden_dim, feat_dim)
+        self.hidden_dim = hidden_dim
+        self.build_shared_adaln()
+        self.sampler = CfmSampler(self._forward, non_drop_conds=["spk_emb"])
+
+    def build_shared_adaln(self):
+        dim = self.hidden_dim
+        self.shared_adaln_attn = nn.Sequential(
+            nn.LayerNorm(dim),
+            nn.Linear(dim, dim * 4),
+            nn.Mish(),
+            nn.Linear(dim * 4, dim * 3),
+        )
+        nn.init.constant_(self.shared_adaln_attn[-1].bias, 0)
+        nn.init.constant_(self.shared_adaln_attn[-1].weight, 0)
+        self.shared_adaln_xattn = nn.Sequential(
+            nn.LayerNorm(dim),
+            nn.Linear(dim, dim * 4),
+            nn.Mish(),
+            nn.Linear(dim * 4, dim * 3),
+        )
+        nn.init.constant_(self.shared_adaln_xattn[-1].bias, 0)
+        nn.init.constant_(self.shared_adaln_xattn[-1].weight, 0)
+        self.shared_adaln_ffw = nn.Sequential(
+            nn.LayerNorm(dim),
+            nn.Linear(dim, dim * 4),
+            nn.Mish(),
+            nn.Linear(dim * 4, dim * 3),
+        )
+        nn.init.constant_(self.shared_adaln_ffw[-1].bias, 0)
+
+    def coarse_f0(self, f0):
+        f0_mel_min = 1127 * torch.log(1 + self.f0_min / 700)
+        f0_mel_max = 1127 * torch.log(1 + self.f0_max / 700)
+        f0_mel = 1127.0 * torch.log(1.0 + f0 / 700.0)
+        f0_mel = torch.clip(
+            (f0_mel - f0_mel_min) * (self.f0_bin - 2) / (f0_mel_max - f0_mel_min) + 1,
+            1,
+            self.f0_bin - 1,
+        )
+        out = torch.zeros_like(f0)
+        out[f0 > 0] = f0_mel[f0 > 0]
+        return torch.round(out).to(torch.int)
+
+    def _forward(self, x, asr, F0, N, spk_emb, t, mask=None):
+        x = rearrange(x, "b c t -> b t c")
+        asr = rearrange(asr, "b c t -> b t c")
+        F0, N = self.f0_emb(self.coarse_f0(F0)), self.N_emb(N)
+        ctx = torch.cat([asr, F0, N], dim=-1)
+        ctx = self.ctx_mixer(ctx)
+
+        # Unlike image gen where text embedding and image latent are "short" and different in length
+        # Our inputs are long (12.5 Hz) and equal in time dim
+        # So we use concat at channel dim instead
+        x = self.in_proj(torch.cat([x, ctx], dim=-1))
+
+        # https://github.com/KohakuBlueleaf/HDM/blob/0a3cf7e/src/xut/modules/axial_rope.py#L64
+        pos_map = torch.linspace(-1.0, 1.0, x.shape[1], dtype=x.dtype, device=x.device)
+        pos_map = repeat(pos_map, "t -> b t 1", b=x.shape[0])
+
+        t_emb = self.spk_emb(spk_emb) + self.time_emb(t.unsqueeze(-1))
+        shared_adaln_state = [
+            self.shared_adaln_attn(t_emb).chunk(3, dim=-1),
+            self.shared_adaln_xattn(t_emb).chunk(3, dim=-1),
+            self.shared_adaln_ffw(t_emb).chunk(3, dim=-1),
+        ]
+
+        x = self.backbone(
+            x,
+            ctx=ctx,
+            y=t_emb,
+            pos_map=pos_map,
+            shared_adaln=shared_adaln_state,
+        )
+        x = rearrange(self.out_proj(x), "b t c -> b c t")
+
+        return x
+
+    @torch.inference_mode()
+    def forward(self, asr, F0, N, spk_emb, n_timesteps, temperature):
+        b, _, t = asr.shape
+        z = torch.rand((b, self.feat_dim, t), device=asr.device)
+        return self.sampler(
+            z,
+            None,
+            n_timesteps,
+            temperature,
+            asr=asr,
+            F0=F0,
+            N=N,
+            spk_emb=spk_emb,
+        )
+
+    def compute_pred_target(self, asr, F0, N, spk_emb, x1):
+        return self.sampler.compute_pred_target(
+            x1, None, asr=asr, F0=F0, N=N, spk_emb=spk_emb
         )
 
 

@@ -48,7 +48,7 @@ def count_parameters(model):
     total_params = 0
 
     for name, parameter in model.named_parameters():
-        module = ".".join(name.split(".")[:2])
+        module = ".".join(name.split(".")[:1])
         summary[module] += parameter.numel() / 1_000_000
         total_params += parameter.numel() / 1_000_000
 
@@ -87,8 +87,11 @@ model = Model(
     pe_text_encoder=model.pe_text_encoder,
     pe_text_style_encoder=model.pe_text_style_encoder,
 )
+from stylish_tts.train.models.cfm_mel_decoder import CfmMelDecoder
+
+model = CfmMelDecoder(hidden_dim=512)
 count_parameters(model)
-b, t, c, ph = 1, 10 * 80, 128, 100
+b, t, c, ph = 1, 10 * 80, 768, 100
 import numpy as np
 import psutil
 
@@ -96,16 +99,12 @@ pid = os.getpid()
 python_process = psutil.Process(pid)
 memory_use = python_process.memory_info()[0] / 2.0**30
 args = (
-    torch.randint(
-        0,
-        178,
-        (
-            b,
-            ph,
-        ),
-    ),
-    torch.full((b,), ph),
-    torch.rand(b, ph, t),
+    torch.rand(b, c, t),
+    torch.rand(b, t),
+    torch.rand(b, t) * 500,
+    torch.rand(b, 10000),
+    1,
+    0.3,
 )
 print("memory use:", memory_use)
 ts = []
