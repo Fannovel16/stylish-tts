@@ -330,9 +330,9 @@ class CfmMelDecoder(nn.Module):
         pos_map = torch.linspace(-1.0, 1.0, x.shape[1], dtype=x.dtype, device=x.device)
         pos_map = repeat(pos_map, "t -> b t 1", b=x.shape[0])
 
-        t_emb = rearrange(self.spk_emb(spk_emb), "b c -> b 1 c") + self.time_emb(
-            rearrange(t, "b -> b 1")
-        )
+        spk_emb = rearrange(self.spk_emb(spk_emb), "b c -> b 1 c")
+        t = rearrange(t, "b -> b 1")
+        t_emb = spk_emb + self.time_emb(t)
         shared_adaln_state = [
             self.shared_adaln_attn(t_emb).chunk(3, dim=-1),
             self.shared_adaln_xattn(t_emb).chunk(3, dim=-1),
@@ -381,7 +381,7 @@ class CfmSampler(nn.Module):
     ):
         """
         A versatile implementation of Model-Guidance Conditional Flow Matching based on https://arxiv.org/pdf/2504.20334
-        The estimator's forward must have keyword arguments t (timestep) and mask
+        The estimator's forward must have keyword arguments t (timestep) of shape [b] and mask
         """
         super().__init__()
         self.estimator = estimator
