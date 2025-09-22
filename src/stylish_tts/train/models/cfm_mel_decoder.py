@@ -139,9 +139,9 @@ class SineGenerator(nn.Module):
             style_dim=style_dim,
         )
         f0_conv = nn.Sequential(
-            Rearrange("b c t -> b t c"),
+            Rearrange("b c n -> b n c"),
             SineGenerator(24000),
-            Rearrange("b t c -> b c t"),
+            Rearrange("b n c -> b c n"),
             weight_norm(nn.Conv1d(1, 1, kernel_size=7, padding=3)),
         )
         self.N_conv = weight_norm(nn.Conv1d(1, 1, kernel_size=7, padding=3))
@@ -238,20 +238,20 @@ class CfmMelDecoder(nn.Module):
             nn.Linear(emb_dim * 4, emb_dim),
         )
         self.spk_emb = nn.Sequential(
-            nn.Linear(spk_dim, hidden_dim * 2),
+            nn.Linear(spk_dim, emb_dim * 4),
             nn.Mish(),
-            nn.Linear(hidden_dim * 2, hidden_dim),
+            nn.Linear(emb_dim * 4, emb_dim),
         )
 
-        # text encoder + pitch + energy
-        total_ctx_dim = asr_dim + emb_dim + emb_dim
+        # text encoder + pitch + energy + speaker
+        total_ctx_dim = asr_dim + emb_dim * 3
         self.ctx_mixer = nn.Sequential(
-            Rearrange("b t c -> b c t"),
+            Rearrange("b n c -> b c n"),
             *[
                 BasicConvNeXtBlock(total_ctx_dim, total_ctx_dim * 2)
                 for _ in range(mixer_conv_layers)
             ],
-            Rearrange("b c t -> b t c"),
+            Rearrange("b c n -> b n c"),
             nn.Linear(total_ctx_dim, hidden_dim),
         )
 
@@ -314,25 +314,24 @@ class CfmMelDecoder(nn.Module):
         return torch.round(out).to(torch.int)
 
     def _forward(self, x, asr, F0, N, spk_emb, t, mask=None):
-        x = rearrange(x, "b c t -> b t c")
-        asr = rearrange(asr, "b c t -> b t c")
+        x = rearrange(x, "b c n -> b n c")
+        asr = rearrange(asr, "b c n -> b n c")
         F0 = self.f0_emb(self.coarse_f0(F.interpolate(F0.unsqueeze(1), x.shape[1])))
         N = self.N_emb(F.interpolate(N.unsqueeze(1), x.shape[1]))
-        ctx = torch.cat([asr, F0, N], dim=-1)
+        spk_emb = repeat(self.spk_emb(spk_emb), "b c -> b t c", t=x.shape[1])
+        ctx = torch.cat([asr, F0, N, spk_emb], dim=-1)
         ctx = self.ctx_mixer(ctx)
 
         # Unlike image gen where text embedding and image latent are "short" and different in length
         # Our inputs are long (12.5 Hz) and equal in time dim
-        # So we use concat at channel dim instead
+        # So we use concat an channel dim instead
         x = self.in_proj(torch.cat([x, ctx], dim=-1))
 
         # https://github.com/KohakuBlueleaf/HDM/blob/0a3cf7e/src/xut/modules/axial_rope.py#L64
         pos_map = torch.linspace(-1.0, 1.0, x.shape[1], dtype=x.dtype, device=x.device)
         pos_map = repeat(pos_map, "t -> b t 1", b=x.shape[0])
 
-        spk_emb = rearrange(self.spk_emb(spk_emb), "b c -> b 1 c")
-        t = rearrange(t, "b -> b 1")
-        t_emb = spk_emb + self.time_emb(t)
+        t_emb = self.time_emb(rearrange(t, "b -> b 1"))
         shared_adaln_state = [
             self.shared_adaln_attn(t_emb).chunk(3, dim=-1),
             self.shared_adaln_xattn(t_emb).chunk(3, dim=-1),
@@ -345,7 +344,7 @@ class CfmMelDecoder(nn.Module):
             pos_map=pos_map,
             shared_adaln=shared_adaln_state,
         )
-        x = rearrange(self.out_proj(x), "b t c -> b c t")
+        x = rearrange(self.out_proj(x), "b n c -> b c n")
 
         return x
 
