@@ -41,7 +41,7 @@ class SpeakerEmbeddingModel(nn.Module):
         self.max_half = 16000 * 2
         self.resample = torchaudio.transforms.Resample(
             model_sr, self.model.resample_rate
-        )
+        ).to(device)
 
     def forward(self, wave):
         feats = []
