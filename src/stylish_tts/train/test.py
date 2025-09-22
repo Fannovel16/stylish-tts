@@ -91,7 +91,7 @@ from stylish_tts.train.models.cfm_mel_decoder import CfmMelDecoder
 
 model = CfmMelDecoder(hidden_dim=512)
 count_parameters(model)
-b, t, c, ph = 1, 10 * 80, 768, 100
+b, t, c, ph = 2, 10 * 80, 768, 100
 import numpy as np
 import psutil
 

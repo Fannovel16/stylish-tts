@@ -227,9 +227,12 @@ class CfmMelDecoder(nn.Module):
         self.f0_bin = 256
         self.f0_max = torch.tensor(1100.0)
         self.f0_min = torch.tensor(50.0)
-        self.f0_emb = nn.Embedding(self.f0_bin, emb_dim)
+        self.f0_emb = nn.Sequential(
+            Rearrange("b 1 t -> b t"),
+            nn.Embedding(self.f0_bin, emb_dim),
+        )
         self.N_emb = nn.Sequential(
-            Rearrange("b t -> b t 1"),
+            Rearrange("b 1 t -> b t 1"),
             nn.Linear(1, emb_dim * 4),
             nn.Mish(),
             nn.Linear(emb_dim * 4, emb_dim),
@@ -313,7 +316,8 @@ class CfmMelDecoder(nn.Module):
     def _forward(self, x, asr, F0, N, spk_emb, t, mask=None):
         x = rearrange(x, "b c t -> b t c")
         asr = rearrange(asr, "b c t -> b t c")
-        F0, N = self.f0_emb(self.coarse_f0(F0)), self.N_emb(N)
+        F0 = self.f0_emb(self.coarse_f0(F.interpolate(F0.unsqueeze(1), x.shape[1])))
+        N = self.N_emb(F.interpolate(N.unsqueeze(1), x.shape[1]))
         ctx = torch.cat([asr, F0, N], dim=-1)
         ctx = self.ctx_mixer(ctx)
 
@@ -326,13 +330,14 @@ class CfmMelDecoder(nn.Module):
         pos_map = torch.linspace(-1.0, 1.0, x.shape[1], dtype=x.dtype, device=x.device)
         pos_map = repeat(pos_map, "t -> b t 1", b=x.shape[0])
 
-        t_emb = self.spk_emb(spk_emb) + self.time_emb(t.unsqueeze(-1))
+        t_emb = rearrange(self.spk_emb(spk_emb), "b c -> b 1 c") + self.time_emb(
+            rearrange(t, "b -> b 1")
+        )
         shared_adaln_state = [
             self.shared_adaln_attn(t_emb).chunk(3, dim=-1),
             self.shared_adaln_xattn(t_emb).chunk(3, dim=-1),
             self.shared_adaln_ffw(t_emb).chunk(3, dim=-1),
         ]
-
         x = self.backbone(
             x,
             ctx=ctx,
@@ -419,7 +424,8 @@ class CfmSampler(nn.Module):
         """
         t, _, dt = t_span[0], t_span[-1], t_span[1] - t_span[0]
         for step in range(1, len(t_span)):
-            dphi_dt = self.estimator(x, t=t, mask=mask, **estimator_args)
+            _t = repeat(t.unsqueeze(0), "1 -> b", b=x.shape[0])
+            dphi_dt = self.estimator(x, t=_t, mask=mask, **estimator_args)
             x = x + dt * dphi_dt
             t = t + dt
             if step < len(t_span) - 1:
