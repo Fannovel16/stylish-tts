@@ -89,7 +89,7 @@ model = Model(
 )
 from stylish_tts.train.models.cfm_mel_decoder import CfmMelDecoder
 
-model = CfmMelDecoder(hidden_dim=512)
+model = CfmMelDecoder(hidden_dim=256)
 count_parameters(model)
 b, t, c, ph = 2, 10 * 80, 768, 100
 import numpy as np
@@ -102,7 +102,7 @@ args = (
     torch.rand(b, c, t),
     torch.rand(b, t),
     torch.rand(b, t) * 500,
-    torch.rand(b, 10000),
+    torch.rand(b, 1024),
     1,
     0.3,
 )

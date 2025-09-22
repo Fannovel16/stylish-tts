@@ -213,10 +213,10 @@ class CfmMelDecoder(nn.Module):
         self,
         feat_dim=80,
         asr_dim=768,
-        spk_dim=10000,
-        hidden_dim=512,
+        spk_dim=1024,
+        hidden_dim=256,
         emb_dim=128,
-        mixer_conv_layers=8,
+        prosody_conv_layers=4,
         xut_depth=4,
         xut_heads=8,
         xut_enc_blocks=1,
@@ -243,16 +243,15 @@ class CfmMelDecoder(nn.Module):
             nn.Linear(emb_dim * 4, emb_dim),
         )
 
-        # text encoder + pitch + energy + speaker
-        total_ctx_dim = asr_dim + emb_dim * 3
-        self.ctx_mixer = nn.Sequential(
+        prosody_dim = emb_dim * 3  # pitch + energy + speaker
+        self.prosody_encoder = nn.Sequential(
             Rearrange("b n c -> b c n"),
             *[
-                BasicConvNeXtBlock(total_ctx_dim, total_ctx_dim * 2)
-                for _ in range(mixer_conv_layers)
+                BasicConvNeXtBlock(prosody_dim, prosody_dim * 2)
+                for _ in range(prosody_conv_layers)
             ],
             Rearrange("b c n -> b n c"),
-            nn.Linear(total_ctx_dim, hidden_dim),
+            nn.Linear(prosody_dim, hidden_dim),
         )
 
         self.backbone = XUTBackBone(
@@ -268,7 +267,7 @@ class CfmMelDecoder(nn.Module):
             use_shared_adaln=True,
         )
         self.feat_dim = feat_dim
-        self.in_proj = nn.Linear(feat_dim + hidden_dim, hidden_dim)
+        self.in_proj = nn.Linear(feat_dim + asr_dim + hidden_dim, hidden_dim)
         self.out_proj = nn.Linear(hidden_dim, feat_dim)
         self.hidden_dim = hidden_dim
         self.build_shared_adaln()
@@ -319,13 +318,10 @@ class CfmMelDecoder(nn.Module):
         F0 = self.f0_emb(self.coarse_f0(F.interpolate(F0.unsqueeze(1), x.shape[1])))
         N = self.N_emb(F.interpolate(N.unsqueeze(1), x.shape[1]))
         spk_emb = repeat(self.spk_emb(spk_emb), "b c -> b t c", t=x.shape[1])
-        ctx = torch.cat([asr, F0, N, spk_emb], dim=-1)
-        ctx = self.ctx_mixer(ctx)
 
-        # Unlike image gen where text embedding and image latent are "short" and different in length
-        # Our inputs are long (12.5 Hz) and equal in time dim
-        # So we use concat an channel dim instead
-        x = self.in_proj(torch.cat([x, ctx], dim=-1))
+        prosody = torch.cat([F0, N, spk_emb], dim=-1)
+        prosody = self.prosody_encoder(prosody)
+        x = self.in_proj(torch.cat([x, asr, prosody], dim=-1))
 
         # https://github.com/KohakuBlueleaf/HDM/blob/0a3cf7e/src/xut/modules/axial_rope.py#L64
         pos_map = torch.linspace(-1.0, 1.0, x.shape[1], dtype=x.dtype, device=x.device)
@@ -339,7 +335,6 @@ class CfmMelDecoder(nn.Module):
         ]
         x = self.backbone(
             x,
-            ctx=ctx,
             y=t_emb,
             pos_map=pos_map,
             shared_adaln=shared_adaln_state,
