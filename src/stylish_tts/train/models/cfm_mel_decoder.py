@@ -242,16 +242,11 @@ class CfmMelDecoder(nn.Module):
             nn.Mish(),
             nn.Linear(emb_dim * 4, emb_dim),
         )
-
-        prosody_dim = emb_dim * 3  # pitch + energy + speaker
-        self.prosody_encoder = nn.Sequential(
-            Rearrange("b n c -> b c n"),
-            *[
-                BasicConvNeXtBlock(prosody_dim, prosody_dim * 4)
-                for _ in range(prosody_conv_layers)
-            ],
-            Rearrange("b c n -> b n c"),
-            nn.Linear(prosody_dim, hidden_dim),
+        self.asr_emb = nn.Sequential(
+            Rearrange("b c t -> b t c"),
+            nn.Linear(asr_dim, emb_dim * 4),
+            nn.Mish(),
+            nn.Linear(emb_dim * 4, emb_dim),
         )
 
         self.backbone = XUTBackBone(
@@ -267,7 +262,7 @@ class CfmMelDecoder(nn.Module):
             use_shared_adaln=True,
         )
         self.feat_dim = feat_dim
-        self.in_proj = nn.Linear(feat_dim + asr_dim + hidden_dim, hidden_dim)
+        self.in_proj = nn.Linear(feat_dim + emb_dim * 4, hidden_dim)
         self.out_proj = nn.Linear(hidden_dim, feat_dim)
         self.hidden_dim = hidden_dim
         self.build_shared_adaln()
@@ -314,14 +309,13 @@ class CfmMelDecoder(nn.Module):
 
     def _forward(self, x, asr, F0, N, spk_emb, t, mask=None):
         x = rearrange(x, "b c n -> b n c")
-        asr = rearrange(asr, "b c n -> b n c")
+        asr = self.asr_emb(asr)
         F0 = self.f0_emb(self.coarse_f0(F.interpolate(F0.unsqueeze(1), x.shape[1])))
         N = self.N_emb(F.interpolate(N.unsqueeze(1), x.shape[1]))
         spk_emb = repeat(self.spk_emb(spk_emb), "b c -> b t c", t=x.shape[1])
 
-        prosody = torch.cat([F0, N, spk_emb], dim=-1)
-        prosody = self.prosody_encoder(prosody)
-        x = self.in_proj(torch.cat([x, asr, prosody], dim=-1))
+        x = torch.cat([x, asr, F0, N, spk_emb], dim=-1)
+        x = self.in_proj(x)
 
         # https://github.com/KohakuBlueleaf/HDM/blob/0a3cf7e/src/xut/modules/axial_rope.py#L64
         pos_map = torch.linspace(-1.0, 1.0, x.shape[1], dtype=x.dtype, device=x.device)
