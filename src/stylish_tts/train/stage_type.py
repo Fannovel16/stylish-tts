@@ -741,8 +741,8 @@ def validate_cfm_mel(batch, train):
         batch.pitch,
         energy,
         spk_emb,
-        n_timesteps=10,
-        temperature=0.01,
+        n_timesteps=5,
+        temperature=1e-4,
     )
     audio_gt, audio_pred = train.vocos.decode(mel), train.vocos.decode(
         (pred_normed_mel * std) + mean
