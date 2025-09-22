@@ -472,8 +472,9 @@ class CfmSampler(nn.Module):
         u = x1 - (1 - self.sigma_min) * z
 
         cond_args, uncond_args = self.prepare_cond_uncond(x1, **estimator_args)
-        v_cond = self.estimator(y, t=t.squeeze(), mask=mask, **cond_args)
-        v_uncond = self.estimator(y, t=t.squeeze(), mask=mask, **uncond_args)
+        _t = rearrange(t, "b 1 1 -> b")
+        v_cond = self.estimator(y, t=_t, mask=mask, **cond_args)
+        v_uncond = self.estimator(y, t=_t, mask=mask, **uncond_args)
         delta_stop_grad = torch.detach(v_cond - v_uncond)
         v_cfg = v_cond + self.guidance_w * delta_stop_grad
         pred, target = v_cfg, u
