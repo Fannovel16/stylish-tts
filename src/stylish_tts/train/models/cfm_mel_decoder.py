@@ -215,7 +215,7 @@ class CfmMelDecoder(nn.Module):
         asr_dim=768,
         spk_dim=1024,
         hidden_dim=256,
-        emb_dim=128,
+        emb_dim=256,
         prosody_conv_layers=4,
         xut_depth=4,
         xut_heads=8,
@@ -247,7 +247,7 @@ class CfmMelDecoder(nn.Module):
         self.prosody_encoder = nn.Sequential(
             Rearrange("b n c -> b c n"),
             *[
-                BasicConvNeXtBlock(prosody_dim, prosody_dim * 2)
+                BasicConvNeXtBlock(prosody_dim, prosody_dim * 4)
                 for _ in range(prosody_conv_layers)
             ],
             Rearrange("b c n -> b n c"),
