@@ -8,7 +8,7 @@ import torch.nn as nn
 import numpy as np
 from einops.layers.torch import Rearrange
 from einops import rearrange, repeat
-from .conv_next import BasicConvNeXtBlock
+from .generator import ConvNeXtBlock
 from .xut.xut import XUTBackBone
 from .xut.time_emb import TimestepEmbedding
 
@@ -249,16 +249,12 @@ class CfmMelDecoder(nn.Module):
             nn.Linear(emb_dim * 4, emb_dim),
         )
         ctx_dim = emb_dim * 4  # asr + pitch + energy + speaker
-        self.ctx_encoder = nn.Sequential(
-            Rearrange("b n c -> b c n"),
-            *[
-                BasicConvNeXtBlock(ctx_dim, ctx_dim * 4)
+        self.ctx_encoder = nn.ModuleList(
+            [
+                ConvNeXtBlock(ctx_dim, ctx_dim * 4, hidden_dim)
                 for _ in range(prosody_conv_layers)
-            ],
-            Rearrange("b c n -> b n c"),
-            nn.Linear(ctx_dim, hidden_dim),
+            ]
         )
-
         self.backbone = XUTBackBone(
             dim=hidden_dim,
             ctx_dim=None,
@@ -272,7 +268,7 @@ class CfmMelDecoder(nn.Module):
             use_shared_adaln=True,
         )
         self.feat_dim = feat_dim
-        self.in_proj = nn.Linear(feat_dim + hidden_dim, hidden_dim)
+        self.in_proj = nn.Linear(feat_dim + ctx_dim, hidden_dim)
         self.out_proj = nn.Linear(hidden_dim, feat_dim)
         self.hidden_dim = hidden_dim
         self.build_shared_adaln()
@@ -324,13 +320,18 @@ class CfmMelDecoder(nn.Module):
         N = self.N_emb(F.interpolate(N.unsqueeze(1), x.shape[1]))
         spk_emb = repeat(self.spk_emb(spk_emb), "b c -> b t c", t=x.shape[1])
 
-        ctx = self.ctx_encoder(torch.cat([asr, F0, N, spk_emb], dim=-1))
+        t_emb = self.time_emb(t)
+        ctx = torch.cat([asr, F0, N, spk_emb], dim=-1)
+        ctx = rearrange(ctx, "b n c -> b c n")
+        for layer in self.ctx_encoder:
+            ctx = layer(ctx, t_emb)
+        ctx = rearrange(ctx, "b c n -> b n c")
+
         x = self.in_proj(torch.cat([x, ctx], dim=-1))
 
         # https://github.com/KohakuBlueleaf/HDM/blob/0a3cf7e/src/xut/modules/axial_rope.py#L64
         pos_map = torch.linspace(-1.0, 1.0, x.shape[1], dtype=x.dtype, device=x.device)
-        pos_map = repeat(pos_map, "t -> b t 1", b=x.shape[0])
-
+        pos_map = repeat(pos_map, "n -> b n 1", b=x.shape[0])
         t_emb = self.time_emb(rearrange(t, "b -> b 1"))
         shared_adaln_state = [
             self.shared_adaln_attn(t_emb).chunk(3, dim=-1),
