@@ -215,7 +215,7 @@ class CfmMelDecoder(nn.Module):
         spk_dim=1024,
         hidden_dim=256,
         emb_dim=256,
-        xut_depth=4,
+        xut_depth=8,
         xut_heads=8,
         xut_enc_blocks=1,
         xut_dec_blocks=2,
