@@ -248,12 +248,22 @@ class CfmMelDecoder(nn.Module):
             nn.Mish(),
             nn.Linear(emb_dim * 4, emb_dim),
         )
+        ctx_dim = emb_dim * 4  # asr + pitch + energy + speaker
+        self.ctx_encoder = nn.Sequential(
+            Rearrange("b n c -> b c n"),
+            *[
+                BasicConvNeXtBlock(ctx_dim, ctx_dim * 4)
+                for _ in range(prosody_conv_layers)
+            ],
+            Rearrange("b c n -> b n c"),
+            nn.Linear(ctx_dim, hidden_dim),
+        )
 
         self.backbone = XUTBackBone(
             dim=hidden_dim,
             ctx_dim=None,
             heads=xut_heads,
-            mlp_dim=hidden_dim * 3,
+            mlp_dim=hidden_dim * 4,
             pos_dim=1,
             depth=xut_depth,
             enc_blocks=xut_enc_blocks,
@@ -262,7 +272,7 @@ class CfmMelDecoder(nn.Module):
             use_shared_adaln=True,
         )
         self.feat_dim = feat_dim
-        self.in_proj = nn.Linear(feat_dim + emb_dim * 4, hidden_dim)
+        self.in_proj = nn.Linear(feat_dim + hidden_dim, hidden_dim)
         self.out_proj = nn.Linear(hidden_dim, feat_dim)
         self.hidden_dim = hidden_dim
         self.build_shared_adaln()
@@ -314,8 +324,8 @@ class CfmMelDecoder(nn.Module):
         N = self.N_emb(F.interpolate(N.unsqueeze(1), x.shape[1]))
         spk_emb = repeat(self.spk_emb(spk_emb), "b c -> b t c", t=x.shape[1])
 
-        x = torch.cat([x, asr, F0, N, spk_emb], dim=-1)
-        x = self.in_proj(x)
+        ctx = self.ctx_encoder(torch.cat([asr, F0, N, spk_emb], dim=-1))
+        x = self.in_proj(torch.cat([x, ctx], dim=-1))
 
         # https://github.com/KohakuBlueleaf/HDM/blob/0a3cf7e/src/xut/modules/axial_rope.py#L64
         pos_map = torch.linspace(-1.0, 1.0, x.shape[1], dtype=x.dtype, device=x.device)
