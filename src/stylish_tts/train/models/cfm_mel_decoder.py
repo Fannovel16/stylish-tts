@@ -213,24 +213,24 @@ class CfmMelDecoder(nn.Module):
         feat_dim=80,
         asr_dim=768,
         spk_dim=1024,
-        hidden_dim=128,
-        emb_dim=256,
+        hidden_dim=256,
+        emb_dim=128,
         prosody_conv_layers=4,
         xut_depth=6,
         xut_heads=8,
         xut_enc_blocks=1,
-        xut_dec_blocks=2,
+        xut_dec_blocks=3,
     ):
         super().__init__()
         self.time_emb = TimestepEmbedding(hidden_dim)
-        self.spk_emb = nn.Sequential(
-            nn.Linear(spk_dim, emb_dim * 4),
-            nn.Mish(),
-            nn.Linear(emb_dim * 4, emb_dim),
-        )
         self.asr_emb = nn.Sequential(
             Rearrange("b c t -> b t c"),
             nn.Linear(asr_dim, emb_dim * 4),
+            nn.Mish(),
+            nn.Linear(emb_dim * 4, emb_dim),
+        )
+        self.spk_emb = nn.Sequential(
+            nn.Linear(spk_dim, emb_dim * 4),
             nn.Mish(),
             nn.Linear(emb_dim * 4, emb_dim),
         )
@@ -249,9 +249,7 @@ class CfmMelDecoder(nn.Module):
             use_shared_adaln=True,
         )
         self.feat_dim = feat_dim
-        self.in_proj = nn.Linear(
-            feat_dim + emb_dim + feat_dim + 1 + emb_dim, hidden_dim
-        )
+        self.in_proj = nn.Linear(feat_dim + emb_dim + feat_dim + emb_dim, hidden_dim)
         self.out_proj = nn.Linear(hidden_dim, feat_dim)
         self.hidden_dim = hidden_dim
         self.build_shared_adaln()
