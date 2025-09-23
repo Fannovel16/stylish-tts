@@ -8,7 +8,6 @@ import torch.nn as nn
 import numpy as np
 from einops.layers.torch import Rearrange
 from einops import rearrange, repeat
-from .generator import ConvNeXtBlock
 from .xut.xut import XUTBackBone
 from .xut.time_emb import TimestepEmbedding
 
@@ -214,29 +213,16 @@ class CfmMelDecoder(nn.Module):
         feat_dim=80,
         asr_dim=768,
         spk_dim=1024,
-        hidden_dim=256,
+        hidden_dim=128,
         emb_dim=256,
         prosody_conv_layers=4,
-        xut_depth=4,
+        xut_depth=6,
         xut_heads=8,
         xut_enc_blocks=1,
         xut_dec_blocks=2,
     ):
         super().__init__()
         self.time_emb = TimestepEmbedding(hidden_dim)
-        self.f0_bin = 256
-        self.f0_max = torch.tensor(1100.0)
-        self.f0_min = torch.tensor(50.0)
-        self.f0_emb = nn.Sequential(
-            Rearrange("b 1 t -> b t"),
-            nn.Embedding(self.f0_bin, emb_dim),
-        )
-        self.N_emb = nn.Sequential(
-            Rearrange("b 1 t -> b t 1"),
-            nn.Linear(1, emb_dim * 4),
-            nn.Mish(),
-            nn.Linear(emb_dim * 4, emb_dim),
-        )
         self.spk_emb = nn.Sequential(
             nn.Linear(spk_dim, emb_dim * 4),
             nn.Mish(),
@@ -248,13 +234,8 @@ class CfmMelDecoder(nn.Module):
             nn.Mish(),
             nn.Linear(emb_dim * 4, emb_dim),
         )
-        ctx_dim = emb_dim * 4  # asr + pitch + energy + speaker
-        self.ctx_encoder = nn.ModuleList(
-            [
-                ConvNeXtBlock(ctx_dim, ctx_dim * 4, hidden_dim)
-                for _ in range(prosody_conv_layers)
-            ]
-        )
+        self.m_source = SineGenerator(24000)
+        self.prior_gen = nn.Conv1d(2, feat_dim, kernel_size=7, padding=3)
         self.backbone = XUTBackBone(
             dim=hidden_dim,
             ctx_dim=None,
@@ -268,7 +249,9 @@ class CfmMelDecoder(nn.Module):
             use_shared_adaln=True,
         )
         self.feat_dim = feat_dim
-        self.in_proj = nn.Linear(feat_dim + ctx_dim, hidden_dim)
+        self.in_proj = nn.Linear(
+            feat_dim + emb_dim + feat_dim + 1 + emb_dim, hidden_dim
+        )
         self.out_proj = nn.Linear(hidden_dim, feat_dim)
         self.hidden_dim = hidden_dim
         self.build_shared_adaln()
@@ -300,34 +283,20 @@ class CfmMelDecoder(nn.Module):
         )
         nn.init.constant_(self.shared_adaln_ffw[-1].bias, 0)
 
-    def coarse_f0(self, f0):
-        f0_mel_min = 1127 * torch.log(1 + self.f0_min / 700)
-        f0_mel_max = 1127 * torch.log(1 + self.f0_max / 700)
-        f0_mel = 1127.0 * torch.log(1.0 + f0 / 700.0)
-        f0_mel = torch.clip(
-            (f0_mel - f0_mel_min) * (self.f0_bin - 2) / (f0_mel_max - f0_mel_min) + 1,
-            1,
-            self.f0_bin - 1,
-        )
-        out = torch.zeros_like(f0)
-        out[f0 > 0] = f0_mel[f0 > 0]
-        return torch.round(out).to(torch.int)
-
     def _forward(self, x, asr, F0, N, spk_emb, t, mask=None):
         x = rearrange(x, "b c n -> b n c")
         asr = self.asr_emb(asr)
-        F0 = self.f0_emb(self.coarse_f0(F.interpolate(F0.unsqueeze(1), x.shape[1])))
-        N = self.N_emb(F.interpolate(N.unsqueeze(1), x.shape[1]))
-        spk_emb = repeat(self.spk_emb(spk_emb), "b c -> b t c", t=x.shape[1])
 
-        t_emb = self.time_emb(t)
-        ctx = torch.cat([asr, F0, N, spk_emb], dim=-1)
-        ctx = rearrange(ctx, "b n c -> b c n")
-        for layer in self.ctx_encoder:
-            ctx = layer(ctx, t_emb)
-        ctx = rearrange(ctx, "b c n -> b n c")
+        F0 = F.interpolate(F0.unsqueeze(1), x.shape[1])
+        N = F.interpolate(N.unsqueeze(1), x.shape[1])
+        har = self.m_source(rearrange(F0, "b 1 n -> b n 1"))
+        har = rearrange(har, "b n 1 -> b 1 n")
+        N = rearrange(N, "b 1 n -> b 1 n")
+        prior = self.prior_gen(torch.cat([har, N], dim=1))
+        prior = rearrange(prior, "b c n -> b n c")
 
-        x = self.in_proj(torch.cat([x, ctx], dim=-1))
+        spk_emb = repeat(self.spk_emb(spk_emb), "b c -> b n c", n=x.shape[1])
+        x = self.in_proj(torch.cat([x, asr, prior, spk_emb], dim=-1))
 
         # https://github.com/KohakuBlueleaf/HDM/blob/0a3cf7e/src/xut/modules/axial_rope.py#L64
         pos_map = torch.linspace(-1.0, 1.0, x.shape[1], dtype=x.dtype, device=x.device)
