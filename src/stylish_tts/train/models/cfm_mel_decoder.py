@@ -220,7 +220,7 @@ class CfmMelDecoder(nn.Module):
         xut_depth=4,
         xut_heads=8,
         xut_enc_blocks=1,
-        xut_dec_blocks=3,
+        xut_dec_blocks=2,
     ):
         super().__init__()
         self.time_emb = TimestepEmbedding(hidden_dim)
