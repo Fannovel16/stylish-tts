@@ -214,12 +214,11 @@ class CfmMelDecoder(nn.Module):
         asr_dim=768,
         spk_dim=1024,
         hidden_dim=256,
-        emb_dim=128,
-        prosody_conv_layers=4,
-        xut_depth=6,
+        emb_dim=256,
+        xut_depth=4,
         xut_heads=8,
         xut_enc_blocks=1,
-        xut_dec_blocks=3,
+        xut_dec_blocks=2,
     ):
         super().__init__()
         self.time_emb = TimestepEmbedding(hidden_dim)
