@@ -215,7 +215,7 @@ class CfmMelDecoder(nn.Module):
         spk_dim=1024,
         hidden_dim=256,
         emb_dim=256,
-        xut_depth=8,
+        xut_depth=4,
         xut_heads=8,
         xut_enc_blocks=1,
         xut_dec_blocks=2,
@@ -236,9 +236,14 @@ class CfmMelDecoder(nn.Module):
         )
         self.m_source = nn.Sequential(Rearrange("b 1 n -> b n 1"), SineGenerator(24000))
         self.N_source = Rearrange("b 1 n -> b n 1")
-        self.prior_gen = nn.Sequential(
+        self.in_noise_conv = nn.Sequential(
             Rearrange("b n c -> b c n"),
-            nn.Conv1d(2, feat_dim, kernel_size=7, padding=3),
+            nn.Conv1d(3, feat_dim, kernel_size=7, padding=3),
+            Rearrange("b c n -> b n c"),
+        )
+        self.out_noise_conv = nn.Sequential(
+            Rearrange("b n c -> b c n"),
+            nn.Conv1d(3, feat_dim, kernel_size=7, padding=3),
             Rearrange("b c n -> b n c"),
         )
         self.backbone = XUTBackBone(
@@ -334,26 +339,28 @@ class CfmMelDecoder(nn.Module):
         x = rearrange(x, "b c n -> b n c")
         batch, length, _ = x.shape
         asr = self.asr_emb(asr)
-
         F0 = F.interpolate(F0.unsqueeze(1), length)
         N = F.interpolate(N.unsqueeze(1), length)
-        har = self.m_source(F0)
-        N = self.N_source(N)
-        prior = self.prior_gen(torch.cat([har, N], dim=-1))
         spk_emb = repeat(self.spk_emb(spk_emb), "b c -> b n c", n=length)
 
-        x = x + prior
+        har_source = torch.cat(
+            [self.m_source(F0), self.N_source(N), repeat(t, "b -> b n 1", n=length)],
+            dim=-1,
+        )
+        x = x + self.in_noise_conv(har_source)
         x = self.in_proj(torch.cat([x, asr, spk_emb], dim=-1))
 
-        # https://github.com/KohakuBlueleaf/HDM/blob/0a3cf7e/src/xut/modules/axial_rope.py#L64
-        pos_map = torch.linspace(-1.0, 1.0, length, dtype=x.dtype, device=x.device)
-        pos_map = repeat(pos_map, "n -> b n 1", b=batch)
         t_emb = self.time_emb(rearrange(t, "b -> b 1"))
         shared_adaln_state = [
             self.shared_adaln_attn(t_emb).chunk(3, dim=-1),
             self.shared_adaln_xattn(t_emb).chunk(3, dim=-1),
             self.shared_adaln_ffw(t_emb).chunk(3, dim=-1),
         ]
+
+        # https://github.com/KohakuBlueleaf/HDM/blob/0a3cf7e/src/xut/modules/axial_rope.py#L64
+        pos_map = torch.linspace(-1.0, 1.0, length, dtype=x.dtype, device=x.device)
+        pos_map = repeat(pos_map, "n -> b n 1", b=batch)
+
         if self.use_tread:
             x = self.prev_tread_trns(
                 x,
@@ -407,8 +414,8 @@ class CfmMelDecoder(nn.Module):
             )
         else:
             out = backbone_out
-        out = rearrange(self.out_proj(out), "b n c -> b c n")
-
+        out = self.out_proj(out) + self.out_noise_conv(har_source)
+        out = rearrange(out, "b n c -> b c n")
         return out
 
     @torch.inference_mode()

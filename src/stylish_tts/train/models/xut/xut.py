@@ -196,10 +196,10 @@ class XUTBackBone(nn.Module):
             self_ctx.append(x)
         enc_out = x
 
-        for i, blocks in enumerate(self.dec_blocks, start=1):
+        for blocks in self.dec_blocks:
             first_block = blocks[0]
             x = first_block(
-                x, self_ctx[-i], pos_map, pos_map, y, x_mask, ctx_mask, shared_adaln
+                x, self_ctx[-1], pos_map, pos_map, y, x_mask, ctx_mask, shared_adaln
             )
 
             for block in blocks[1:]:
