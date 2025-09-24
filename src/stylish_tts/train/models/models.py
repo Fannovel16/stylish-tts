@@ -14,7 +14,8 @@ from .mel_style_encoder import MelStyleEncoder
 from .pitch_energy_predictor import PitchEnergyPredictor
 from .speech_predictor import SpeechPredictor
 from stylish_tts.train.multi_spectrogram import multi_spectrogram_count
-from .cfm_mel_decoder import CfmMelDecoder
+from .cfm.cfm_mel_decoder import CfmMelDecoder
+from .cfm.cfm_pitch_predictor import CfmPitchPredictor
 from .hubert_encoder import HubertEncoder
 
 from munch import Munch
@@ -69,6 +70,11 @@ def build_model(model_config: ModelConfig):
         hidden_dim=model_config.decoder.hidden_dim,
     )
 
+    cfm_pitch_predictor = CfmPitchPredictor(
+        asr_dim=model_config.hubert.hidden_dim,
+        spk_dim=model_config.speaker_embedder.hidden_dim,
+    )
+
     hubert_encoder = HubertEncoder(model_config)
 
     nets = Munch(
@@ -83,6 +89,7 @@ def build_model(model_config: ModelConfig):
         pe_mel_style_encoder=pe_mel_style_encoder,
         hubert_encoder=hubert_encoder,
         cfm_mel_decoder=cfm_mel_decoder,
+        cfm_pitch_predictor=cfm_pitch_predictor,
     )
 
     return nets

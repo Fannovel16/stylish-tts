@@ -87,7 +87,7 @@ model = Model(
     pe_text_encoder=model.pe_text_encoder,
     pe_text_style_encoder=model.pe_text_style_encoder,
 )
-from stylish_tts.train.models.cfm_mel_decoder import CfmMelDecoder
+from stylish_tts.train.models.cfm.cfm_mel_decoder import CfmMelDecoder
 
 model = CfmMelDecoder()
 count_parameters(model)

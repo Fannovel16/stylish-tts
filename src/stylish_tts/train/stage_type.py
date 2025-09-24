@@ -776,7 +776,138 @@ stages["cfm_hubert_mel"] = StageType(
     ],
 )
 
-##### Acoustic #####
+##### CFM Pitch #####
+
+import numpy as np
+
+
+def minmax_norm(x, uv=None):
+    x_min = 6
+    x_max = 10
+    if torch.any(x > x_max):
+        raise ValueError("check minmax_norm!!")
+    normed_x = (x - x_min) / (x_max - x_min) * 2 - 1
+    if uv is not None:
+        normed_x[uv > 0] = 0
+    return normed_x
+
+
+def minmax_denorm(x, uv=None):
+    x_min = 6
+    x_max = 10
+    denormed_x = (x + 1) / 2 * (x_max - x_min) + x_min
+    if uv is not None:
+        denormed_x[uv > 0] = 0
+    return denormed_x
+
+
+def norm_f0(f0, uv, pitch_norm="log", f0_mean=400, f0_std=100):
+    is_torch = isinstance(f0, torch.Tensor)
+    if pitch_norm == "standard":
+        f0 = (f0 - f0_mean) / f0_std
+    if pitch_norm == "log":
+        f0 = torch.log2(f0 + 1e-8) if is_torch else np.log2(f0 + 1e-8)
+    if uv is not None:
+        f0[uv > 0] = 0
+    return f0
+
+
+def denorm_f0(
+    f0,
+    uv,
+    pitch_norm="log",
+    f0_mean=400,
+    f0_std=100,
+    pitch_padding=None,
+    min=50,
+    max=900,
+):
+    is_torch = isinstance(f0, torch.Tensor)
+    if pitch_norm == "standard":
+        f0 = f0 * f0_std + f0_mean
+    if pitch_norm == "log":
+        f0 = 2**f0
+    f0 = f0.clamp(min=min, max=max) if is_torch else np.clip(f0, a_min=min, a_max=max)
+    if uv is not None:
+        f0[uv > 0] = 0
+    if pitch_padding is not None:
+        f0[pitch_padding] = 0
+    return f0
+
+
+def train_cfm_pitch(
+    batch, model, train, probing
+) -> Tuple[LossLog, Optional[torch.Tensor]]:
+    with train.accelerator.autocast():
+        print_gpu_vram("init")
+        # mel, mel_length = calculate_mel(
+        #     batch.audio_gt,
+        #     train.to_mel,
+        #     train.normalization.mel_log_mean,
+        #     train.normalization.mel_log_std,
+        # )
+        with torch.no_grad():
+            phones, spk_emb = pred_ssl_features(train, batch, batch.pitch.shape[1])
+            f0 = batch.pitch.unsqueeze(1)
+            uv = f0 == 0
+            normed_f0 = norm_f0(f0, uv)
+            normed_f0 = minmax_norm(normed_f0, uv)
+
+        pred_normed_f0, target_normed_f0 = (
+            model.cfm_pitch_predictor.compute_pred_target(
+                phones, spk_emb, normed_f0.unsqueeze(1)
+            )
+        )
+        print_gpu_vram("predicted")
+
+        train.stage.optimizer.zero_grad()
+        log = build_loss_log(train)
+        log.add_loss("normed_pitch_l2", F.mse_loss(pred_normed_f0, target_normed_f0))
+        train.accelerator.backward(log.backwards_loss())
+        print_gpu_vram("backward")
+
+    return (log.detach(), None)
+
+
+@torch.no_grad()
+def validate_cfm_mel(batch, train):
+    with torch.no_grad():
+        phones, spk_emb = pred_ssl_features(train, batch, batch.pitch.shape[1])
+        f0 = batch.pitch.unsqueeze(1)
+        uv = f0 == 0
+        normed_f0 = norm_f0(f0, uv)
+        normed_f0 = minmax_norm(normed_f0, uv)
+    pred_normed_f0 = train.model.cfm_pitch_predictor(
+        phones,
+        spk_emb,
+        n_timesteps=10,
+        temperature=0.2,
+    )
+    pred_f0 = denorm_f0(minmax_denorm(pred_normed_f0, uv), uv)
+    print_gpu_vram("predicted")
+    log = build_loss_log(train)
+    log.add_loss("normed_pitch_l2", F.mse_loss(pred_normed_f0, normed_f0))
+    log.add_loss("linear_pitch_l2", F.mse_loss(pred_f0, batch.pitch))
+    return log, None, None, None
+
+
+stages["cfm_hubert_pitch"] = StageType(
+    next_stage=None,
+    train_fn=train_cfm_mel,
+    validate_fn=validate_cfm_mel,
+    train_models=[
+        "cfm_pitch_predictor",
+    ],
+    eval_models=[],
+    discriminators=[],
+    inputs=[
+        "text",
+        "text_length",
+        "audio_gt",
+        "pitch",
+        "alignment",
+    ],
+)
 
 
 @torch.no_grad()

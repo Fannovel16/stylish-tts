@@ -84,6 +84,10 @@ class TrainingPlanConfig(BaseModel):
         default_factory=TrainingStageConfig,
         description="Configuration for training of Conditional Flow Matching Mel Decoder.",
     )
+    cfm_hubert_pitch: TrainingStageConfig = Field(
+        default_factory=TrainingStageConfig,
+        description="Configuration for training of Conditional Flow Matching Pitch Predictor.",
+    )
 
     def get_stage(self, name: str) -> TrainingStageConfig:
         try:
