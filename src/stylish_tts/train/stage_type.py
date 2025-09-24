@@ -870,7 +870,7 @@ def train_cfm_pitch(
 
 
 @torch.no_grad()
-def validate_cfm_mel(batch, train):
+def validate_cfm_pitch(batch, train):
     with torch.no_grad():
         phones, spk_emb = pred_ssl_features(train, batch, batch.pitch.shape[1])
         f0 = batch.pitch.unsqueeze(1)
@@ -893,8 +893,8 @@ def validate_cfm_mel(batch, train):
 
 stages["cfm_hubert_pitch"] = StageType(
     next_stage=None,
-    train_fn=train_cfm_mel,
-    validate_fn=validate_cfm_mel,
+    train_fn=train_cfm_pitch,
+    validate_fn=validate_cfm_pitch,
     train_models=[
         "cfm_pitch_predictor",
     ],
