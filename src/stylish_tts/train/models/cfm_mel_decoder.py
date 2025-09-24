@@ -236,12 +236,7 @@ class CfmMelDecoder(nn.Module):
         )
         self.m_source = nn.Sequential(Rearrange("b 1 n -> b n 1"), SineGenerator(24000))
         self.N_source = Rearrange("b 1 n -> b n 1")
-        self.in_noise_conv = nn.Sequential(
-            Rearrange("b n c -> b c n"),
-            nn.Conv1d(3, feat_dim, kernel_size=7, padding=3),
-            Rearrange("b c n -> b n c"),
-        )
-        self.out_noise_conv = nn.Sequential(
+        self.prior_generator = nn.Sequential(
             Rearrange("b n c -> b c n"),
             nn.Conv1d(3, feat_dim, kernel_size=7, padding=3),
             Rearrange("b c n -> b n c"),
@@ -260,7 +255,9 @@ class CfmMelDecoder(nn.Module):
         )
         self.feat_dim = feat_dim
         self.in_proj = nn.Linear(feat_dim + emb_dim + emb_dim, hidden_dim)
-        self.out_proj = nn.Linear(hidden_dim, feat_dim)
+        self.out_proj = nn.Sequential(
+            nn.Linear(hidden_dim, feat_dim), Rearrange("b n c -> b c n")
+        )
         self.hidden_dim = hidden_dim
         self.build_shared_adaln()
         self.build_tread(
@@ -347,7 +344,7 @@ class CfmMelDecoder(nn.Module):
             [self.m_source(F0), self.N_source(N), repeat(t, "b -> b n 1", n=length)],
             dim=-1,
         )
-        x = x + self.in_noise_conv(har_source)
+        x = x + self.prior_generator(har_source)
         x = self.in_proj(torch.cat([x, asr, spk_emb], dim=-1))
 
         t_emb = self.time_emb(rearrange(t, "b -> b 1"))
@@ -414,8 +411,7 @@ class CfmMelDecoder(nn.Module):
             )
         else:
             out = backbone_out
-        out = self.out_proj(out) + self.out_noise_conv(har_source)
-        out = rearrange(out, "b n c -> b c n")
+        out = self.out_proj(out)
         return out
 
     @torch.inference_mode()
