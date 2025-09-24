@@ -15,6 +15,77 @@ def isiterable(obj):
     return True
 
 
+class TBackBone(nn.Module):
+    """
+    Basic backbone of transformer
+    """
+
+    def __init__(
+        self,
+        dim=1024,
+        ctx_dim=1024,
+        heads=16,
+        dim_head=64,
+        mlp_dim=3072,
+        pos_dim=2,
+        depth=8,
+        use_adaln=False,
+        use_shared_adaln=False,
+        use_dyt=False,
+    ):
+        super().__init__()
+        self.blocks = nn.ModuleList(
+            [
+                TransformerBlock(
+                    dim,
+                    ctx_dim,
+                    heads,
+                    dim_head,
+                    mlp_dim,
+                    pos_dim,
+                    use_adaln,
+                    use_shared_adaln,
+                    norm_layer=DyT if use_dyt else RMSNorm,
+                )
+                for _ in range(depth)
+            ]
+        )
+        self.init_weight()
+
+    def init_weight(self):
+        for param in self.parameters():
+            if param.ndim == 1:
+                nn.init.normal_(param, mean=0.0, std=(1 / param.size(0)) ** 0.5)
+            elif param.ndim == 2:
+                fan_in = param.size(1)
+                nn.init.normal_(param, mean=0.0, std=(1 / fan_in) ** 0.5)
+            elif param.ndim >= 3:
+                fan_out, *fan_ins = param.shape
+                # cumprod
+                fan_in = 1
+                for f in fan_ins:
+                    fan_in *= f
+                nn.init.normal_(param, mean=0.0, std=(1 / fan_in) ** 0.5)
+
+    def forward(
+        self,
+        x,
+        ctx=None,
+        x_mask=None,
+        ctx_mask=None,
+        pos_map=None,
+        y=None,
+        shared_adaln=None,
+    ):
+        if pos_map is not None:
+            assert pos_map.size(1) == x.size(1)
+
+        for block in self.blocks:
+            x = block(x, ctx, pos_map, None, y, x_mask, ctx_mask, shared_adaln)
+
+        return x
+
+
 class XUTBackBone(nn.Module):
     """
     Basic backbone of cross-U-transformer.
@@ -87,6 +158,7 @@ class XUTBackBone(nn.Module):
             self.dec_blocks.append(nn.ModuleList(blocks))
 
         self.grad_ckpt = False
+        self.init_weight()
 
     def init_weight(self):
         for param in self.parameters():

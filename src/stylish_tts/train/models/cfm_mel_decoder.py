@@ -8,7 +8,7 @@ import torch.nn as nn
 import numpy as np
 from einops.layers.torch import Rearrange
 from einops import rearrange, repeat
-from .xut.xut import XUTBackBone
+from .xut.xut import XUTBackBone, TBackBone
 from .xut.time_emb import TimestepEmbedding
 
 
@@ -219,6 +219,7 @@ class CfmMelDecoder(nn.Module):
         xut_heads=8,
         xut_enc_blocks=1,
         xut_dec_blocks=2,
+        tread_config={"prev_trns_depth": 1, "post_trns_depth": 3, "dropout_ratio": 0.5},
     ):
         super().__init__()
         self.time_emb = TimestepEmbedding(hidden_dim)
@@ -233,8 +234,13 @@ class CfmMelDecoder(nn.Module):
             nn.Mish(),
             nn.Linear(emb_dim * 4, emb_dim),
         )
-        self.m_source = SineGenerator(24000)
-        self.prior_gen = nn.Conv1d(2, feat_dim, kernel_size=7, padding=3)
+        self.m_source = nn.Sequential(Rearrange("b 1 n -> b n 1"), SineGenerator(24000))
+        self.N_source = Rearrange("b 1 n -> b n 1")
+        self.prior_gen = nn.Sequential(
+            Rearrange("b n c -> b c n"),
+            nn.Conv1d(2, feat_dim, kernel_size=7, padding=3),
+            Rearrange("b c n -> b n c"),
+        )
         self.backbone = XUTBackBone(
             dim=hidden_dim,
             ctx_dim=None,
@@ -248,10 +254,13 @@ class CfmMelDecoder(nn.Module):
             use_shared_adaln=True,
         )
         self.feat_dim = feat_dim
-        self.in_proj = nn.Linear(feat_dim + emb_dim + feat_dim + emb_dim, hidden_dim)
+        self.in_proj = nn.Linear(feat_dim + emb_dim + emb_dim, hidden_dim)
         self.out_proj = nn.Linear(hidden_dim, feat_dim)
         self.hidden_dim = hidden_dim
         self.build_shared_adaln()
+        self.build_tread(
+            tread_config, dim=hidden_dim, heads=xut_heads, mlp_dim=hidden_dim * 4
+        )
         self.sampler = CfmSampler(self._forward, non_drop_conds=["spk_emb"])
 
     def build_shared_adaln(self):
@@ -280,39 +289,127 @@ class CfmMelDecoder(nn.Module):
         )
         nn.init.constant_(self.shared_adaln_ffw[-1].bias, 0)
 
+    def build_tread(
+        self,
+        tread_config,
+        dim=1024,
+        heads=16,
+        dim_head=64,
+        mlp_dim=3072,
+        concat_ctx=True,
+        ctx_dim=None,
+        shared_adaln=True,
+        use_dyt=False,
+    ):
+        self.use_tread = False
+        if tread_config is not None:
+            self.use_tread = True
+            self.dropout_ratio = tread_config["dropout_ratio"]
+            self.prev_tread_trns = TBackBone(
+                dim,
+                None if concat_ctx else ctx_dim,
+                heads,
+                dim_head,
+                mlp_dim,
+                1,
+                tread_config["prev_trns_depth"],
+                use_adaln=True,
+                use_shared_adaln=shared_adaln,
+                use_dyt=use_dyt,
+            )
+            self.post_tread_trns = TBackBone(
+                dim,
+                None if concat_ctx else ctx_dim,
+                heads,
+                dim_head,
+                mlp_dim,
+                1,
+                tread_config["post_trns_depth"],
+                use_adaln=True,
+                use_shared_adaln=shared_adaln,
+                use_dyt=use_dyt,
+            )
+
     def _forward(self, x, asr, F0, N, spk_emb, t, mask=None):
         x = rearrange(x, "b c n -> b n c")
+        batch, length, _ = x.shape
         asr = self.asr_emb(asr)
 
-        F0 = F.interpolate(F0.unsqueeze(1), x.shape[1])
-        N = F.interpolate(N.unsqueeze(1), x.shape[1])
-        har = self.m_source(rearrange(F0, "b 1 n -> b n 1"))
-        har = rearrange(har, "b n 1 -> b 1 n")
-        N = rearrange(N, "b 1 n -> b 1 n")
-        prior = self.prior_gen(torch.cat([har, N], dim=1))
-        prior = rearrange(prior, "b c n -> b n c")
+        F0 = F.interpolate(F0.unsqueeze(1), length)
+        N = F.interpolate(N.unsqueeze(1), length)
+        har = self.m_source(F0)
+        N = self.N_source(N)
+        prior = self.prior_gen(torch.cat([har, N], dim=-1))
+        spk_emb = repeat(self.spk_emb(spk_emb), "b c -> b n c", n=length)
 
-        spk_emb = repeat(self.spk_emb(spk_emb), "b c -> b n c", n=x.shape[1])
-        x = self.in_proj(torch.cat([x, asr, prior, spk_emb], dim=-1))
+        x = x + prior
+        x = self.in_proj(torch.cat([x, asr, spk_emb], dim=-1))
 
         # https://github.com/KohakuBlueleaf/HDM/blob/0a3cf7e/src/xut/modules/axial_rope.py#L64
-        pos_map = torch.linspace(-1.0, 1.0, x.shape[1], dtype=x.dtype, device=x.device)
-        pos_map = repeat(pos_map, "n -> b n 1", b=x.shape[0])
+        pos_map = torch.linspace(-1.0, 1.0, length, dtype=x.dtype, device=x.device)
+        pos_map = repeat(pos_map, "n -> b n 1", b=batch)
         t_emb = self.time_emb(rearrange(t, "b -> b 1"))
         shared_adaln_state = [
             self.shared_adaln_attn(t_emb).chunk(3, dim=-1),
             self.shared_adaln_xattn(t_emb).chunk(3, dim=-1),
             self.shared_adaln_ffw(t_emb).chunk(3, dim=-1),
         ]
-        x = self.backbone(
+        if self.use_tread:
+            x = self.prev_tread_trns(
+                x,
+                ctx=None,
+                pos_map=pos_map,
+                y=t_emb,
+                shared_adaln=shared_adaln_state,
+            )
+            if self.training:
+                selection_length = length - int(length * self.dropout_ratio)
+                selection = torch.stack(
+                    [
+                        torch.randperm(length, device=x.device) < selection_length
+                        for _ in range(batch)
+                    ]
+                )
+                not_masked_part, masked_part = x[~selection, :], x[selection, :]
+                masked_part = rearrange(
+                    masked_part, "(b l) d -> b l d", b=batch, l=selection_length
+                )
+                x = masked_part
+                raw_pos_map = pos_map
+                pos_map = rearrange(
+                    pos_map[selection, :],
+                    "(b l) d -> b l d",
+                    b=batch,
+                    l=selection_length,
+                )
+        backbone_out = self.backbone(
             x,
             y=t_emb,
             pos_map=pos_map,
             shared_adaln=shared_adaln_state,
         )
-        x = rearrange(self.out_proj(x), "b n c -> b c n")
+        if self.use_tread:
+            if self.training:
+                out = torch.empty(
+                    batch, length, x.size(2), device=x.device, dtype=x.dtype
+                )
+                out[~selection, :] = not_masked_part
+                out[selection, :] = rearrange(backbone_out, "b l d -> (b l) d")
+                pos_map = raw_pos_map
+            else:
+                out = backbone_out
+            out = self.post_tread_trns(
+                out,
+                ctx=None,
+                pos_map=pos_map,
+                y=t_emb,
+                shared_adaln=shared_adaln_state,
+            )
+        else:
+            out = backbone_out
+        out = rearrange(self.out_proj(out), "b n c -> b c n")
 
-        return x
+        return out
 
     @torch.inference_mode()
     def forward(self, asr, F0, N, spk_emb, n_timesteps, temperature):
@@ -340,7 +437,7 @@ class CfmSampler(nn.Module):
         self,
         estimator,
         guidance_w=0.7,
-        cond_drop_prob=0.2,
+        cond_drop_prob=0.0,
         non_drop_conds=[],
         sigma_min=1e-4,
     ):
