@@ -851,7 +851,6 @@ def train_cfm_pitch(
             f0 = batch.pitch.unsqueeze(1)
             uv = f0 == 0
             normed_f0 = norm_f0(f0, uv)
-            normed_f0 = minmax_norm(normed_f0, uv)
 
         # pred_normed_f0, target_normed_f0 = (
         #     model.cfm_pitch_predictor.compute_pred_target(phones, spk_emb, normed_f0)
@@ -875,9 +874,8 @@ def validate_cfm_pitch(batch, train):
         f0 = batch.pitch.unsqueeze(1)
         uv = f0 == 0
         normed_f0 = norm_f0(f0, uv)
-        normed_f0 = minmax_norm(normed_f0, uv)
     pred_normed_f0 = train.model.cfm_pitch_predictor(phones, spk_emb)
-    pred_f0 = denorm_f0(minmax_denorm(pred_normed_f0, uv), uv)
+    pred_f0 = denorm_f0(pred_normed_f0, uv)
     print_gpu_vram("predicted")
     log = build_loss_log(train)
     log.add_loss("normed_pitch_l2", F.mse_loss(pred_normed_f0, normed_f0))
