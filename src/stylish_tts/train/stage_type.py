@@ -798,9 +798,16 @@ def norm_f0_zscore(f0, uv, log_f0_mean, log_f0_std):
     return normed_f0
 
 
-def denorm_f0_zscore(normed_f0, uv, log_f0_mean, log_f0_std):
+def denorm_f0_zscore(
+    normed_f0,
+    uv,
+    log_f0_mean,
+    log_f0_std,
+    min_hz=50,  # Or a lower value like 40
+    max_hz=1200,  # Or a higher value like 1600
+):
     """
-    Denormalizes f0 from z-score + log-scale using pre-calculated stats.
+    Denormalizes f0 from z-score + log-scale, WITH a safety clamp.
     """
     # De-standardize
     log_f0 = normed_f0 * log_f0_std + log_f0_mean
@@ -808,9 +815,17 @@ def denorm_f0_zscore(normed_f0, uv, log_f0_mean, log_f0_std):
     # Convert back from log-scale
     f0 = 2**log_f0
 
+    is_torch = isinstance(f0, torch.Tensor)
+    f0 = (
+        f0.clamp(min=min_hz, max=max_hz)
+        if is_torch
+        else np.clip(f0, a_min=min_hz, a_max=max_hz)
+    )
+
     # Set unvoiced parts to 0
     if uv is not None:
         f0[uv > 0] = 0
+
     return f0
 
 
