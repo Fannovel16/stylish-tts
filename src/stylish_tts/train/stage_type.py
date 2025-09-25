@@ -854,7 +854,7 @@ def train_cfm_pitch(
 
         train.stage.optimizer.zero_grad()
         log = build_loss_log(train)
-        log.add_loss("normed_pitch_l2", F.mse_loss(pred_normed_f0, normed_f0))
+        log.add_loss("normed_pitch_l2", F.mse_loss(pred_normed_f0[~uv], normed_f0[~uv]))
         train.accelerator.backward(log.backwards_loss())
         print_gpu_vram("backward")
 
