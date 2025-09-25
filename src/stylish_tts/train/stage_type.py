@@ -856,7 +856,7 @@ def train_cfm_pitch(
         # pred_normed_f0, target_normed_f0 = (
         #     model.cfm_pitch_predictor.compute_pred_target(phones, spk_emb, normed_f0)
         # )
-        pred_normed_f0 = model(phones, spk_emb)
+        pred_normed_f0 = model.cfm_pitch_predictor(phones, spk_emb)
         print_gpu_vram("predicted")
 
         train.stage.optimizer.zero_grad()
