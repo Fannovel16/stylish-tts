@@ -781,57 +781,36 @@ stages["cfm_hubert_mel"] = StageType(
 import numpy as np
 
 
-def minmax_norm(x, uv=None):
-    x_min = 6
-    x_max = 10
-    if torch.any(x > x_max):
-        raise ValueError("check minmax_norm!!")
-    normed_x = (x - x_min) / (x_max - x_min) * 2 - 1
-    if uv is not None:
-        normed_x[uv > 0] = 0
-    return normed_x
-
-
-def minmax_denorm(x, uv=None):
-    x_min = 6
-    x_max = 10
-    denormed_x = (x + 1) / 2 * (x_max - x_min) + x_min
-    if uv is not None:
-        denormed_x[uv > 0] = 0
-    return denormed_x
-
-
-def norm_f0(f0, uv, pitch_norm="log", f0_mean=400, f0_std=100):
+def norm_f0_zscore(f0, uv, log_f0_mean, log_f0_std):
+    """
+    Normalizes f0 using pre-calculated log-scale z-score statistics.
+    """
+    # Use torch or numpy log2 based on input type
     is_torch = isinstance(f0, torch.Tensor)
-    if pitch_norm == "standard":
-        f0 = (f0 - f0_mean) / f0_std
-    if pitch_norm == "log":
-        f0 = torch.log2(f0 + 1e-8) if is_torch else np.log2(f0 + 1e-8)
+    log_f0 = torch.log2(f0 + 1e-8) if is_torch else np.log2(f0 + 1e-8)
+
+    # Standardize using the calculated stats
+    normed_f0 = (log_f0 - log_f0_mean) / log_f0_std
+
+    # Set unvoiced parts to 0 (which now represents the mean of the normed space)
+    if uv is not None:
+        normed_f0[uv > 0] = 0
+    return normed_f0
+
+
+def denorm_f0_zscore(normed_f0, uv, log_f0_mean, log_f0_std):
+    """
+    Denormalizes f0 from z-score + log-scale using pre-calculated stats.
+    """
+    # De-standardize
+    log_f0 = normed_f0 * log_f0_std + log_f0_mean
+
+    # Convert back from log-scale
+    f0 = 2**log_f0
+
+    # Set unvoiced parts to 0
     if uv is not None:
         f0[uv > 0] = 0
-    return f0
-
-
-def denorm_f0(
-    f0,
-    uv,
-    pitch_norm="log",
-    f0_mean=400,
-    f0_std=100,
-    pitch_padding=None,
-    min=50,
-    max=900,
-):
-    is_torch = isinstance(f0, torch.Tensor)
-    if pitch_norm == "standard":
-        f0 = f0 * f0_std + f0_mean
-    if pitch_norm == "log":
-        f0 = 2**f0
-    f0 = f0.clamp(min=min, max=max) if is_torch else np.clip(f0, a_min=min, a_max=max)
-    if uv is not None:
-        f0[uv > 0] = 0
-    if pitch_padding is not None:
-        f0[pitch_padding] = 0
     return f0
 
 
@@ -850,7 +829,7 @@ def train_cfm_pitch(
             phones, spk_emb = pred_ssl_features(train, batch, batch.pitch.shape[1])
             f0 = batch.pitch.unsqueeze(1)
             uv = f0 == 0
-            normed_f0 = norm_f0(f0, uv)
+            normed_f0 = norm_f0_zscore(f0, uv, train.f0_log2_mean, train.f0_log2_std)
 
         # pred_normed_f0, target_normed_f0 = (
         #     model.cfm_pitch_predictor.compute_pred_target(phones, spk_emb, normed_f0)
@@ -873,9 +852,11 @@ def validate_cfm_pitch(batch, train):
         phones, spk_emb = pred_ssl_features(train, batch, batch.pitch.shape[1])
         f0 = batch.pitch.unsqueeze(1)
         uv = f0 == 0
-        normed_f0 = norm_f0(f0, uv)
+        normed_f0 = norm_f0_zscore(f0, uv, train.f0_log2_mean, train.f0_log2_std)
     pred_normed_f0 = train.model.cfm_pitch_predictor(phones, spk_emb)
-    pred_f0 = denorm_f0(pred_normed_f0, uv)
+    pred_f0 = denorm_f0_zscore(
+        pred_normed_f0, uv, train.f0_log2_mean, train.f0_log2_std
+    )
     print_gpu_vram("predicted")
     log = build_loss_log(train)
     log.add_loss("normed_pitch_l2", F.mse_loss(pred_normed_f0, normed_f0))

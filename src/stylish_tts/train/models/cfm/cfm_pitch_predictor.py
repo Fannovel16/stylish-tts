@@ -28,7 +28,7 @@ class CfmPitchPredictor(nn.Module):
         #     nn.Linear(hidden_dim * 4, hidden_dim),
         # )
         self.blocks = nn.ModuleList(
-            [ConvNeXtBlock(hidden_dim, hidden_dim * 4, hidden_dim) for _ in range(8)]
+            [ConvNeXtBlock(hidden_dim, hidden_dim * 4, hidden_dim) for _ in range(4)]
         )
         self.in_proj = nn.Conv1d(1, hidden_dim, 1)
         self.out_proj = nn.Conv1d(hidden_dim, 1, 1)
