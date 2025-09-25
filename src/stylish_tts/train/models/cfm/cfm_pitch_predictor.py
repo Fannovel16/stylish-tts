@@ -1,4 +1,5 @@
 from stylish_tts.train.models.generator import ConvNeXtBlock
+from stylish_tts.train.models.conv_next import BasicConvNeXtBlock
 from .cfm import SinusoidalPosEmb
 import torch.nn as nn
 from einops import rearrange, repeat
@@ -20,50 +21,44 @@ class CfmPitchPredictor(nn.Module):
             nn.Mish(),
             nn.Linear(hidden_dim * 4, hidden_dim),
         )
-        self.time_emb = nn.Sequential(
-            SinusoidalPosEmb(hidden_dim),
-            nn.Linear(hidden_dim, hidden_dim * 4),
-            nn.Mish(),
-            nn.Linear(hidden_dim * 4, hidden_dim),
-        )
+        # self.time_emb = nn.Sequential(
+        #     SinusoidalPosEmb(hidden_dim),
+        #     nn.Linear(hidden_dim, hidden_dim * 4),
+        #     nn.Mish(),
+        #     nn.Linear(hidden_dim * 4, hidden_dim),
+        # )
         self.blocks = nn.ModuleList(
-            [
-                ConvNeXtBlock(hidden_dim * 3, hidden_dim * 3 * 4, hidden_dim)
-                for _ in range(4)
-            ]
+            [ConvNeXtBlock(hidden_dim, hidden_dim * 4, hidden_dim) for _ in range(8)]
         )
         self.in_proj = nn.Conv1d(1, hidden_dim, 1)
-        self.out_proj = nn.Conv1d(hidden_dim * 3, 1, 1)
-        self.sampler = CfmSampler(
-            self._forward, guidance_w=0, cond_drop_prob=0, non_drop_conds=["spk"]
-        )
+        self.out_proj = nn.Conv1d(hidden_dim, 1, 1)
+        # self.sampler = CfmSampler(
+        #     self._forward, guidance_w=0, cond_drop_prob=0, non_drop_conds=["spk"]
+        # )
 
-    def _forward(self, x, asr, spk, t, mask=None):
-        x, asr, spk, t = (
-            self.in_proj(x),
+    def forward(self, asr, spk):
+        asr, spk = (
             self.asr_emb(asr),
             self.spk_emb(spk),
-            self.time_emb(t),
         )
-        spk = repeat(spk, "b c -> b c n", n=x.shape[-1])
-        x = torch.cat([x, asr, spk], dim=1)
+        x = asr
         for layer in self.blocks:
-            x = layer(x, t)
+            x = layer(x, spk)
         x = self.out_proj(x)
         return x
 
-    @torch.inference_mode()
-    def forward(self, asr, spk, n_timesteps, temperature):
-        b, _, t = asr.shape
-        z = torch.rand((b, 1, t), device=asr.device)
-        return self.sampler(
-            z,
-            None,
-            n_timesteps,
-            temperature,
-            asr=asr,
-            spk=spk,
-        )
+    # @torch.inference_mode()
+    # def forward(self, asr, spk, n_timesteps, temperature):
+    #     b, _, t = asr.shape
+    #     z = torch.rand((b, 1, t), device=asr.device)
+    #     return self.sampler(
+    #         z,
+    #         None,
+    #         n_timesteps,
+    #         temperature,
+    #         asr=asr,
+    #         spk=spk,
+    #     )
 
-    def compute_pred_target(self, asr, spk, x1):
-        return self.sampler.compute_pred_target(x1, None, asr=asr, spk=spk)
+    # def compute_pred_target(self, asr, spk, x1):
+    #     return self.sampler.compute_pred_target(x1, None, asr=asr, spk=spk)
