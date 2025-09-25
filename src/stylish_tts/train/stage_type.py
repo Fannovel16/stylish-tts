@@ -879,7 +879,7 @@ def validate_cfm_pitch(batch, train):
         phones,
         spk_emb,
         n_timesteps=10,
-        temperature=1e-4,
+        temperature=1e-8,
     )
     pred_f0 = denorm_f0(minmax_denorm(pred_normed_f0, uv), uv)
     print_gpu_vram("predicted")
