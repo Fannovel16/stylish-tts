@@ -854,9 +854,7 @@ def train_cfm_pitch(
             normed_f0 = minmax_norm(normed_f0, uv)
 
         pred_normed_f0, target_normed_f0 = (
-            model.cfm_pitch_predictor.compute_pred_target(
-                phones, spk_emb, normed_f0.unsqueeze(1)
-            )
+            model.cfm_pitch_predictor.compute_pred_target(phones, spk_emb, normed_f0)
         )
         print_gpu_vram("predicted")
 
