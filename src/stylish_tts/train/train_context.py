@@ -179,13 +179,6 @@ class TrainContext:
             .to(self.config.training.device)
             .eval()
         )
-        import torch
-
-        all_f0 = []
-        for f0 in self.batch_manager.dataset.pitch.values():
-            all_f0.append(f0[f0 > 0].flatten())
-        all_f0 = torch.cat(all_f0, 0)
-        self.f0_log2_mean, self.f0_log2_std = all_f0.mean(), all_f0.std()
 
     def reset_out_dir(self, stage_name):
         self.out_dir = osp.join(self.base_output_dir, stage_name)
@@ -209,6 +202,14 @@ class TrainContext:
             import tqdm as _tqdm
         except Exception:
             _tqdm = None
+
+        import torch
+
+        all_f0 = []
+        for f0 in self.batch_manager.dataset.pitch.values():
+            all_f0.append(f0[f0 > 0].flatten())
+        all_f0 = torch.cat(all_f0, 0)
+        self.f0_log2_mean, self.f0_log2_std = all_f0.mean(), all_f0.std()
 
         # 1) Already from checkpoint
         if self.normalization is not None and self.normalization.frames > 0:
