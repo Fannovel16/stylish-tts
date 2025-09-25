@@ -860,7 +860,7 @@ def validate_cfm_pitch(batch, train):
     print_gpu_vram("predicted")
     log = build_loss_log(train)
     log.add_loss("normed_pitch_l2", F.mse_loss(pred_normed_f0, normed_f0))
-    log.add_loss("linear_pitch_l2", F.mse_loss(pred_f0, f0))
+    log.add_loss("linear_pitch", F.l1_loss(pred_f0, f0))
     return log, None, None, None
 
 
