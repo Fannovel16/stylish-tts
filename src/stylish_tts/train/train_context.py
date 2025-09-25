@@ -208,7 +208,7 @@ class TrainContext:
         all_f0 = []
         for f0 in self.batch_manager.dataset.pitch.values():
             all_f0.append(f0[f0 > 0].flatten())
-        all_f0 = torch.cat(all_f0, 0)
+        all_f0 = torch.cat(all_f0, 0).log2()
         self.f0_log2_mean, self.f0_log2_std = all_f0.mean(), all_f0.std()
 
         # 1) Already from checkpoint
