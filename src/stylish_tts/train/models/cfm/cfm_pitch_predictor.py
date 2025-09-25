@@ -9,7 +9,7 @@ from .cfm import CfmSampler
 class CfmPitchPredictor(nn.Module):
     def __init__(self, asr_dim, spk_dim):
         super().__init__()
-        hidden_dim = 128
+        hidden_dim = 256
         self.asr_emb = nn.Sequential(
             nn.Conv1d(asr_dim, hidden_dim * 4, 1),
             nn.Mish(),
