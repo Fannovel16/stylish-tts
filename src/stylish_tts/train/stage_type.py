@@ -879,13 +879,13 @@ def validate_cfm_pitch(batch, train):
         phones,
         spk_emb,
         n_timesteps=10,
-        temperature=0.2,
+        temperature=1e-4,
     )
     pred_f0 = denorm_f0(minmax_denorm(pred_normed_f0, uv), uv)
     print_gpu_vram("predicted")
     log = build_loss_log(train)
     log.add_loss("normed_pitch_l2", F.mse_loss(pred_normed_f0, normed_f0))
-    log.add_loss("linear_pitch_l2", F.mse_loss(pred_f0, batch.pitch))
+    log.add_loss("linear_pitch_l2", F.mse_loss(pred_f0, f0))
     return log, None, None, None
 
 
