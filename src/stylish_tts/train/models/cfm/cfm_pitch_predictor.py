@@ -23,7 +23,9 @@ class CfmPitchPredictor(nn.Module):
         #     nn.Mish(),
         #     nn.Linear(hidden_dim * 4, hidden_dim),
         # )
-        self.spk_emb = MelStyleEncoder(n_mels, hidden_dim, hidden_dim * 4)
+        self.spk_emb = MelStyleEncoder(
+            n_mels, hidden_dim, hidden_dim * 4, skip_downsamples=True
+        )
         # self.time_emb = nn.Sequential(
         #     SinusoidalPosEmb(hidden_dim),
         #     nn.Linear(hidden_dim, hidden_dim * 4),
