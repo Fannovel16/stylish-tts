@@ -26,7 +26,7 @@ class CfmPitchPredictor(nn.Module):
         self.spk_emb = nn.Sequential(
             Rearrange("b c t -> b t c"),
             CAMPPlus(feat_dim=n_mels),
-            nn.Conv1d(512, hidden_dim, 1),
+            nn.Linear(512, hidden_dim),
         )
         # self.time_emb = nn.Sequential(
         #     SinusoidalPosEmb(hidden_dim),
