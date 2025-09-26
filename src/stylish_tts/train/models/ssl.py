@@ -34,8 +34,9 @@ class AdaptiveHubert(nn.Module):
 class SpeakerEmbeddingModel(nn.Module):
     def __init__(self, model_sr: int, device: str):
         super().__init__()
-        self.model = wespeaker.load_model("campplus")
-        self.model.model.xvector.dense = nn.Identity()
+        self.model = wespeaker.load_model("vblinkf")
+        # self.model.model.xvector.dense = nn.Identity()
+        self.model.model.bottleneck = nn.Identity()
         self.model.set_device(device)
         self.device = device
         self.max_half = 16000 * 2
