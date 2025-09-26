@@ -44,7 +44,7 @@ class CfmPitchPredictor(nn.Module):
     def forward(self, asr, mel):
         asr, spk = (
             self.asr_emb(asr),
-            self.spk_emb(mel),
+            self.spk_emb(mel.unsqueeze(1)),
         )
         x = asr
         for layer in self.blocks:
