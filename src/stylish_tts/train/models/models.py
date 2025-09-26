@@ -72,7 +72,7 @@ def build_model(model_config: ModelConfig):
 
     cfm_pitch_predictor = CfmPitchPredictor(
         asr_dim=model_config.hubert.hidden_dim,
-        spk_dim=model_config.speaker_embedder.hidden_dim,
+        n_mels=model_config.n_mels,
     )
 
     hubert_encoder = HubertEncoder(model_config)

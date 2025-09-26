@@ -834,12 +834,12 @@ def train_cfm_pitch(
 ) -> Tuple[LossLog, Optional[torch.Tensor]]:
     with train.accelerator.autocast():
         print_gpu_vram("init")
-        # mel, mel_length = calculate_mel(
-        #     batch.audio_gt,
-        #     train.to_mel,
-        #     train.normalization.mel_log_mean,
-        #     train.normalization.mel_log_std,
-        # )
+        mel, mel_length = calculate_mel(
+            batch.audio_gt,
+            train.to_mel,
+            train.normalization.mel_log_mean,
+            train.normalization.mel_log_std,
+        )
         with torch.no_grad():
             phones, spk_emb = pred_ssl_features(train, batch, batch.pitch.shape[1])
             f0 = batch.pitch.unsqueeze(1)
@@ -849,7 +849,7 @@ def train_cfm_pitch(
         # pred_normed_f0, target_normed_f0 = (
         #     model.cfm_pitch_predictor.compute_pred_target(phones, spk_emb, normed_f0)
         # )
-        pred_normed_f0 = model.cfm_pitch_predictor(phones, spk_emb)
+        pred_normed_f0 = model.cfm_pitch_predictor(phones, mel)
         print_gpu_vram("predicted")
 
         train.stage.optimizer.zero_grad()
@@ -863,12 +863,18 @@ def train_cfm_pitch(
 
 @torch.no_grad()
 def validate_cfm_pitch(batch, train):
+    mel, mel_length = calculate_mel(
+        batch.audio_gt,
+        train.to_mel,
+        train.normalization.mel_log_mean,
+        train.normalization.mel_log_std,
+    )
     with torch.no_grad():
         phones, spk_emb = pred_ssl_features(train, batch, batch.pitch.shape[1])
         f0 = batch.pitch.unsqueeze(1)
         uv = f0 == 0
         normed_f0 = norm_f0_zscore(f0, uv, train.f0_log2_mean, train.f0_log2_std)
-    pred_normed_f0 = train.model.cfm_pitch_predictor(phones, spk_emb)
+    pred_normed_f0 = train.model.cfm_pitch_predictor(phones, mel)
     pred_f0 = denorm_f0_zscore(
         pred_normed_f0, uv, train.f0_log2_mean, train.f0_log2_std
     )

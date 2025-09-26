@@ -34,7 +34,7 @@ class AdaptiveHubert(nn.Module):
 class SpeakerEmbeddingModel(nn.Module):
     def __init__(self, model_sr: int, device: str):
         super().__init__()
-        self.model = wespeaker.load_model("vblinkf")
+        self.model = wespeaker.load_model("vblinkp")
         # self.model.model.xvector.dense = nn.Identity()
         self.model.model.bottleneck = nn.Identity()
         self.model.set_device(device)

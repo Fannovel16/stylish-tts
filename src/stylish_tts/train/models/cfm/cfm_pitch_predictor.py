@@ -5,10 +5,12 @@ import torch.nn as nn
 from einops import rearrange, repeat
 import torch
 from .cfm import CfmSampler
+from wespeaker.models.campplus import CAMPPlus
+from einops.layers.torch import Rearrange
 
 
 class CfmPitchPredictor(nn.Module):
-    def __init__(self, asr_dim, spk_dim):
+    def __init__(self, asr_dim, n_mels):
         super().__init__()
         hidden_dim = 256
         self.asr_emb = nn.Sequential(
@@ -16,10 +18,13 @@ class CfmPitchPredictor(nn.Module):
             nn.Mish(),
             nn.Conv1d(hidden_dim * 4, hidden_dim, 1),
         )
+        # self.spk_emb = nn.Sequential(
+        #     nn.Linear(spk_dim, hidden_dim * 4),
+        #     nn.Mish(),
+        #     nn.Linear(hidden_dim * 4, hidden_dim),
+        # )
         self.spk_emb = nn.Sequential(
-            nn.Linear(spk_dim, hidden_dim * 4),
-            nn.Mish(),
-            nn.Linear(hidden_dim * 4, hidden_dim),
+            Rearrange("b c t -> b t c"), CAMPPlus(feat_dim=n_mels, embed_dim=hidden_dim)
         )
         # self.time_emb = nn.Sequential(
         #     SinusoidalPosEmb(hidden_dim),
@@ -36,10 +41,10 @@ class CfmPitchPredictor(nn.Module):
         #     self._forward, guidance_w=0, cond_drop_prob=0, non_drop_conds=["spk"]
         # )
 
-    def forward(self, asr, spk):
+    def forward(self, asr, mel):
         asr, spk = (
             self.asr_emb(asr),
-            self.spk_emb(spk),
+            self.spk_emb(mel),
         )
         x = asr
         for layer in self.blocks:
