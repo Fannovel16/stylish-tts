@@ -5,7 +5,7 @@ import torch.nn as nn
 from einops import rearrange, repeat
 import torch
 from .cfm import CfmSampler
-from wespeaker.models.campplus import CAMPPlus
+from stylish_tts.train.models.mel_style_encoder import MelStyleEncoder
 from einops.layers.torch import Rearrange
 
 
@@ -23,11 +23,7 @@ class CfmPitchPredictor(nn.Module):
         #     nn.Mish(),
         #     nn.Linear(hidden_dim * 4, hidden_dim),
         # )
-        self.spk_emb = nn.Sequential(
-            Rearrange("b c t -> b t c"),
-            CAMPPlus(feat_dim=n_mels),
-            nn.Linear(512, hidden_dim),
-        )
+        self.spk_emb = MelStyleEncoder(n_mels, hidden_dim, hidden_dim * 4)
         # self.time_emb = nn.Sequential(
         #     SinusoidalPosEmb(hidden_dim),
         #     nn.Linear(hidden_dim, hidden_dim * 4),
