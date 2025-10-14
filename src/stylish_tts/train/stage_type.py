@@ -922,7 +922,9 @@ def train_hubert_acoustic(
                 train.normalization.mel_log_std,
             ).squeeze(1)
             phones, spk_emb = pred_ssl_features(train, batch, batch.pitch.shape[1])
-        pred = model.speech_predictor(phones, mel_length, spk_emb, batch.pitch, energy)
+        pred = model.hubert_speech_predictor(
+            phones, mel_length, spk_emb, batch.pitch, energy
+        )
         pred_pitch, pred_energy = model.hubert_pitch_energy_predictor(
             phones, mel_length, spk_emb
         )
@@ -977,7 +979,9 @@ def validate_hubert_acoustic(batch, train):
     ).squeeze(1)
     phones, spk_emb = pred_ssl_features(train, batch, batch.pitch.shape[1])
     model = train.model
-    pred = model.speech_predictor(phones, mel_length, spk_emb, batch.pitch, energy)
+    pred = model.hubert_speech_predictor(
+        phones, mel_length, spk_emb, batch.pitch, energy
+    )
     pred_pitch, pred_energy = model.hubert_pitch_energy_predictor(
         phones, mel_length, spk_emb
     )
