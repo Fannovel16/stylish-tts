@@ -71,7 +71,7 @@ class SpeechPredictor(torch.nn.Module):
 class HubertSpeechPredictor(torch.nn.Module):
     def __init__(self, model_config):
         super().__init__()
-        model_config.layers = 2
+        model_config.text_encoder.layers = 2
         self.phone_encoder = HubertEncoder(model_config)
 
         self.style_encoder = torch.nn.Linear(
