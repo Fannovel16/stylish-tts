@@ -246,11 +246,6 @@ class Bypass(nn.Module):
         self.scale_min = copy.deepcopy(scale_min)
         self.scale_max = copy.deepcopy(scale_max)
         self.batch_count = 0
-        self.bypass_scale.register_hook(self._update_batch)
-
-    def _update_batch(self, grad):
-        self.batch_count += 1
-        print(f"{self.name} batch count: {self.batch_count}")
 
     def _get_bypass_scale(self):
         if torch.jit.is_scripting() or torch.jit.is_tracing() or not self.training:
@@ -266,6 +261,7 @@ class Bypass(nn.Module):
                 min=float(self.scale_min),
                 max=float(self.scale_max),
             )
+            self.batch_count += 1
             return ans
 
     def forward(self, src_orig, src):
