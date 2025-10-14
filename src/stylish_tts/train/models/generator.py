@@ -495,6 +495,14 @@ class SourceModuleHnNSF(torch.nn.Module):
         return sine_merge, noise, uv
 
 
+class MockConformer(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x, style):
+        return x
+
+
 class Generator(torch.nn.Module):
     def __init__(self, *, style_dim, n_fft, win_length, hop_length, config):
         super(Generator, self).__init__()
@@ -558,6 +566,8 @@ class Generator(torch.nn.Module):
             ff_dropout=0.2,
             conv_dropout=0.2,
         )
+        self.amp_conformer.layers[3] = MockConformer()
+        self.amp_conformer.layers[4] = MockConformer()
         self.amp_convnext = nn.ModuleList(
             [
                 ConvNeXtBlock(
