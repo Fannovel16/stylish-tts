@@ -11,7 +11,7 @@ from .pitch_energy_predictor import PitchEnergyPredictor, HubertPitchEnergyPredi
 from .text_encoder import TextEncoder
 from .text_style_encoder import TextStyleEncoder
 from .mel_style_encoder import MelStyleEncoder
-from .speech_predictor import SpeechPredictor
+from .speech_predictor import SpeechPredictor, HubertSpeechPredictor
 from stylish_tts.train.multi_spectrogram import multi_spectrogram_count
 from .cfm.cfm_mel_decoder import CfmMelDecoder
 from .cfm.cfm_pitch_predictor import CfmPitchPredictor
@@ -89,6 +89,7 @@ def build_model(model_config: ModelConfig):
         hubert_encoder=hubert_encoder,
         cfm_mel_decoder=cfm_mel_decoder,
         cfm_pitch_predictor=cfm_pitch_predictor,
+        hubert_speech_predictor=HubertSpeechPredictor(model_config),
         hubert_pitch_energy_predictor=HubertPitchEnergyPredictor(
             hubert_dim=model_config.hubert.hidden_dim,
             spk_dim=model_config.speaker_embedder.hidden_dim,
