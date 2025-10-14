@@ -121,6 +121,76 @@ class PitchEnergyPredictor(torch.nn.Module):
         return F0.squeeze(1), N.squeeze(1)
 
 
+class HubertPitchEnergyPredictor(torch.nn.Module):
+    def __init__(
+        self,
+        hubert_dim,
+        spk_dim,
+        style_dim,
+        inter_dim,
+        style_config,
+        pitch_energy_config,
+    ):
+        super().__init__()
+
+        self.phone_quant = torch.nn.Conv1d(hubert_dim, inter_dim, 1)
+
+        self.style_encoder = torch.nn.Linear(spk_dim, style_dim)
+
+        self.prosody_encoder = ProsodyEncoder(
+            sty_dim=style_dim,
+            d_model=inter_dim,
+            nlayers=3,
+            dropout=0.2,
+        )
+
+        dropout = pitch_energy_config.dropout
+
+        self.F0 = torch.nn.ModuleList(
+            [
+                AdaptiveDecoderBlock(
+                    inter_dim + style_dim,
+                    inter_dim + style_dim,
+                    style_dim,
+                    dropout_p=dropout,
+                )
+                for _ in range(3)
+            ]
+        )
+
+        self.N = torch.nn.ModuleList(
+            [
+                AdaptiveDecoderBlock(
+                    inter_dim + style_dim,
+                    inter_dim + style_dim,
+                    style_dim,
+                    dropout_p=dropout,
+                )
+                for _ in range(3)
+            ]
+        )
+
+        self.F0_proj = torch.nn.Conv1d(inter_dim + style_dim, 1, 1, 1, 0)
+        self.N_proj = torch.nn.Conv1d(inter_dim + style_dim, 1, 1, 1, 0)
+
+    def forward(self, phones, phone_lengths, spk_emb):
+        phones = self.phone_quant(phones)
+        style = self.style_encoder(spk_emb)
+        x = self.prosody_encoder(phones, style, phone_lengths)
+
+        F0 = x.transpose(1, 2)
+        for block in self.F0:
+            F0 = block(F0, style)
+        F0 = self.F0_proj(F0)
+
+        N = x.transpose(1, 2)
+        for block in self.N:
+            N = block(N, style)
+        N = self.N_proj(N)
+
+        return F0.squeeze(1), N.squeeze(1)
+
+
 def build_monotonic_band_mask(alignment, text_mask, window):
     """
     alignment: [B, T, F] (monotonic hard/soft align)

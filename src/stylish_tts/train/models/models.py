@@ -90,6 +90,14 @@ def build_model(model_config: ModelConfig):
         hubert_encoder=hubert_encoder,
         cfm_mel_decoder=cfm_mel_decoder,
         cfm_pitch_predictor=cfm_pitch_predictor,
+        hubert_pitch_energy_predictor=HubertPitchEnergyPredictor(
+            hubert_dim=model_config.hubert.hidden_dim,
+            spk_dim=model_config.speaker_embedder.hidden_dim,
+            style_dim=model_config.style_dim,
+            inter_dim=model_config.inter_dim,
+            style_config=model_config.style_encoder,
+            pitch_energy_config=model_config.pitch_energy_predictor,
+        ),
     )
 
     return nets

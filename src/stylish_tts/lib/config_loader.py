@@ -88,6 +88,10 @@ class TrainingPlanConfig(BaseModel):
         default_factory=TrainingStageConfig,
         description="Configuration for training of Conditional Flow Matching Pitch Predictor.",
     )
+    hubert_acoustic: TrainingStageConfig = Field(
+        default_factory=TrainingStageConfig,
+        description="Configuration for joint training of acoustic models stage (second stage).",
+    )
 
     def get_stage(self, name: str) -> TrainingStageConfig:
         try:
