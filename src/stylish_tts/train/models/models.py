@@ -6,12 +6,11 @@ from .text_aligner import tdnn_blstm_ctc_model_base
 from .discriminator import MultiResolutionDiscriminator, MultiPeriodDiscriminator
 
 from .duration_predictor import DurationPredictor
-from .pitch_energy_predictor import PitchEnergyPredictor
+from .pitch_energy_predictor import PitchEnergyPredictor, HubertPitchEnergyPredictor
 
 from .text_encoder import TextEncoder
 from .text_style_encoder import TextStyleEncoder
 from .mel_style_encoder import MelStyleEncoder
-from .pitch_energy_predictor import PitchEnergyPredictor
 from .speech_predictor import SpeechPredictor
 from stylish_tts.train.multi_spectrogram import multi_spectrogram_count
 from .cfm.cfm_mel_decoder import CfmMelDecoder
