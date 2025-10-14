@@ -15,6 +15,7 @@ from stylish_tts.train.utils import DecoderPrediction
 from .ada_norm import AdaptiveGeneratorBlock
 from .ada_norm import AdaptiveLayerNorm
 from .common import get_padding
+from .zip_modules import Bypass, SimpleDownsample, SimpleUpsample
 
 import numpy as np
 
@@ -534,7 +535,7 @@ class Generator(torch.nn.Module):
         self.phase_conformer = Conformer(
             dim=config.hidden_dim,
             style_dim=style_dim,
-            depth=config.conformer_layers,
+            depth=0,
             attn_dropout=0.2,
             ff_dropout=0.2,
             conv_dropout=0.2,
@@ -575,6 +576,22 @@ class Generator(torch.nn.Module):
             hop_length=hop_length,
             win_length=win_length,
         )
+        self.ds_factors = [1, 2, 4, 2, 1]
+        self.downsamplers = nn.ModuleList(
+            [
+                nn.Identity() if ds == 1 else SimpleDownsample(ds)
+                for ds in self.ds_factors
+            ]
+        )
+        self.upsamplers = nn.ModuleList(
+            [nn.Identity() if ds == 1 else SimpleUpsample(ds) for ds in self.ds_factors]
+        )
+        self.amp_bypass = nn.ModuleList(
+            [Bypass(f"amp_bypass_{ds}x", config.hidden_dim) for ds in self.ds_factors]
+        )
+        self.phase_bypass = nn.ModuleList(
+            [Bypass(f"phase_bypass_{ds}x", config.hidden_dim) for ds in self.ds_factors]
+        )
 
     def _init_weights(self, m):
         if isinstance(m, nn.Conv1d):  # (nn.Conv1d, nn.Linear)):
@@ -585,23 +602,41 @@ class Generator(torch.nn.Module):
         logamp = self.amp_input_conv(mel)
         logamp = logamp.transpose(1, 2)
         logamp = self.amp_norm(logamp)
-        logamp = self.amp_conformer(logamp, style)
-        logamp = logamp.transpose(1, 2)
-        for conv_block in self.amp_convnext:
-            logamp = conv_block(logamp, style)
 
-        logamp = logamp.transpose(1, 2)
+        for conformer_block, conv_block, downsampler, upsampler, bypass in zip(
+            self.amp_conformer.layers,
+            self.amp_convnext,
+            self.downsamplers,
+            self.upsamplers,
+            self.amp_bypass,
+        ):
+            logamp = logamp.transpose(1, 2)
+            logamp_orig = logamp
+            logamp = downsampler(logamp)
+            logamp = conformer_block(logamp.transpose(1, 2), style).transpose(1, 2)
+            logamp = conv_block(logamp, style)
+            logamp = upsampler(logamp)
+            logamp = logamp[:, :, : logamp_orig.shape[2]]
+            logamp = bypass(logamp_orig.transpose(1, 2), logamp.transpose(1, 2))
+
         phase = logamp
         logamp = self.amp_final_layer_norm(logamp)
         logamp = logamp.transpose(1, 2)
         logamp = self.amp_output_conv(logamp)
 
         phase = self.phase_norm(phase)
-        phase = self.phase_conformer(phase, style)
-        phase = phase.transpose(1, 2)
-        for conv_block in self.phase_convnext:
+
+        for conv_block, downsampler, upsampler, bypass in zip(
+            self.phase_convnext, self.downsamplers, self.upsamplers, self.phase_bypass
+        ):
+            phase = phase.transpose(1, 2)
+            phase_orig = phase
+            phase = downsampler(phase)
             phase = conv_block(phase, style)
-        phase = phase.transpose(1, 2)
+            phase = upsampler(phase)
+            phase = phase[:, :, : phase_orig.shape[2]]
+            phase = bypass(phase_orig.transpose(1, 2), phase.transpose(1, 2))
+
         phase = self.phase_final_layer_norm(phase)
         phase = phase.transpose(1, 2)
         real = self.phase_output_real_conv(phase)
@@ -644,6 +679,7 @@ class ConvNeXtBlock(torch.nn.Module):
         self.snake = torch.nn.Parameter(torch.ones(1, 1, intermediate_dim))
         self.grn = GRN(intermediate_dim)
         self.pwconv2 = torch.nn.Linear(intermediate_dim, dim)
+        self.bypass = Bypass("convnext", dim)
 
     def act(self, x):
         return x + (1 / self.snake) * (torch.sin(self.snake * x) ** 2)

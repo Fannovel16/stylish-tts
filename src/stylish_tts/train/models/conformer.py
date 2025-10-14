@@ -7,6 +7,7 @@ from einops import rearrange
 from torch import nn, einsum
 from .text_encoder import sequence_mask
 from .ada_norm import AdaptiveLayerNorm
+from .zip_modules import Bypass
 
 import logging
 
@@ -233,18 +234,21 @@ class ConformerBlock(nn.Module):
         self.ff2 = FeedForward(dim=dim, mult=ff_mult, dropout=ff_dropout)
 
         self.attn = PreNorm(dim, style_dim, self.attn)
-        self.ff1 = Scale(0.5, PreNorm(dim, style_dim, self.ff1))
-        self.ff2 = Scale(0.5, PreNorm(dim, style_dim, self.ff2))
+        self.ff1 = PreNorm(dim, style_dim, self.ff1)
+        self.ff2 = PreNorm(dim, style_dim, self.ff2)
 
         self.post_norm = AdaptiveLayerNorm(style_dim, dim)
+        self.bypass_ff1 = Bypass("conformer_ff1", dim)
+        self.bypass_conv = Bypass("conformer_conv", dim)
+        self.bypass_ff2 = Bypass("conformer_ff2", dim)
 
     def forward(self, x, style, mask=None):
-        x_ff1 = self.ff1(x, style) + x
+        x_ff1 = self.bypass_ff1(x, self.ff1(x, style))
         x = self.attn(x, style, mask=mask)
         x = self.self_attn_dropout(x)
         x = x + x_ff1
-        x = self.conv(x, style) + x
-        x = self.ff2(x, style) + x
+        x = self.bypass_conv(x, self.conv(x, style))
+        x = self.bypass_ff2(x, self.ff2(x, style))
         x = self.post_norm(x, style)
         return x
 

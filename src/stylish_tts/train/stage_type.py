@@ -904,6 +904,117 @@ stages["cfm_hubert_pitch"] = StageType(
 )
 
 
+def train_hubert_acoustic(
+    batch, model, train, probing
+) -> Tuple[LossLog, Optional[torch.Tensor]]:
+    with train.accelerator.autocast():
+        print_gpu_vram("init")
+        mel, mel_length = calculate_mel(
+            batch.audio_gt,
+            train.to_mel,
+            train.normalization.mel_log_mean,
+            train.normalization.mel_log_std,
+        )
+        with torch.no_grad():
+            energy = log_norm(
+                mel.unsqueeze(1),
+                train.normalization.mel_log_mean,
+                train.normalization.mel_log_std,
+            ).squeeze(1)
+            phones, spk_emb = pred_ssl_features(train, batch, batch.pitch.shape[1])
+        pred = model.speech_predictor(phones, mel_length, spk_emb, batch.pitch, energy)
+        pred_pitch, pred_energy = model.hubert_pitch_energy_predictor(
+            phones, mel_length, spk_emb
+        )
+        print_gpu_vram("predicted")
+        train.stage.optimizer.zero_grad()
+
+        log = build_loss_log(train)
+        target_spec, pred_spec, target_phase, pred_phase, target_fft, pred_fft = (
+            train.multi_spectrogram(target=batch.audio_gt, pred=pred.audio.squeeze(1))
+        )
+        train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
+        print_gpu_vram("stft_loss")
+        log.add_loss(
+            "slm",
+            train.wavlm_loss(batch.audio_gt.detach(), pred.audio),
+        )
+        print_gpu_vram("slm_loss")
+        train.magphase_loss(pred, batch.audio_gt, log)
+        print_gpu_vram("magphase_loss")
+
+        log.add_loss(
+            "pitch",
+            torch.nn.functional.smooth_l1_loss(batch.pitch, pred_pitch),
+        )
+        log.add_loss(
+            "energy",
+            torch.nn.functional.smooth_l1_loss(energy, pred_energy),
+        )
+        train.accelerator.backward(log.backwards_loss())
+        print_gpu_vram("backward")
+
+    return (
+        log.detach(),  # None, None
+        {
+            "mrd": DiscriminatorInput(target_list=target_fft, pred_list=pred_fft),
+        },
+    )
+
+
+@torch.no_grad()
+def validate_hubert_acoustic(batch, train):
+    mel, mel_length = calculate_mel(
+        batch.audio_gt,
+        train.to_mel,
+        train.normalization.mel_log_mean,
+        train.normalization.mel_log_std,
+    )
+    energy = log_norm(
+        mel.unsqueeze(1),
+        train.normalization.mel_log_mean,
+        train.normalization.mel_log_std,
+    ).squeeze(1)
+    phones, spk_emb = pred_ssl_features(train, batch, batch.pitch.shape[1])
+    model = train.model
+    pred = model.speech_predictor(phones, mel_length, spk_emb, batch.pitch, energy)
+    pred_pitch, pred_energy = model.hubert_pitch_energy_predictor(
+        phones, mel_length, spk_emb
+    )
+    log = build_loss_log(train)
+    target_spec, pred_spec, target_phase, pred_phase, target_fft, pred_fft = (
+        train.multi_spectrogram(target=batch.audio_gt, pred=pred.audio.squeeze(1))
+    )
+    train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
+    log.add_loss(
+        "pitch",
+        torch.nn.functional.smooth_l1_loss(batch.pitch, pred_pitch),
+    )
+    log.add_loss(
+        "energy",
+        torch.nn.functional.smooth_l1_loss(energy, pred_energy),
+    )
+    return log, batch.alignment[0], make_list(pred.audio), batch.audio_gt
+
+
+stages["hubert_acoustic"] = StageType(
+    next_stage=None,
+    train_fn=train_hubert_acoustic,
+    validate_fn=validate_hubert_acoustic,
+    train_models=["hubert_speech_predictor", "hubert_pitch_energy_predictor"],
+    eval_models=[],
+    # discriminators=[],
+    discriminators=["mrd"],
+    inputs=[
+        "text",
+        "text_length",
+        "audio_gt",
+        "pitch",
+        "alignment",
+    ],
+)
+
+
 @torch.no_grad()
 def calculate_mel(audio, to_mel, mean, std):
     mel = to_mel(audio)
