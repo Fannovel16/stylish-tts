@@ -237,7 +237,7 @@ class Bypass(nn.Module):
         self,
         name: str,
         embed_dim: int,
-        scale_min: FloatLike = ScheduledFloat((0.0, 0.9), (5000.0, 0.2), default=0),
+        scale_min: FloatLike = 0.1,
         scale_max: FloatLike = 1.0,
     ):
         super().__init__()
@@ -245,23 +245,22 @@ class Bypass(nn.Module):
         self.bypass_scale = nn.Parameter(torch.full((embed_dim,), 0.5))
         self.scale_min = copy.deepcopy(scale_min)
         self.scale_max = copy.deepcopy(scale_max)
-        self.batch_count = 0
+        # self.batch_count = 0
 
     def _get_bypass_scale(self):
         if torch.jit.is_scripting() or torch.jit.is_tracing() or not self.training:
             return self.bypass_scale
         else:
-            # HACK: Use internal batch counter which increases after a training step
+            """# HACK: Use internal batch counter which increases after a training step
             for scale in [self.scale_min, self.scale_max]:
                 if isinstance(scale, ScheduledFloat):
                     scale.name = self.name
-                    scale.batch_count = self.batch_count
+                    scale.batch_count = self.batch_count"""
             ans = limit_param_value(
                 self.bypass_scale,
                 min=float(self.scale_min),
                 max=float(self.scale_max),
             )
-            self.batch_count += 1
             return ans
 
     def forward(self, src_orig, src):
