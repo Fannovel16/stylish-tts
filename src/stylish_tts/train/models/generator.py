@@ -392,6 +392,7 @@ class Generator(torch.nn.Module):
     def __init__(self, *, style_dim, n_fft, win_length, hop_length, config):
         super(Generator, self).__init__()
 
+        self.up_factors = [1, 1, 2, 1]
         self.amp_input_conv = Conv1d(
             config.input_dim,
             config.hidden_dim,
@@ -432,17 +433,21 @@ class Generator(torch.nn.Module):
                     intermediate_dim=config.conv_intermediate_dim,
                     style_dim=style_dim,
                 )
-                for _ in range(config.conv_layers)
+                for _ in range(len(self.up_factors))
             ]
         )
-        self.amp_conformer = Conformer(
+
+        self.amp_pre_conformer = Conformer(
             dim=config.hidden_dim,
             style_dim=style_dim,
-            depth=config.conformer_layers,
-            attn_dropout=0.2,
-            ff_dropout=0.2,
-            conv_dropout=0.2,
-            conv_kernel_size=[31, 31, 15, 15, 7],
+            depth=1,
+            conv_kernel_size=31,
+        )
+        self.amp_post_conformer = Conformer(
+            dim=config.hidden_dim,
+            style_dim=style_dim,
+            depth=1,
+            conv_kernel_size=31,
         )
         self.amp_convnext = nn.ModuleList(
             [
@@ -451,37 +456,41 @@ class Generator(torch.nn.Module):
                     intermediate_dim=config.conv_intermediate_dim,
                     style_dim=style_dim,
                 )
-                for _ in range(config.conv_layers)
+                for _ in range(len(self.up_factors))
             ]
         )
         self.amp_final_layer_norm = nn.LayerNorm(config.hidden_dim, eps=1e-6)
         self.phase_final_layer_norm = nn.LayerNorm(config.hidden_dim, eps=1e-6)
         self.apply(self._init_weights)
+
+        self.prod_up_factors = math.prod(self.up_factors)
         self.stft = TorchSTFT(
             filter_length=n_fft,
-            hop_length=hop_length,
+            hop_length=hop_length // self.prod_up_factors,
             win_length=win_length,
         )
-        self.ds_factors = [1, 2, 4, 8, 16]
         self.m_source = SineGenerator(24000)
-        self.amp_prior_downsamplers = nn.ModuleList(
+        self.pre_upsampler = SimpleUpsample(self.prod_up_factors)
+        self.prior_downsamplers = nn.ModuleList(
             [
-                SimpleDownConv1d(n_fft // 2 + 1, config.hidden_dim, ds, ds, 0)
-                for ds in self.ds_factors
+                SimpleDownConv1d(
+                    n_fft + 2,
+                    config.hidden_dim,
+                    self.prod_up_factors // ds,
+                    self.prod_up_factors // ds,
+                    0,
+                )
+                for ds in self.up_factors
             ]
         )
-        self.phase_prior_proj = nn.Conv1d(n_fft // 2 + 1, config.hidden_dim, 1, 1, 0)
         self.downsamplers = nn.ModuleList(
-            [
-                nn.Identity() if ds == 1 else SimpleDownsample(ds)
-                for ds in self.ds_factors
-            ]
+            [SimpleDownsample(self.prod_up_factors // ds) for ds in self.up_factors]
         )
         self.upsamplers = nn.ModuleList(
-            [nn.Identity() if ds == 1 else SimpleUpsample(ds) for ds in self.ds_factors]
+            [SimpleUpsample(self.prod_up_factors // ds) for ds in self.up_factors]
         )
         self.amp_bypass = nn.ModuleList(
-            [Bypass(f"amp_bypass_{ds}x", config.hidden_dim) for ds in self.ds_factors]
+            [Bypass(f"amp_bypass_{ds}x", config.hidden_dim) for ds in self.up_factors]
         )
         # self.phase_bypass = nn.ModuleList(
         #     [Bypass(f"phase_bypass_{ds}x", config.hidden_dim) for ds in self.ds_factors]
@@ -493,51 +502,54 @@ class Generator(torch.nn.Module):
             nn.init.constant_(m.bias, 0)
 
     def forward(self, *, mel, style, pitch, energy):
-        audio_len = mel.shape[-1] * self.stft.hop_length
-        pitch = F.interpolate(
-            pitch.unsqueeze(1), size=audio_len, mode="linear", align_corners=False
-        )
-        energy = F.interpolate(
-            energy.unsqueeze(1), size=audio_len, mode="linear", align_corners=False
-        )
-        har_source = self.m_source(
-            pitch.transpose(1, 2), energy.transpose(1, 2)
-        ).squeeze(-1)
-        har_spec, har_x, har_y = self.stft.transform(har_source)
-        har_phase = torch.atan2(har_y, har_x)
+        with torch.no_grad():
+            audio_len = mel.shape[-1] * self.prod_up_factors * self.stft.hop_length
+            pitch = F.interpolate(
+                pitch.unsqueeze(1), size=audio_len, mode="linear", align_corners=False
+            )
+            energy = F.interpolate(
+                energy.unsqueeze(1), size=audio_len, mode="linear", align_corners=False
+            )
+            har_source = self.m_source(
+                pitch.transpose(1, 2), energy.transpose(1, 2)
+            ).squeeze(-1)
+            har_spec, har_x, har_y = self.stft.transform(har_source)
+            har_phase = torch.atan2(har_y, har_x)
+            har = torch.cat([har_spec, har_phase], dim=1)
 
         logamp = self.amp_input_conv(mel)
         logamp = logamp.transpose(1, 2)
         logamp = self.amp_norm(logamp)
+        logamp = self.amp_pre_conformer(logamp, style)
+        logamp = self.pre_upsampler(logamp.transpose(1, 2))
 
-        for conformer_block, conv_block, down, prior_down, upsampler, bypass in zip(
-            self.amp_conformer.layers,
+        for conv_block, down, prior_down, up, bypass in zip(
             self.amp_convnext,
             self.downsamplers,
-            self.amp_prior_downsamplers,
+            self.prior_downsamplers,
             self.upsamplers,
             self.amp_bypass,
         ):
-            logamp = logamp.transpose(1, 2)
             logamp_orig = logamp
             logamp = down(logamp)
-            logamp_prior = conv_block(prior_down(har_spec), style)
+            logamp_prior = prior_down(har)
             logamp_prior = logamp_prior[:, :, : logamp.shape[2]]
-            logamp = logamp + logamp_prior
-            logamp = conformer_block(logamp.transpose(1, 2), style).transpose(1, 2)
-            logamp = upsampler(logamp)
-            logamp = logamp[:, :, : logamp_orig.shape[2]]
-            logamp = bypass(logamp_orig.transpose(1, 2), logamp.transpose(1, 2))
 
+            logamp = conv_block(logamp + logamp_prior, style)
+            logamp = up(logamp)
+            logamp = logamp[:, :, : logamp_orig.shape[2]]
+            logamp = bypass(
+                logamp_orig.transpose(1, 2), logamp.transpose(1, 2)
+            ).transpose(1, 2)
+
+        logamp = logamp.transpose(1, 2)
+        logamp = self.amp_post_conformer(logamp, style)
         phase = logamp
         logamp = self.amp_final_layer_norm(logamp)
         logamp = logamp.transpose(1, 2)
         logamp = self.amp_output_conv(logamp)
 
-        phase_prior = self.phase_prior_proj(har_phase).transpose(1, 2)[
-            :, : phase.shape[1], :
-        ]
-        phase = self.phase_norm(phase + phase_prior)
+        phase = self.phase_norm(phase)
         phase = phase.transpose(1, 2)
         for conv_block in self.phase_convnext:
             phase = conv_block(phase, style)
