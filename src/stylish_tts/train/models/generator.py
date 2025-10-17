@@ -18,6 +18,7 @@ from .common import get_padding
 from .zip_modules import Bypass, SimpleDownsample, SimpleUpsample
 
 import numpy as np
+from functools import partial
 
 
 class TorchSTFT(torch.nn.Module):
@@ -244,125 +245,75 @@ class UpsampleGenerator(torch.nn.Module):
         return DecoderPrediction(audio=out, magnitude=logamp, phase=phase)
 
 
-# The following code was adapted from: https://github.com/nii-yamagishilab/project-CURRENNT-scripts/tree/master/waveform-modeling/project-NSF-v2-pretrained
-
-# BSD 3-Clause License
-#
-# Copyright (c) 2018, Yamagishi Laboratory, National Institute of Informatics
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#
-# * Redistributions of source code must retain the above copyright notice, this
-#   list of conditions and the following disclaimer.
-#
-# * Redistributions in binary form must reproduce the above copyright notice,
-#   this list of conditions and the following disclaimer in the documentation
-#   and/or other materials provided with the distribution.
-#
-# * Neither the name of the copyright holder nor the names of its
-#   contributors may be used to endorse or promote products derived from
-#   this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-
-class SineGenerator(nn.Module):
+def generate_pcph(
+    f0,
+    voiced,
+    hop_length: int,
+    sample_rate: int,
+    noise_amplitude=0.01,
+    random_init_phase=True,
+    power_factor=0.1,
+    max_frequency=None,
+    *args,
+    **kwargs,
+):
     """
-    Definition of sine generator
-
-    Generates sine waveforms with optional harmonics and additive noise.
-    Can be used to create harmonic noise source for neural vocoders.
+    Generate pseudo-constant-power harmonic waveforms based on input F0 sequences.
+    The spectral envelope of harmonics is designed to have flat spectral envelopes.
 
     Args:
-        samp_rate (int): Sampling rate in Hz.
-        harmonic_num (int): Number of harmonic overtones (default 0).
-        sine_amp (float): Amplitude of sine-waveform (default 0.1).
-        noise_std (float): Standard deviation of Gaussian noise (default 0.003).
-        voiced_threshold (float): F0 threshold for voiced/unvoiced classification (default 0).
+        f0 (Tensor): F0 sequences with shape (batch, 1, frames).
+        hop_length (int): Hop length of the F0 sequence.
+        sample_rate (int): Sampling frequency of the waveform in Hz.
+        noise_amplitude (float, optional): Amplitude of the noise component (default: 0.01).
+        random_init_phase (bool, optional): Whether to initialize phases randomly (default: True).
+        power_factor (float, optional): Factor to control the power of harmonics (default: 0.1).
+        max_frequency (float, optional): Maximum frequency to define the number of harmonics (default: None).
+
+    Returns:
+        Tensor: Generated harmonic waveform with shape (batch, 1, frames * hop_length).
     """
+    batch, _, frames = f0.size()
+    device = f0.device
+    noise = noise_amplitude * torch.randn(
+        (batch, 1, frames * hop_length), device=device
+    )
+    if torch.all(voiced.round() <= 0.1):
+        return noise
 
-    def __init__(
-        self,
-        samp_rate,
-        harmonic_num=0,
-        sine_amp=0.1,
-        noise_std=0.003,
-        voiced_threshold=0,
-    ):
-        super(SineGenerator, self).__init__()
-        self.sine_amp = sine_amp
-        self.noise_std = noise_std
-        self.harmonic_num = harmonic_num
-        self.dim = self.harmonic_num + 1
-        self.sampling_rate = samp_rate
-        self.voiced_threshold = voiced_threshold
+    # vuv = f0 > 10.0
+    vuv = voiced.round().bool()
+    min_f0_value = torch.min(f0[f0 > 20]).item()
+    max_frequency = max_frequency if max_frequency is not None else sample_rate / 2
+    max_n_harmonics = min(16, int(max_frequency / min_f0_value))
+    n_harmonics = torch.ones_like(f0, dtype=torch.float)
+    n_harmonics[vuv] = sample_rate / 2.0 / f0[vuv]
 
-        self.merge = nn.Sequential(
-            nn.Linear(self.dim, 1, bias=False),
-            nn.Tanh(),
-        )
+    indices = torch.arange(1, max_n_harmonics + 1, device=device).reshape(1, -1, 1)
+    harmonic_f0 = f0 * indices
 
-    def _f02uv(self, f0):
-        # generate uv signal
-        uv = torch.ones_like(f0)
-        uv = uv * (f0 > self.voiced_threshold)
-        return uv
+    # Compute harmonic mask
+    harmonic_mask = harmonic_f0 <= (sample_rate / 2.0)
+    harmonic_mask = torch.repeat_interleave(harmonic_mask, hop_length, dim=2)
 
-    def _f02sine(self, f0_values):
-        """f0_values: (batchsize, length, dim)
-        where dim indicates fundamental tone and overtones
-        """
-        # convert to F0 in rad. The integer part n can be ignored
-        # because 2 * np.pi * n doesn't affect phase
-        rad_values = (f0_values / self.sampling_rate) % 1
+    # Compute harmonic amplitude
+    harmonic_amplitude = vuv * power_factor * torch.sqrt(2.0 / n_harmonics)
+    harmocic_amplitude = torch.repeat_interleave(harmonic_amplitude, hop_length, dim=2)
 
-        # initial phase noise (no noise for fundamental component)
-        rand_ini = torch.rand(
-            f0_values.shape[0], f0_values.shape[2], device=f0_values.device
-        )
-        rand_ini[:, 0] = 0
-        rad_values[:, 0, :] = rad_values[:, 0, :] + rand_ini
+    # Generate sinusoids
+    f0 = torch.repeat_interleave(f0, hop_length, dim=2)
+    radious = f0.to(torch.float64) / sample_rate
+    if random_init_phase:
+        radious[..., 0] += torch.rand((1, 1), device=device)
+    radious = torch.cumsum(radious, dim=2)
+    harmonic_phase = 2.0 * torch.pi * radious * indices
+    harmonics = torch.sin(harmonic_phase).to(torch.float32)
 
-        # instantanouse phase sine[t] = sin(2*pi \sum_i=1 ^{t} rad)
-        tmp_over_one = torch.cumsum(rad_values, 1) % 1
-        tmp_over_one_idx = (tmp_over_one[:, 1:, :] - tmp_over_one[:, :-1, :]) < 0
-        cumsum_shift = torch.zeros_like(rad_values)
-        cumsum_shift[:, 1:, :] = tmp_over_one_idx * -1.0
+    # Multiply coefficients to the harmonic signal
+    harmonics = harmonic_mask * harmonics
+    harmonics = harmocic_amplitude * torch.sum(harmonics, dim=1, keepdim=True)
 
-        sines = torch.sin(torch.cumsum(rad_values + cumsum_shift, dim=1) * 2 * np.pi)
-
-        return sines
-
-    def forward(self, f0):
-        with torch.no_grad():
-            f0_buf = torch.zeros(f0.shape[0], f0.shape[1], self.dim, device=f0.device)
-            # fundamental component
-            f0_buf[:, :, 0] = f0[:, :, 0]
-            for idx in np.arange(self.harmonic_num):
-                f0_buf[:, :, idx + 1] = f0_buf[:, :, 0] * (idx + 2)
-
-            sine_waves = self._f02sine(f0_buf) * self.sine_amp
-
-            uv = self._f02uv(f0)
-
-            noise_amp = uv * self.noise_std + (1 - uv) * self.sine_amp / 3
-            noise = noise_amp * torch.randn_like(sine_waves)
-
-            sine_waves = sine_waves * uv + noise
-
-        # merge with grad
-        return self.merge(sine_waves)
+    return harmonics + noise
 
 
 class SimpleDownConv1d(nn.Conv1d):
@@ -451,7 +402,6 @@ class Generator(torch.nn.Module):
             conv_kernel_size=31,
         )
         self.phase_down = SimpleDownsample(self.prod_up_factors)
-        self.phase_up = SimpleUpsample(self.prod_up_factors)
 
         self.amp_convnext = nn.ModuleList(
             [
@@ -472,32 +422,43 @@ class Generator(torch.nn.Module):
             hop_length=hop_length // self.prod_up_factors,
             win_length=win_length,
         )
-        self.m_source = SineGenerator(24000)
-        self.phase_prior_conv = nn.Sequential(
-            nn.Conv1d(2, config.hidden_dim, 1, 1, 0),
-            ConvNeXtBlock(
-                dim=config.hidden_dim,
-                intermediate_dim=config.conv_intermediate_dim,
-                style_dim=0,
-            ),
+        self.prior_generator = partial(
+            generate_pcph,
+            hop_length=hop_length // self.prod_up_factors,
+            sample_rate=24000,
         )
-        self.amp_prior_downsamplers = nn.ModuleList(
+        down_factors = [
+            self.prod_up_factors // math.prod(self.up_factors[: i + 1])
+            for i in range(len(self.up_factors))
+        ]
+        self.amp_prior_convnext = nn.ModuleList(
             [
                 nn.Sequential(
                     SimpleDownConv1d(
-                        2,
-                        config.hidden_dim,
-                        self.prod_up_factors // math.prod(self.up_factors[: i + 1]),
-                        self.prod_up_factors // math.prod(self.up_factors[: i + 1]),
-                        0,
+                        n_fft // 2 + 1, config.hidden_dim, down_factor, down_factor, 0
                     ),
                     ConvNeXtBlock(
                         dim=config.hidden_dim,
-                        intermediate_dim=config.conv_intermediate_dim,
+                        intermediate_dim=config.hidden_dim,
                         style_dim=0,
                     ),
                 )
-                for i in range(len(self.up_factors))
+                for down_factor in down_factors
+            ]
+        )
+        self.phase_prior_convnext = nn.ModuleList(
+            [
+                nn.Sequential(
+                    SimpleDownConv1d(
+                        n_fft // 2 + 1, config.hidden_dim, down_factor, down_factor, 0
+                    ),
+                    ConvNeXtBlock(
+                        dim=config.hidden_dim,
+                        intermediate_dim=config.hidden_dim,
+                        style_dim=0,
+                    ),
+                )
+                for down_factor in down_factors
             ]
         )
         self.upsamplers = nn.ModuleList([SimpleUpsample(ds) for ds in self.up_factors])
@@ -508,17 +469,19 @@ class Generator(torch.nn.Module):
             nn.init.constant_(m.bias, 0)
 
     def forward(self, *, mel, style, pitch, energy):
-        up_len = mel.shape[-1] * self.prod_up_factors
-        pitch = F.interpolate(
-            pitch.unsqueeze(1), size=up_len, mode="linear", align_corners=False
-        )
-        energy = F.interpolate(
-            energy.unsqueeze(1), size=up_len, mode="linear", align_corners=False
-        )
-        har_source = self.m_source(pitch.transpose(1, 2)).transpose(1, 2)
-        har_source = torch.cat([har_source, energy], dim=1)
-        logamp_source = har_source
-        phase_source = self.phase_prior_conv(har_source)
+        with torch.no_grad():
+            pitch = F.interpolate(
+                pitch.unsqueeze(1),
+                scale_factor=self.prod_up_factors,
+                mode="linear",
+                align_corners=False,
+            )
+            prior = self.prior_generator(pitch, (pitch > 10.0).float())
+            prior = prior.squeeze(1)
+            har_spec, har_x, har_y = self.stft.transform(prior)
+            har_phase = torch.atan2(har_y, har_x)
+
+        logamp_source, phase_source = har_spec, har_phase
 
         logamp = self.amp_input_conv(mel)
         logamp = logamp.transpose(1, 2)
@@ -526,14 +489,14 @@ class Generator(torch.nn.Module):
         logamp = self.amp_conformer(logamp, style)
         logamp = logamp.transpose(1, 2)
 
-        for conv_block, prior_down, up in zip(
+        for conv_block, prior_conv_block, up in zip(
             self.amp_convnext,
-            self.amp_prior_downsamplers,
+            self.amp_prior_convnext,
             self.upsamplers,
         ):
-            logamp_orig = up(logamp)
-            logamp_prior = prior_down(logamp_source)[:, :, : logamp_orig.shape[2]]
-            logamp = conv_block(logamp_orig + logamp_prior, style)
+            logamp = up(logamp)
+            logamp_prior = prior_conv_block(logamp_source)[:, :, :-1]
+            logamp = conv_block(logamp + logamp_prior, style)
 
         logamp = logamp.transpose(1, 2)
         phase = logamp
@@ -541,15 +504,17 @@ class Generator(torch.nn.Module):
         logamp = logamp.transpose(1, 2)
         logamp = self.amp_output_conv(logamp)
 
-        phase = self.phase_norm(phase)
         phase = self.phase_down(phase.transpose(1, 2)).transpose(1, 2)
-        phase = self.phase_conformer(phase, style)
-        phase = self.phase_up(phase.transpose(1, 2)).transpose(1, 2)
-        phase = phase + phase_source.transpose(1, 2)
-
-        phase = phase.transpose(1, 2)
-        for conv_block in self.phase_convnext:
-            phase = conv_block(phase, style)
+        phase = self.phase_norm(phase)
+        phase = self.phase_conformer(phase, style).transpose(1, 2)
+        for conv_block, prior_conv_block, up in zip(
+            self.phase_convnext,
+            self.phase_prior_convnext,
+            self.upsamplers,
+        ):
+            phase = up(phase)
+            phase_prior = prior_conv_block(phase_source)[:, :, :-1]
+            phase = conv_block(phase + phase_prior, style)
         phase = phase.transpose(1, 2)
         phase = self.phase_final_layer_norm(phase)
         phase = phase.transpose(1, 2)
