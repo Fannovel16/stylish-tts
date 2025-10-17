@@ -452,9 +452,6 @@ class Generator(torch.nn.Module):
         )
         self.phase_down = SimpleDownsample(self.prod_up_factors)
         self.phase_up = SimpleUpsample(self.prod_up_factors)
-        self.phase_bypass = Bypass(
-            f"phase_bypass_{self.prod_up_factors}x", config.hidden_dim
-        )
 
         self.amp_convnext = nn.ModuleList(
             [
@@ -476,14 +473,6 @@ class Generator(torch.nn.Module):
             win_length=win_length,
         )
         self.m_source = SineGenerator(24000)
-        self.amp_prior_conv = nn.Sequential(
-            nn.Conv1d(2, config.hidden_dim, 1, 1, 0),
-            ConvNeXtBlock(
-                dim=config.hidden_dim,
-                intermediate_dim=config.conv_intermediate_dim,
-                style_dim=0,
-            ),
-        )
         self.phase_prior_conv = nn.Sequential(
             nn.Conv1d(2, config.hidden_dim, 1, 1, 0),
             ConvNeXtBlock(
@@ -494,20 +483,24 @@ class Generator(torch.nn.Module):
         )
         self.amp_prior_downsamplers = nn.ModuleList(
             [
-                SimpleDownConv1d(
-                    config.hidden_dim,
-                    config.hidden_dim,
-                    self.prod_up_factors // math.prod(self.up_factors[: i + 1]),
-                    self.prod_up_factors // math.prod(self.up_factors[: i + 1]),
-                    0,
+                nn.Sequential(
+                    SimpleDownConv1d(
+                        2,
+                        config.hidden_dim,
+                        self.prod_up_factors // math.prod(self.up_factors[: i + 1]),
+                        self.prod_up_factors // math.prod(self.up_factors[: i + 1]),
+                        0,
+                    ),
+                    ConvNeXtBlock(
+                        dim=config.hidden_dim,
+                        intermediate_dim=config.conv_intermediate_dim,
+                        style_dim=0,
+                    ),
                 )
                 for i in range(len(self.up_factors))
             ]
         )
         self.upsamplers = nn.ModuleList([SimpleUpsample(ds) for ds in self.up_factors])
-        self.amp_bypass = nn.ModuleList(
-            [Bypass(f"amp_bypass_{ds}x", config.hidden_dim) for ds in self.up_factors]
-        )
 
     def _init_weights(self, m):
         if isinstance(m, nn.Conv1d):  # (nn.Conv1d, nn.Linear)):
@@ -524,9 +517,8 @@ class Generator(torch.nn.Module):
         )
         har_source = self.m_source(pitch.transpose(1, 2)).transpose(1, 2)
         har_source = torch.cat([har_source, energy], dim=1)
-        logamp_source, phase_source = self.amp_prior_conv(
-            har_source
-        ), self.phase_prior_conv(har_source)
+        logamp_source = har_source
+        phase_source = self.phase_prior_conv(har_source)
 
         logamp = self.amp_input_conv(mel)
         logamp = logamp.transpose(1, 2)
@@ -534,18 +526,14 @@ class Generator(torch.nn.Module):
         logamp = self.amp_conformer(logamp, style)
         logamp = logamp.transpose(1, 2)
 
-        for conv_block, prior_down, up, bypass in zip(
+        for conv_block, prior_down, up in zip(
             self.amp_convnext,
             self.amp_prior_downsamplers,
             self.upsamplers,
-            self.amp_bypass,
         ):
             logamp_orig = up(logamp)
             logamp_prior = prior_down(logamp_source)[:, :, : logamp_orig.shape[2]]
             logamp = conv_block(logamp_orig + logamp_prior, style)
-            logamp = bypass(
-                logamp_orig.transpose(1, 2), logamp.transpose(1, 2)
-            ).transpose(1, 2)
 
         logamp = logamp.transpose(1, 2)
         phase = logamp
@@ -553,8 +541,8 @@ class Generator(torch.nn.Module):
         logamp = logamp.transpose(1, 2)
         logamp = self.amp_output_conv(logamp)
 
-        phase_orig = self.phase_norm(phase)
-        phase = self.phase_down(phase_orig.transpose(1, 2)).transpose(1, 2)
+        phase = self.phase_norm(phase)
+        phase = self.phase_down(phase.transpose(1, 2)).transpose(1, 2)
         phase = self.phase_conformer(phase, style)
         phase = self.phase_up(phase.transpose(1, 2)).transpose(1, 2)
         phase = phase + phase_source.transpose(1, 2)
@@ -563,7 +551,7 @@ class Generator(torch.nn.Module):
         for conv_block in self.phase_convnext:
             phase = conv_block(phase, style)
         phase = phase.transpose(1, 2)
-        phase = self.phase_final_layer_norm(phase) + phase_orig
+        phase = self.phase_final_layer_norm(phase)
         phase = phase.transpose(1, 2)
         real = self.phase_output_real_conv(phase)
         imag = self.phase_output_imag_conv(phase)
