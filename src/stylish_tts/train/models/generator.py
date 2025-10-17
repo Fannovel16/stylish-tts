@@ -556,9 +556,9 @@ class Generator(torch.nn.Module):
         phase_orig = self.phase_norm(phase)
         phase = self.phase_down(phase_orig.transpose(1, 2)).transpose(1, 2)
         phase = self.phase_conformer(phase, style)
-        phase = self.phase_up(phase.transpose(1, 2)).transpose(
-            1, 2
-        ) + phase_source.transpose(1, 2)
+        phase = self.phase_up(phase.transpose(1, 2)).transpose(1, 2)
+        phase = phase + phase_source.transpose(1, 2)
+
         phase = phase.transpose(1, 2)
         for conv_block in self.phase_convnext:
             phase = conv_block(phase, style)
