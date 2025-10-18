@@ -345,14 +345,6 @@ class Generator(torch.nn.Module):
 
         self.up_factors = [1, 2, 2]
         self.prod_up_factors = math.prod(self.up_factors)
-        self.amp_input_conv = Conv1d(
-            config.input_dim,
-            config.hidden_dim,
-            config.io_conv_kernel_size,
-            1,
-            padding=get_padding(config.io_conv_kernel_size, 1),
-        )
-
         self.amp_output_conv = Conv1d(
             config.hidden_dim,
             n_fft // 2 + 1,
@@ -376,9 +368,20 @@ class Generator(torch.nn.Module):
             padding=get_padding(config.io_conv_kernel_size, 1),
         )
 
-        self.amp_norm = nn.LayerNorm(config.hidden_dim, eps=1e-6)
-        self.phase_norm = nn.LayerNorm(config.hidden_dim, eps=1e-6)
-        self.phase_convnext = nn.ModuleList(
+        self.pre_conformer = Conformer(
+            dim=config.hidden_dim,
+            style_dim=style_dim,
+            depth=1,
+            conv_kernel_size=31,
+        )
+        self.post_conformer = Conformer(
+            dim=config.hidden_dim,
+            style_dim=style_dim,
+            depth=1,
+            conv_kernel_size=31,
+        )
+
+        self.convnext_1 = nn.ModuleList(
             [
                 ConvNeXtBlock(
                     dim=config.hidden_dim,
@@ -388,22 +391,7 @@ class Generator(torch.nn.Module):
                 for _ in range(len(self.up_factors))
             ]
         )
-
-        self.amp_conformer = Conformer(
-            dim=config.hidden_dim,
-            style_dim=style_dim,
-            depth=1,
-            conv_kernel_size=31,
-        )
-        self.phase_conformer = Conformer(
-            dim=config.hidden_dim,
-            style_dim=style_dim,
-            depth=1,
-            conv_kernel_size=31,
-        )
-        self.phase_down = SimpleDownsample(self.prod_up_factors)
-
-        self.amp_convnext = nn.ModuleList(
+        self.convnext_2 = nn.ModuleList(
             [
                 ConvNeXtBlock(
                     dim=config.hidden_dim,
@@ -431,26 +419,11 @@ class Generator(torch.nn.Module):
             self.prod_up_factors // math.prod(self.up_factors[: i + 1])
             for i in range(len(self.up_factors))
         ]
-        self.amp_prior_convnext = nn.ModuleList(
+        self.prior_convnext = nn.ModuleList(
             [
                 nn.Sequential(
                     SimpleDownConv1d(
-                        n_fft // 2 + 1, config.hidden_dim, down_factor, down_factor, 0
-                    ),
-                    ConvNeXtBlock(
-                        dim=config.hidden_dim,
-                        intermediate_dim=config.hidden_dim,
-                        style_dim=0,
-                    ),
-                )
-                for down_factor in down_factors
-            ]
-        )
-        self.phase_prior_convnext = nn.ModuleList(
-            [
-                nn.Sequential(
-                    SimpleDownConv1d(
-                        n_fft // 2 + 1, config.hidden_dim, down_factor, down_factor, 0
+                        n_fft + 2, config.hidden_dim, down_factor, down_factor, 0
                     ),
                     ConvNeXtBlock(
                         dim=config.hidden_dim,
@@ -481,42 +454,29 @@ class Generator(torch.nn.Module):
             har_spec, har_x, har_y = self.stft.transform(prior)
             har_phase = torch.atan2(har_y, har_x)
 
-        logamp_source, phase_source = har_spec, har_phase
+        har_source = torch.cat([har_spec, har_phase], dim=1)
+        x = mel.transpose(1, 2)
+        x = self.pre_conformer(x, style)
+        x = x.transpose(1, 2)
 
-        logamp = self.amp_input_conv(mel)
-        logamp = logamp.transpose(1, 2)
-        logamp = self.amp_norm(logamp)
-        logamp = self.amp_conformer(logamp, style)
-        logamp = logamp.transpose(1, 2)
-
-        for conv_block, prior_conv_block, up in zip(
-            self.amp_convnext,
-            self.amp_prior_convnext,
+        for conv1, conv2, prior_conv_block, up in zip(
+            self.convnext_1,
+            self.convnext_2,
+            self.prior_convnext,
             self.upsamplers,
         ):
-            logamp = up(logamp)
-            logamp_prior = prior_conv_block(logamp_source)[:, :, :-1]
-            logamp = conv_block(logamp + logamp_prior, style)
+            x = up(x)
+            logamp_prior = prior_conv_block(har_source)[:, :, :-1]
+            x = conv1(x + logamp_prior, style)
+            x = conv2(x, style)
 
-        logamp = logamp.transpose(1, 2)
-        phase = logamp
-        logamp = self.amp_final_layer_norm(logamp)
+        x = x.transpose(1, 2)
+        x = self.post_conformer(x, style)
+        logamp = self.amp_final_layer_norm(x)
         logamp = logamp.transpose(1, 2)
         logamp = self.amp_output_conv(logamp)
 
-        phase = self.phase_down(phase.transpose(1, 2)).transpose(1, 2)
-        phase = self.phase_norm(phase)
-        phase = self.phase_conformer(phase, style).transpose(1, 2)
-        for conv_block, prior_conv_block, up in zip(
-            self.phase_convnext,
-            self.phase_prior_convnext,
-            self.upsamplers,
-        ):
-            phase = up(phase)
-            phase_prior = prior_conv_block(phase_source)[:, :, :-1]
-            phase = conv_block(phase + phase_prior, style)
-        phase = phase.transpose(1, 2)
-        phase = self.phase_final_layer_norm(phase)
+        phase = self.phase_final_layer_norm(x)
         phase = phase.transpose(1, 2)
         real = self.phase_output_real_conv(phase)
         imag = self.phase_output_imag_conv(phase)
