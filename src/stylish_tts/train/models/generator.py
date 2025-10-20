@@ -342,7 +342,9 @@ class Generator(torch.nn.Module):
         super(Generator, self).__init__()
 
         self.up_factors = [1, 2, 5]
-        self.last_hidden_dim = config.hidden_dim // (2 ** len(self.up_factors))
+        self.last_hidden_dim = max(
+            config.hidden_dim // (2 ** len(self.up_factors)), 128
+        )
         self.prod_up_factors = math.prod(self.up_factors)
         self.amp_output_conv = Conv1d(
             self.last_hidden_dim,
@@ -389,11 +391,11 @@ class Generator(torch.nn.Module):
         self.projectors = nn.ModuleList([])
         self.convnext = nn.ModuleList([])
         for i, up_factor in enumerate(self.up_factors):
-            current_dim = config.hidden_dim // (2**i)
-            next_dim = config.hidden_dim // (2 ** (i + 1))
+            current_dim = max(config.hidden_dim // (2**i), 128)
+            next_dim = max(config.hidden_dim // (2 ** (i + 1)), 128)
             down_factor = self.prod_up_factors // math.prod(self.up_factors[: i + 1])
             self.conformers.append(
-                Conformer(dim=current_dim, style_dim=style_dim, depth=2)
+                Conformer(dim=current_dim, style_dim=style_dim, depth=1)
             )
             self.upsamplers.append(
                 nn.Upsample(scale_factor=up_factor, mode="linear", align_corners=False)
@@ -493,12 +495,9 @@ class ConvNeXtBlock(torch.nn.Module):
         self.pwconv1 = torch.nn.Linear(
             dim, intermediate_dim
         )  # pointwise/1x1 convs, implemented with linear layers
-        self.snake = torch.nn.Parameter(torch.ones(1, 1, intermediate_dim))
+        self.act = torch.nn.SiLU()
         self.grn = GRN(intermediate_dim)
         self.pwconv2 = torch.nn.Linear(intermediate_dim, dim)
-
-    def act(self, x):
-        return x + (1 / self.snake) * (torch.sin(self.snake * x) ** 2)
 
     def forward(self, x, style=None):
         residual = x
