@@ -398,7 +398,7 @@ class Generator(torch.nn.Module):
                 Conformer(dim=current_dim, style_dim=style_dim, depth=1)
             )
             self.upsamplers.append(
-                nn.Upsample(scale_factor=up_factor, mode="linear", align_corners=False)
+                nn.Upsample(scale_factor=up_factor, mode="nearest"),
             )
             self.amp_prior_convs.append(
                 DownsampleConv1d(n_fft // 2 + 1, next_dim, down_factor)
