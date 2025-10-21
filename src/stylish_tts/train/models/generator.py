@@ -389,7 +389,7 @@ class Generator(torch.nn.Module):
         self.amp_prior_convs = nn.ModuleList([])
         self.phase_prior_convs = nn.ModuleList([])
         self.projectors = nn.ModuleList([])
-        self.convnext = nn.ModuleList([])
+        self.convnext_stacks = nn.ModuleList([])
         for i, up_factor in enumerate(self.up_factors):
             current_dim = max(config.hidden_dim // (2**i), 128)
             next_dim = max(config.hidden_dim // (2 ** (i + 1)), 128)
@@ -411,8 +411,20 @@ class Generator(torch.nn.Module):
                     current_dim + (next_dim * 2), next_dim, kernel_size=7, padding=3
                 )
             )
-            self.convnext.append(
-                ConvNeXtBlock(next_dim, config.conv_intermediate_dim, style_dim)
+            self.convnext_stacks.append(
+                nn.ModuleList(
+                    [
+                        ConvNeXtBlock(
+                            next_dim, config.conv_intermediate_dim, style_dim, 1
+                        ),
+                        ConvNeXtBlock(
+                            next_dim, config.conv_intermediate_dim, style_dim, 3
+                        ),
+                        ConvNeXtBlock(
+                            next_dim, config.conv_intermediate_dim, style_dim, 5
+                        ),
+                    ]
+                )
             )
 
     def _init_weights(self, m):
@@ -434,20 +446,29 @@ class Generator(torch.nn.Module):
             har_phase = torch.atan2(har_y, har_x)
 
         x = mel.transpose(1, 2)
-        for conformer, upsample, amp_prior_conv, phase_prior_conv, project, conv in zip(
+        for (
+            conformer,
+            upsample,
+            amp_prior_conv,
+            phase_prior_conv,
+            project,
+            convs,
+        ) in zip(
             self.conformers,
             self.upsamplers,
             self.amp_prior_convs,
             self.phase_prior_convs,
             self.projectors,
-            self.convnext,
+            self.convnext_stacks,
         ):
             x = conformer(x, style).transpose(1, 2)
             x = upsample(x)
             logamp_prior = amp_prior_conv(har_spec)
             phase_prior = phase_prior_conv(har_phase)
             x = project(torch.cat([x, logamp_prior, phase_prior], dim=1))
-            x = conv(x, style).transpose(1, 2)
+            for conv in convs:
+                x = conv(x, style)
+            x = x.transpose(1, 2)
 
         logamp = self.amp_final_layer_norm(x)
         logamp = logamp.transpose(1, 2)
@@ -481,11 +502,17 @@ class ConvNeXtBlock(torch.nn.Module):
         self,
         dim: int,
         intermediate_dim: int,
-        style_dim,
+        style_dim: int,
+        dilation: int = 1,
     ):
         super().__init__()
         self.dwconv = torch.nn.Conv1d(
-            dim, dim, kernel_size=7, padding=3, groups=dim
+            dim,
+            dim,
+            kernel_size=7,
+            dilation=dilation,
+            groups=dim,
+            padding=get_padding(7, dilation),
         )  # depthwise conv
         self.style_dim = style_dim
         if style_dim == 0:
