@@ -386,9 +386,7 @@ class Generator(torch.nn.Module):
 
         self.upsamplers = nn.ModuleList([])
         self.amp_prior_convs = nn.ModuleList([])
-        self.amp_prior_adaln = nn.ModuleList([])
         self.phase_prior_convs = nn.ModuleList([])
-        self.phase_prior_adaln = nn.ModuleList([])
         self.projectors = nn.ModuleList([])
         self.convnext_stacks = nn.ModuleList([])
         for i, up_factor in enumerate(self.up_factors):
@@ -401,26 +399,18 @@ class Generator(torch.nn.Module):
             self.amp_prior_convs.append(
                 DownsampleConv1d(n_fft // 2 + 1, next_dim, down_factor)
             )
-            self.amp_prior_adaln.append(AdaptiveLayerNorm(style_dim, next_dim))
             self.phase_prior_convs.append(
                 DownsampleConv1d(n_fft // 2 + 1, next_dim, down_factor)
             )
-            self.phase_prior_adaln.append(AdaptiveLayerNorm(style_dim, next_dim))
             self.projectors.append(
                 nn.Conv1d(current_dim + (next_dim * 2), next_dim, 1, 1, 0)
             )
             self.convnext_stacks.append(
                 nn.ModuleList(
                     [
-                        ConvNeXtBlock(
-                            next_dim, config.conv_intermediate_dim, style_dim, 1
-                        ),
-                        ConvNeXtBlock(
-                            next_dim, config.conv_intermediate_dim, style_dim, 3
-                        ),
-                        ConvNeXtBlock(
-                            next_dim, config.conv_intermediate_dim, style_dim, 5
-                        ),
+                        ConvNeXtBlock(next_dim, config.conv_intermediate_dim, 0, 1),
+                        ConvNeXtBlock(next_dim, config.conv_intermediate_dim, 0, 3),
+                        ConvNeXtBlock(next_dim, config.conv_intermediate_dim, 0, 5),
                     ]
                 )
             )
@@ -447,31 +437,22 @@ class Generator(torch.nn.Module):
         for (
             upsample,
             amp_prior_conv,
-            amp_prior_adaln,
             phase_prior_conv,
-            phase_prior_adaln,
             project,
             convs,
         ) in zip(
             self.upsamplers,
             self.amp_prior_convs,
-            self.amp_prior_adaln,
             self.phase_prior_convs,
-            self.phase_prior_adaln,
             self.projectors,
             self.convnext_stacks,
         ):
             x = upsample(x)
             logamp_prior = amp_prior_conv(har_spec)
-            logamp_prior = amp_prior_adaln(
-                logamp_prior.transpose(1, 2), style
-            ).transpose(1, 2)
             phase_prior = phase_prior_conv(har_phase)
-            phase_prior = phase_prior_adaln(
-                phase_prior.transpose(1, 2), style
-            ).transpose(1, 2)
             x = project(torch.cat([x, logamp_prior, phase_prior], dim=1))
-            x = torch.stack([conv(x, style) for conv in convs], dim=-1).mean(dim=-1)
+            for conv in convs:
+                x = conv(x)
 
         x = x.transpose(1, 2)
         logamp = self.amp_final_layer_norm(x)
