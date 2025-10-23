@@ -74,9 +74,16 @@ class HubertSpeechPredictor(torch.nn.Module):
         model_config.text_encoder.layers = 2
         self.phone_encoder = HubertEncoder(model_config)
 
-        self.style_encoder = torch.nn.Linear(
-            model_config.speaker_embedder.hidden_dim, model_config.style_dim
+        self.style_encoder = torch.nn.Sequential(
+            torch.nn.Linear(
+                model_config.speaker_embedder.hidden_dim, model_config.style_dim * 4
+            ),
+            torch.nn.Mish(),
+            torch.nn.Linear(model_config.style_dim * 4, model_config.style_dim * 2),
+            torch.nn.Mish(),
+            torch.nn.Linear(model_config.style_dim * 2, model_config.style_dim),
         )
+
         self.decoder = Decoder(
             dim_in=model_config.inter_dim,
             style_dim=model_config.style_dim,
