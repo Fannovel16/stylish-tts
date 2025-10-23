@@ -375,7 +375,6 @@ class Generator(torch.nn.Module):
         self.projector = nn.Conv1d(
             config.input_dim + config.hidden_dim, config.hidden_dim, 1, 1, 0
         )
-        self.conformer = Conformer(dim=config.hidden_dim, style_dim=style_dim, depth=2)
         self.amp_prior_conv = Conv1d(n_fft // 2 + 1, config.hidden_dim // 2, 7, 1, 3)
         self.phase_prior_conv = Conv1d(n_fft // 2 + 1, config.hidden_dim // 2, 7, 1, 3)
         self.convnext = nn.ModuleList(
@@ -410,7 +409,6 @@ class Generator(torch.nn.Module):
         logamp_prior = self.amp_prior_conv(har_spec)
         phase_prior = self.phase_prior_conv(har_phase)
         x = self.projector(torch.cat([mel, logamp_prior, phase_prior], dim=1))
-        x = self.conformer(x.transpose(1, 2), style).transpose(1, 2)
         for conv in self.convnext:
             x = conv(x, style)
         x = x.transpose(1, 2)
