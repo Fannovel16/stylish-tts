@@ -108,7 +108,7 @@ class HubertSpeechPredictor(torch.nn.Module):
     def forward(self, phones, phone_lengths, spk_emb, pitch, energy):
         phones = self.phone_encoder(phones, phone_lengths)
         style = self.style_encoder(spk_emb)
-        mel, f0_curve = self.decoder(
+        mel, _ = self.decoder(
             phones,
             pitch,
             energy,
@@ -117,7 +117,7 @@ class HubertSpeechPredictor(torch.nn.Module):
         prediction = self.generator(
             mel=mel,
             style=style,
-            pitch=f0_curve,
+            pitch=pitch,
             energy=energy,
         )
         return prediction

@@ -291,7 +291,7 @@ class Conformer(nn.Module):
                 )
             )
 
-    def forward(self, x, style, lengths=None):
+    def forward(self, x, style=None, lengths=None):
         # if lengths is None:
         #     lengths = torch.full((x.shape[0],), x.shape[1], dtype=x.dtype)
         mask = None
