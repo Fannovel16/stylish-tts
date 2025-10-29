@@ -119,7 +119,9 @@ class HubertSpeechPredictor(torch.nn.Module):
         self.upsampler = torch.nn.Upsample(scale_factor=4, mode="linear")
 
     def forward(self, phones, phone_lengths, spk_emb, pitch, energy):
-        phones = self.phone_encoder(phones, phone_lengths * 4)
+        phones = self.phone_encoder(
+            phones.repeat_interleave(4, dim=2), phone_lengths * 4
+        )
         style = self.style_encoder(spk_emb)
         pitch = self.upsampler(pitch.unsqueeze(1)).squeeze(1)
         energy = self.upsampler(energy.unsqueeze(1)).squeeze(1)

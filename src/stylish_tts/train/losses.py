@@ -89,7 +89,7 @@ class MagPhaseLoss(torch.nn.Module):
         window = torch.hann_window(win_length)
         self.register_buffer("window", window)
         self.n_fft = n_fft
-        self.hop_length = hop_length
+        self.hop_length = hop_length // 4
         self.win_length = win_length
 
         # weights = torch.arange(n_fft // 2 + 1)
