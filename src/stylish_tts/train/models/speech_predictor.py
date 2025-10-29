@@ -42,17 +42,21 @@ class SpeechPredictor(torch.nn.Module):
         #     gen_istft_hop_size=model_config.generator.gen_istft_hop_size,
         #     sample_rate=model_config.sample_rate,
         # )
+        self.upsampler = torch.nn.Upsample(scale_factor=4, mode="linear")
         self.generator = Generator(
             style_dim=model_config.style_dim,
             n_fft=model_config.n_fft,
             win_length=model_config.win_length,
-            hop_length=model_config.hop_length,
+            hop_length=model_config.hop_length // 4,
             config=model_config.generator,
         )
 
     def forward(self, texts, text_lengths, alignment, pitch, energy):
         text_encoding, _, _ = self.text_encoder(texts, text_lengths)
         style = self.style_encoder(text_encoding, text_lengths)
+        alignment = alignment.repeat_interleave(4, dim=2)
+        pitch = self.upsampler(pitch.unsqueeze(1)).squeeze(1)
+        energy = self.upsampler(energy.unsqueeze(1)).squeeze(1)
         mel, _ = self.decoder(
             text_encoding @ alignment,
             pitch,
@@ -78,8 +82,10 @@ class HubertSpeechPredictor(torch.nn.Module):
                 model_config.speaker_embedder.hidden_dim, model_config.style_dim * 4
             ),
             torch.nn.Mish(),
+            torch.nn.Dropout(0.25),
             torch.nn.Linear(model_config.style_dim * 4, model_config.style_dim * 2),
             torch.nn.Mish(),
+            torch.nn.Dropout(0.25),
             torch.nn.Linear(model_config.style_dim * 2, model_config.style_dim),
         )
 
@@ -107,13 +113,16 @@ class HubertSpeechPredictor(torch.nn.Module):
             style_dim=model_config.style_dim,
             n_fft=model_config.n_fft,
             win_length=model_config.win_length,
-            hop_length=model_config.hop_length,
+            hop_length=model_config.hop_length // 4,
             config=model_config.generator,
         )
+        self.upsampler = torch.nn.Upsample(scale_factor=4, mode="linear")
 
     def forward(self, phones, phone_lengths, spk_emb, pitch, energy):
-        phones = self.phone_encoder(phones, phone_lengths)
+        phones = self.phone_encoder(phones, phone_lengths * 4)
         style = self.style_encoder(spk_emb)
+        pitch = self.upsampler(pitch.unsqueeze(1)).squeeze(1)
+        energy = self.upsampler(energy.unsqueeze(1)).squeeze(1)
         mel, _ = self.decoder(
             phones,
             pitch,

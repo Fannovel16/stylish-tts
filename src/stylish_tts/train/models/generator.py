@@ -380,13 +380,16 @@ class Generator(torch.nn.Module):
         self.convnext = nn.ModuleList(
             [
                 ConvNeXtBlock(
-                    config.hidden_dim, config.conv_intermediate_dim, style_dim, 1
+                    config.hidden_dim, config.conv_intermediate_dim, style_dim, 31
+                ),
+                ConvNeXtBlock(
+                    config.hidden_dim, config.conv_intermediate_dim, style_dim, 15
+                ),
+                ConvNeXtBlock(
+                    config.hidden_dim, config.conv_intermediate_dim, style_dim, 7
                 ),
                 ConvNeXtBlock(
                     config.hidden_dim, config.conv_intermediate_dim, style_dim, 3
-                ),
-                ConvNeXtBlock(
-                    config.hidden_dim, config.conv_intermediate_dim, style_dim, 5
                 ),
             ]
         )
@@ -440,17 +443,16 @@ class ConvNeXtBlock(torch.nn.Module):
         self,
         dim: int,
         intermediate_dim: int,
-        style_dim: int,
-        dilation: int = 1,
+        style_dim,
+        kernel_size=7,
     ):
         super().__init__()
         self.dwconv = torch.nn.Conv1d(
             dim,
             dim,
-            kernel_size=7,
-            dilation=dilation,
+            kernel_size=kernel_size,
+            padding=get_padding(kernel_size, 1),
             groups=dim,
-            padding=get_padding(7, dilation),
         )  # depthwise conv
         self.style_dim = style_dim
         if style_dim == 0:

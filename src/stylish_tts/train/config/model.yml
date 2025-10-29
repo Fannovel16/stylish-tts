@@ -5,7 +5,7 @@ n_mels: 80
 sample_rate: 24000
 n_fft: 2048
 win_length: 1200
-hop_length: 75
+hop_length: 300
 style_dim: 64
 inter_dim: 128
 
@@ -62,7 +62,7 @@ duration_predictor:
   last_dropout: 0.5
 
 pitch_energy_predictor:
-  inter_dim: 128
+  inter_dim: 256
   dropout: 0.2
 
 hubert:
@@ -70,9 +70,8 @@ hubert:
   hidden_dim: 768
   sr: 16000
 
-# Stats layer of xvector in CAM++
 speaker_embedder:
-  hidden_dim: 1024
+  hidden_dim: 10240
 
 # speech language model config
 slm:

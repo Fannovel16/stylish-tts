@@ -89,7 +89,7 @@ model = Model(
 )
 
 count_parameters(model)
-b, t, c, ph = 2, 797 * 4, 768, 100
+b, t, c, ph = 2, 797, 768, 100
 import numpy as np
 import psutil
 
