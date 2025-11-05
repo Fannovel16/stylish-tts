@@ -5,6 +5,7 @@ from munch import Munch
 import os
 import subprocess
 from pynvml import nvmlInit, nvmlDeviceGetHandleByIndex, nvmlDeviceGetMemoryInfo
+from typing import NamedTuple, Optional
 
 nv_init = False
 
@@ -353,6 +354,12 @@ def leaky_clamp(
     return x
 
 
+class FlowStatistics(NamedTuple):
+    z: torch.Tensor
+    mean: torch.Tensor
+    logstd: torch.Tensor
+
+
 class DecoderPrediction:
     def __init__(
         self,
@@ -360,10 +367,19 @@ class DecoderPrediction:
         audio,
         magnitude,
         phase,
+        text_stats: Optional[FlowStatistics] = None,
+        text2mel_stats: Optional[FlowStatistics] = None,
+        mel_stats: Optional[FlowStatistics] = None,
+        mel2text_stats: Optional[FlowStatistics] = None,
     ):
         self.audio = audio
         self.magnitude = magnitude
         self.phase = phase
+
+        self.text_stats = text_stats
+        self.text2mel_stats = text2mel_stats
+        self.mel_stats = mel_stats
+        self.mel2text_stats = mel2text_stats
 
 
 class DurationProcessor(torch.nn.Module):

@@ -7,6 +7,8 @@ from .pitch_energy_predictor import PitchEnergyPredictor
 from .decoder import Decoder
 from .generator import Generator
 from .hubert_encoder import HubertEncoder
+from .flow import PriorEncoder, PosteriorEncoder, ResidualCouplingBlock
+from stylish_tts.train.utils import DecoderPrediction, FlowStatistics
 
 
 class SpeechPredictor(torch.nn.Module):
@@ -30,6 +32,35 @@ class SpeechPredictor(torch.nn.Module):
             residual_dim=model_config.decoder.residual_dim,
         )
 
+        flow_hidden_dim = model_config.decoder.hidden_dim // 4
+        self.prior_encoder = PriorEncoder(
+            model_config.decoder.hidden_dim, flow_hidden_dim
+        )
+        self.posterior_encoder = PosteriorEncoder(
+            flow_hidden_dim,
+            flow_hidden_dim,
+            3,
+            1,
+            n_layers=12,
+            n_fft=model_config.n_fft,
+            win_length=model_config.win_length,
+            hop_length=model_config.hop_length // 4,
+            gin_channels=model_config.style_dim,
+        )
+        self.flow = ResidualCouplingBlock(
+            flow_hidden_dim,
+            flow_hidden_dim,
+            5,
+            1,
+            n_layers=4,
+            n_flows=8,
+            gin_channels=model_config.style_dim,
+            use_transformer_flow=False,
+        )
+        self.post_flow = torch.nn.Linear(
+            flow_hidden_dim, model_config.decoder.hidden_dim
+        )
+
         # self.generator = Generator(
         #     style_dim=model_config.style_dim,
         #     resblock_kernel_sizes=model_config.generator.resblock_kernel_sizes,
@@ -51,24 +82,50 @@ class SpeechPredictor(torch.nn.Module):
             config=model_config.generator,
         )
 
-    def forward(self, texts, text_lengths, alignment, pitch, energy):
+    def forward(self, texts, text_lengths, alignment, pitch, energy, audio_gt=None):
         text_encoding, _, _ = self.text_encoder(texts, text_lengths)
         style = self.style_encoder(text_encoding, text_lengths)
         alignment = alignment.repeat_interleave(4, dim=2)
         pitch = self.upsampler(pitch.unsqueeze(1)).squeeze(1)
         energy = self.upsampler(energy.unsqueeze(1)).squeeze(1)
-        mel, _ = self.decoder(
+
+        x, _ = self.decoder(
             text_encoding @ alignment,
             pitch,
             energy,
             style,
         )
-        prediction = self.generator(
+        cond = style.unsqueeze(-1)
+        z_text, mean_text, logstd_text = self.prior_encoder(x)
+        z_text2mel, mean_text2mel, logstd_text2mel = self.flow(
+            z_text, mean_text, logstd_text, 1, cond, reverse=True
+        )
+
+        if audio_gt is not None:
+            z_mel, mean_mel, logstd_mel = self.posterior_encoder(audio_gt, cond)
+            z_mel2text, mean_mel2text, logstd_mel2text = self.flow(
+                z_mel, mean_mel, logstd_mel, 1, cond, reverse=False
+            )
+            mel = self.post_flow(z_mel.mT).mT
+        else:
+            mel = self.post_flow(z_text2mel.mT).mT
+
+        prediction: DecoderPrediction = self.generator(
             mel=mel,
             style=style,
             pitch=pitch,
             energy=energy,
         )
+
+        if audio_gt is not None:
+            prediction.text_stats = FlowStatistics(z_text, mean_text, logstd_text)
+            prediction.text2mel_stats = FlowStatistics(
+                z_text2mel, mean_text2mel, logstd_text2mel
+            )
+            prediction.mel_stats = FlowStatistics(z_mel, mean_mel, logstd_mel)
+            prediction.mel2text_stats = FlowStatistics(
+                z_mel2text, mean_mel2text, logstd_mel2text
+            )
         return prediction
 
 
@@ -97,6 +154,35 @@ class HubertSpeechPredictor(torch.nn.Module):
             residual_dim=model_config.decoder.residual_dim,
         )
 
+        flow_hidden_dim = model_config.decoder.hidden_dim // 4
+        self.prior_encoder = PriorEncoder(
+            model_config.decoder.hidden_dim, flow_hidden_dim
+        )
+        self.posterior_encoder = PosteriorEncoder(
+            flow_hidden_dim,
+            flow_hidden_dim,
+            3,
+            1,
+            n_layers=12,
+            n_fft=model_config.n_fft,
+            win_length=model_config.win_length,
+            hop_length=model_config.hop_length // 4,
+            gin_channels=model_config.style_dim,
+        )
+        self.flow = ResidualCouplingBlock(
+            flow_hidden_dim,
+            flow_hidden_dim,
+            5,
+            1,
+            n_layers=4,
+            n_flows=8,
+            gin_channels=model_config.style_dim,
+            use_transformer_flow=False,
+        )
+        self.post_flow = torch.nn.Linear(
+            flow_hidden_dim, model_config.decoder.hidden_dim
+        )
+
         # self.generator = Generator(
         #     style_dim=model_config.style_dim,
         #     resblock_kernel_sizes=model_config.generator.resblock_kernel_sizes,
@@ -118,23 +204,48 @@ class HubertSpeechPredictor(torch.nn.Module):
         )
         self.upsampler = torch.nn.Upsample(scale_factor=4, mode="linear")
 
-    def forward(self, phones, phone_lengths, spk_emb, pitch, energy):
+    def forward(self, phones, phone_lengths, spk_emb, pitch, energy, audio_gt=None):
         phones = self.phone_encoder(
             phones.repeat_interleave(4, dim=2), phone_lengths * 4
         )
         style = self.style_encoder(spk_emb)
         pitch = self.upsampler(pitch.unsqueeze(1)).squeeze(1)
         energy = self.upsampler(energy.unsqueeze(1)).squeeze(1)
-        mel, _ = self.decoder(
+        x, _ = self.decoder(
             phones,
             pitch,
             energy,
             style,
         )
-        prediction = self.generator(
+        cond = style.unsqueeze(-1)
+        z_text, mean_text, logstd_text = self.prior_encoder(x)
+        z_text2mel, mean_text2mel, logstd_text2mel = self.flow(
+            z_text, mean_text, logstd_text, 1, cond, reverse=True
+        )
+
+        if audio_gt is not None:
+            z_mel, mean_mel, logstd_mel = self.posterior_encoder(audio_gt, cond)
+            z_mel2text, mean_mel2text, logstd_mel2text = self.flow(
+                z_mel, mean_mel, logstd_mel, 1, cond, reverse=False
+            )
+            mel = self.post_flow(z_mel.mT).mT
+        else:
+            mel = self.post_flow(z_text2mel.mT).mT
+
+        prediction: DecoderPrediction = self.generator(
             mel=mel,
             style=style,
             pitch=pitch,
             energy=energy,
         )
+
+        if audio_gt is not None:
+            prediction.text_stats = FlowStatistics(z_text, mean_text, logstd_text)
+            prediction.text2mel_stats = FlowStatistics(
+                z_text2mel, mean_text2mel, logstd_text2mel
+            )
+            prediction.mel_stats = FlowStatistics(z_mel, mean_mel, logstd_mel)
+            prediction.mel2text_stats = FlowStatistics(
+                z_mel2text, mean_mel2text, logstd_mel2text
+            )
         return prediction

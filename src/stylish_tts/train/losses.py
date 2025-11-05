@@ -8,6 +8,7 @@ from transformers import AutoModel
 import numpy as np
 import k2
 from einops import rearrange
+from .utils import sequence_mask
 
 
 class MultiResolutionSTFTLoss(torch.nn.Module):
@@ -151,6 +152,74 @@ class MagPhaseLoss(torch.nn.Module):
         phase_loss = differential_phase_loss(pred.phase, target_phase, self.n_fft)
 
         log.add_loss("phase", phase_loss)
+
+
+def kl_loss(
+    z_p: torch.Tensor,
+    logs_q: torch.Tensor,
+    m_p: torch.Tensor,
+    logs_p: torch.Tensor,
+    z_mask: torch.Tensor,
+):
+    """
+    z_p, logs_q: [b, h, t_t]
+    m_p, logs_p: [b, h, t_t]
+    """
+    z_p = z_p.float()
+    logs_q = logs_q.float()
+    m_p = m_p.float()
+    logs_p = logs_p.float()
+    z_mask = z_mask.float()
+
+    kl = logs_p - logs_q - 0.5
+    kl += 0.5 * ((z_p - m_p) ** 2) * torch.exp(-2.0 * logs_p)
+    kl = torch.sum(kl * z_mask)
+    l = kl / torch.sum(z_mask)
+    return l
+
+
+def kl_loss_normal(
+    m_q: torch.Tensor,
+    logs_q: torch.Tensor,
+    m_p: torch.Tensor,
+    logs_p: torch.Tensor,
+    z_mask: torch.Tensor,
+):
+    """
+    z_p, logs_q: [b, h, t_t]
+    m_p, logs_p: [b, h, t_t]
+    """
+    m_q = m_q.float()
+    logs_q = logs_q.float()
+    m_p = m_p.float()
+    logs_p = logs_p.float()
+    z_mask = z_mask.float()
+
+    kl = logs_p - logs_q - 0.5
+    kl += 0.5 * (torch.exp(2.0 * logs_q) + (m_q - m_p) ** 2) * torch.exp(-2.0 * logs_p)
+    kl = torch.sum(kl * z_mask)
+    l = kl / torch.sum(z_mask)
+    return l
+
+
+class NormalizingFlowLoss(torch.nn.Module):
+    def forward(self, pred, log):
+        z_text, mean_text, logstd_text = pred.text_stats
+        z_text2mel, mean_text2mel, logstd_text2mel = pred.text2mel_stats
+        z_mel, mean_mel, logstd_mel = pred.mel_stats
+        z_mel2text, mean_mel2text, logstd_mel2text = pred.mel2text_stats
+        z_lengths = torch.full((z_text.shape[0],), z_text.shape[2])
+        z_mask = torch.unsqueeze(sequence_mask(z_lengths), 1).to(z_text.dtype)
+        log.add_loss(
+            "kl_text",
+            kl_loss(z_mel2text, logstd_mel2text, mean_text, logstd_text, z_mask),
+        )
+        log.add_loss(
+            "kl_audio",
+            kl_loss_normal(
+                mean_text2mel, logstd_text2mel, mean_mel, logstd_mel, z_mask
+            ),
+        )
 
 
 def detach_all(spec_list):

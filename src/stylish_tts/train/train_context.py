@@ -14,6 +14,7 @@ from stylish_tts.train.losses import (
     CTCLossWithLabelPriors,
     MagPhaseLoss,
     DurationLoss,
+    NormalizingFlowLoss,
 )
 from torch.utils.tensorboard.writer import SummaryWriter
 from stylish_tts.lib.text_utils import TextCleaner
@@ -139,6 +140,7 @@ class TrainContext:
             win_length=self.model_config.win_length,
         ).to(self.config.training.device)
         self.duration_loss: DurationLoss = None
+        self.normalizing_flow_loss: NormalizingFlowLoss = NormalizingFlowLoss()
 
         self.text_cleaner = TextCleaner(self.model_config.symbol)
         self.duration_processor = DurationProcessor(

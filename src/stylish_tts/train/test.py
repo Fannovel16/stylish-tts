@@ -8,6 +8,7 @@ from stylish_tts.lib.config_loader import load_config_yaml, load_model_config_ya
 import stylish_tts.train.config as config
 import logging
 from stylish_tts.train.models.models import build_model
+from stylish_tts.train.losses import NormalizingFlowLoss
 from prettytable import PrettyTable
 from collections import defaultdict
 import torch
@@ -68,6 +69,7 @@ class Model(torch.nn.Module):
     def __init__(self, **args):
         super().__init__()
         self.models = torch.nn.ModuleDict(args)
+        self.prior_generator = self.models.speech_predictor.generator.prior_generator
 
     def forward(self, text, text_length, alignment):
         pe_text_encoding, _, _ = self.models.pe_text_encoder(text, text_length)
@@ -75,8 +77,14 @@ class Model(torch.nn.Module):
         pred_pitch, pred_energy = self.models.pitch_energy_predictor(
             pe_text_encoding, text_length, alignment, pe_text_style
         )
+        _pred_pitch = torch.nn.functional.interpolate(
+            torch.rand_like(pred_pitch).unsqueeze(1) * 100, scale_factor=4
+        )
+        audio_gt = self.prior_generator(
+            _pred_pitch, torch.ones_like(_pred_pitch)
+        ).squeeze(1)
         return self.models.speech_predictor(
-            text, text_length, alignment, pred_pitch, pred_energy
+            text, text_length, alignment, pred_pitch, pred_energy, audio_gt
         )
 
 
@@ -101,7 +109,9 @@ print("memory use:", memory_use)
 ts = []
 for _ in range(10):
     start = perf_counter()
-    model(*args)
+    pred = model(*args)
+    setattr(pred, "add_loss", print)
+    NormalizingFlowLoss()(pred, pred)
     memory_use = python_process.memory_info()[0] / 2.0**30
     print("memory use:", memory_use)
     ts.append(perf_counter() - start)

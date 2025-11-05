@@ -923,7 +923,7 @@ def train_hubert_acoustic(
             ).squeeze(1)
             phones, spk_emb = pred_ssl_features(train, batch, batch.pitch.shape[1])
         pred = model.hubert_speech_predictor(
-            phones, mel_length, spk_emb, batch.pitch, energy
+            phones, mel_length, spk_emb, batch.pitch, energy, batch.audio_gt
         )
         pred_pitch, pred_energy = model.hubert_pitch_energy_predictor(
             phones, mel_length, spk_emb
@@ -944,6 +944,7 @@ def train_hubert_acoustic(
         print_gpu_vram("slm_loss")
         train.magphase_loss(pred, batch.audio_gt, log)
         print_gpu_vram("magphase_loss")
+        train.normalizing_flow_loss(pred, log)
 
         log.add_loss(
             "pitch",
