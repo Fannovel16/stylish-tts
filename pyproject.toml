@@ -17,7 +17,7 @@ classifiers = [
 	"Topic :: Multimedia :: Sound/Audio :: Sound Synthesis",
 	"Topic :: Multimedia :: Sound/Audio :: Speech",
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 dependencies = [
     "nltk>=3.9.1",
     "numpy>=2.0.2",
