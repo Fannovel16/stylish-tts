@@ -11,9 +11,10 @@ from .generator import Generator
 class SpeechPredictor(torch.nn.Module):
     def __init__(self, model_config):
         super().__init__()
-        self.text_encoder = TextEncoder(
-            inter_dim=model_config.inter_dim, config=model_config.text_encoder
-        )
+        # self.text_encoder = TextEncoder(
+        #     inter_dim=model_config.inter_dim, config=model_config.text_encoder
+        # )
+        self.text_encoder = torch.nn.Conv1d(768, model_config.inter_dim, 1)
 
         self.decoder = Decoder(
             dim_in=model_config.inter_dim,
@@ -55,9 +56,11 @@ class SpeechPredictor(torch.nn.Module):
         style,
         denormal_pitch,
     ):
-        text_encoding, _, _ = self.text_encoder(texts, text_lengths)
+        # text_encoding, _, _ = self.text_encoder(texts, text_lengths)
+        text_encoding = self.text_encoder(texts)
         mel, f0_curve = self.decoder(
-            text_encoding @ alignment,
+            #text_encoding @ alignment,
+            text_encoding,
             pitch,
             energy,
             style,

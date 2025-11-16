@@ -100,6 +100,8 @@ class AcousticStep:
             )
             self.pitch = batch.pitch
             self.voiced = (batch.pitch > 10).float()
+            phones = train.hubert(batch.audio_gt, self.pitch.shape[1])
+            spk_emb = train.speaker_embedder(batch.audio_gt)
 
         if alignment is None:
             alignment = train.duration_processor.duration_to_alignment(
@@ -126,9 +128,10 @@ class AcousticStep:
             )
 
         if predict_audio:
-            self.speech_style = train.model.speech_style_encoder(
-                self.style_mel.unsqueeze(1)
-            )
+            # self.speech_style = train.model.speech_style_encoder(
+            #     spk_emb, #self.style_mel.unsqueeze(1)
+            # )
+            self.speech_style = spk_emb
             voiced = self.voiced
             pitch = self.pitch
             energy = self.energy
@@ -141,7 +144,7 @@ class AcousticStep:
                     self.pred_pitch, train.f0_log2_mean, train.f0_log2_std
                 )
             self.pred = train.model.speech_predictor(
-                batch.text,
+                phones, #batch.text,
                 batch.text_length,
                 alignment_fine,
                 pitch,
@@ -205,10 +208,11 @@ class AcousticStep:
         )
 
     def slm_loss(self):
-        self.log.add_loss(
-            "slm",
-            self.train.wavlm_loss(self.batch.audio_gt.detach(), self.pred.audio),
-        )
+        if self.train.wavlm_loss is not None:
+            self.log.add_loss(
+                "slm",
+                self.train.wavlm_loss(self.batch.audio_gt.detach(), self.pred.audio),
+            )
 
     def magphase_loss(self):
         self.train.magphase_loss(self.pred, self.batch.audio_gt, self.log)

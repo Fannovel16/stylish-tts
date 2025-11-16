@@ -34,6 +34,17 @@ class Swish(nn.Module):
     def forward(self, x):
         return x * x.sigmoid()
 
+class Snake1D(nn.Module):
+    def __init__(self, dim, channel_first=True):
+        super().__init__()
+        if channel_first:
+            self.alpha = torch.ones(1, dim, 1)
+        else:
+            self.alpha = torch.ones(1, 1, dim)
+        self.alpha = torch.nn.Parameter(self.alpha)
+    def forward(self, x):
+        return x + (1 / self.alpha) * (torch.sin(self.alpha * x) ** 2)
+
 
 class GLU(nn.Module):
     def __init__(self, dim):
@@ -86,7 +97,7 @@ class FeedForward(nn.Module):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(dim, dim * mult),
-            Swish(),
+            Snake1D(dim * mult, channel_first=False),
             nn.Dropout(dropout),
             nn.Linear(dim * mult, dim),
             nn.Dropout(dropout),
@@ -181,7 +192,7 @@ class ConformerConvModule(nn.Module):
                 inner_dim, inner_dim, kernel_size=kernel_size, padding=padding
             ),
             nn.BatchNorm1d(inner_dim) if not causal else nn.Identity(),
-            Swish(),
+            Snake1D(inner_dim, channel_first=True),
             nn.Conv1d(inner_dim, dim, 1),
             Rearrange("b c n -> b n c"),
             nn.Dropout(dropout),

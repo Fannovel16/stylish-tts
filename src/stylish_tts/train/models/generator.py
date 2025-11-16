@@ -524,12 +524,10 @@ class Generator(torch.nn.Module):
             padding=get_padding(config.io_conv_kernel_size, 1),
         )
 
-        self.amp_input_conv = Conv1d(
+        self.input_conv = Conv1d(
             config.input_dim + config.hidden_dim * 2,
             config.hidden_dim,
-            config.io_conv_kernel_size,
-            1,
-            padding=get_padding(config.io_conv_kernel_size, 1),
+            1
         )
 
         self.amp_output_conv = Conv1d(
@@ -555,9 +553,7 @@ class Generator(torch.nn.Module):
             padding=get_padding(config.io_conv_kernel_size, 1),
         )
 
-        self.amp_norm = nn.LayerNorm(config.hidden_dim, eps=1e-6)
-        self.phase_norm = nn.LayerNorm(config.hidden_dim, eps=1e-6)
-        self.phase_conformer = Conformer(
+        self.conformer = Conformer(
             dim=config.hidden_dim,
             style_dim=style_dim,
             depth=config.conformer_layers,
@@ -565,25 +561,7 @@ class Generator(torch.nn.Module):
             ff_dropout=0.2,
             conv_dropout=0.2,
         )
-        self.phase_convnext = nn.ModuleList(
-            [
-                GeneratorConvNeXtBlock(
-                    dim=config.hidden_dim,
-                    intermediate_dim=config.conv_intermediate_dim,
-                    style_dim=style_dim,
-                )
-                for _ in range(config.conv_layers)
-            ]
-        )
-        self.amp_conformer = Conformer(
-            dim=config.hidden_dim,
-            style_dim=style_dim,
-            depth=config.conformer_layers,
-            attn_dropout=0.2,
-            ff_dropout=0.2,
-            conv_dropout=0.2,
-        )
-        self.amp_convnext = nn.ModuleList(
+        self.convnext = nn.ModuleList(
             [
                 GeneratorConvNeXtBlock(
                     dim=config.hidden_dim,
@@ -629,28 +607,21 @@ class Generator(torch.nn.Module):
 
         logamp_prior = self.amp_prior_conv(har_spec)
         phase_prior = self.phase_prior_conv(har_phase)
-        logamp_in = torch.cat([mel, logamp_prior, phase_prior], dim=1)
+        x = torch.cat([mel, logamp_prior, phase_prior], dim=1)
 
-        logamp = self.amp_input_conv(logamp_in)
-        logamp = logamp.transpose(1, 2)
-        logamp = self.amp_norm(logamp)
-        logamp = self.amp_conformer(logamp, style)
-        logamp = logamp.transpose(1, 2)
-        for conv_block in self.amp_convnext:
-            logamp = conv_block(logamp, style)
+        x = self.input_conv(x)
+        x = x.transpose(1, 2)
+        x = self.conformer(x, style)
+        x = x.transpose(1, 2)
+        for conv_block in self.convnext:
+            x = conv_block(x, style)
 
-        logamp = logamp.transpose(1, 2)
-        phase = logamp
+        logamp = x.transpose(1, 2)
         logamp = self.amp_final_layer_norm(logamp)
         logamp = logamp.transpose(1, 2)
         logamp = self.amp_output_conv(logamp)
 
-        phase = self.phase_norm(phase)
-        phase = self.phase_conformer(phase, style)
-        phase = phase.transpose(1, 2)
-        for conv_block in self.phase_convnext:
-            phase = conv_block(phase, style)
-        phase = phase.transpose(1, 2)
+        phase = x.transpose(1, 2)
         phase = self.phase_final_layer_norm(phase)
         phase = phase.transpose(1, 2)
         real = self.phase_output_real_conv(phase)

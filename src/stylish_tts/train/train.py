@@ -134,6 +134,7 @@ def train_model(
     if (
         not osp.exists(train.data_path(train.config.dataset.alignment_path))
         and stage != "alignment"
+        and stage != "acoustic"
     ):
         exit(
             f"Alignment path not found at {train.data_path(train.config.dataset.alignment_path)}"
@@ -216,11 +217,12 @@ def train_model(
         pitch=train.model.pitch_disc,
         duration=train.model.dur_disc,
     ).to(train.config.training.device)
-    train.wavlm_loss = WavLMLoss(
-        train.model_config.slm.model,
-        train.model_config.sample_rate,
-        train.model_config.slm.sr,
-    ).to(train.config.training.device)
+    if False:
+        train.wavlm_loss = WavLMLoss(
+            train.model_config.slm.model,
+            train.model_config.sample_rate,
+            train.model_config.slm.sr,
+        ).to(train.config.training.device)
 
     if not is_valid_stage(stage):
         exit(f"{stage} is not a valid stage. Must be one of {valid_stage_list()}")

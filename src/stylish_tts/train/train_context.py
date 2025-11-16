@@ -22,6 +22,7 @@ from stylish_tts.train.utils import DurationProcessor
 from stylish_tts.train.multi_spectrogram import MultiSpectrogram
 from pathlib import Path
 import traceback
+from stylish_tts.train.models.ssl import AdaptiveHubert, SpeakerEmbeddingModel
 
 
 class Manifest:
@@ -174,6 +175,14 @@ class TrainContext:
             * self.model_config.coarse_multiplier,
             sample_rate=self.model_config.sample_rate,
         ).to(self.config.training.device)
+
+        self.hubert = AdaptiveHubert(
+            hubert_path="dr87/spinv2_rvc",
+            model_sr=self.model_config.sample_rate,
+            hubert_sr=16000,
+        ).to(self.config.training.device).eval()
+
+        self.speaker_embedder = SpeakerEmbeddingModel(self.model_config.sample_rate).to(self.config.training.device).eval()
 
         self.pe_style_dict = {}
         self.pe_style_sequence = None
