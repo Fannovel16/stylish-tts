@@ -58,7 +58,7 @@ uv init --python 3.12
 # Install pytorch and onnx.
 # Use onnxruntime-gpu if you want to do test inference with a GPU.
 # k2 have not supported torch 2.10+
-uv add "torch<2.10" "torchaudio<2.10 onnxruntime
+uv add "torch<2.10" "torchaudio<2.10" onnxruntime
 
 # Install k2 for Linux or WSL.
 wget "https://github.com/Stylish-TTS/stylish-tts/raw/refs/heads/main/get_k2_whl.py" && uv add "k2 @ $(uv run get_k2_whl.py)"
