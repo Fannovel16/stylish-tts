@@ -1,6 +1,11 @@
 
 # Stylish TTS (Text-To-Speech) System For Model Training
-<!-- <img src="https://img.icons8.com/?size=512&id=i46MwMdULdEi&format=png" alt="Alt text" width="100"> -->
+<a target="_blank" href="https://colab.research.google.com/github/Stylish-TTS/stylish-tts/blob/main/notebook/train-stylish.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
+</a>
+<a target="_blank" href="https://kaggle.com/kernels/welcome?src=https://github.com/Stylish-TTS/stylish-tts/blob/main/notebook/train-stylish.ipynb">
+  <img src="https://kaggle.com/static/images/open-in-kaggle.svg" alt="Open In Kaggle"/>
+</a>
 
 # Quick Links:
 1. [What is Stylish TTS?](#1-what-is-stylish-tts)
