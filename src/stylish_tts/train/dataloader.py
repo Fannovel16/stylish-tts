@@ -54,7 +54,7 @@ class FilePathDataset(torch.utils.data.Dataset):
                     durations += dur
         self.duration_weights = durations.sum() / (durations * durations.shape[0])
         self.data_list = []
-        self.focal_codes = load_file(root_path / "focal_codes.safetensors")
+        self.codes = load_file(root_path / "codes.safetensors")
         sentences = []
         for line in data_list:
             fields = line.strip().split("|")
@@ -148,11 +148,11 @@ class FilePathDataset(torch.utils.data.Dataset):
                 (3, text_tensor.shape[0]),
                 dtype=torch.float32,  # Match Collater's target dtype
             )
-        if path in self.focal_codes:
-            focal_codes = self.focal_codes[path].detach()
+        if path in self.codes:
+            codes = self.codes[path].detach()
         else:
-            focal_codes = 0
-        s3_codes = focal_codes
+            codes = 0
+        s3_codes = codes
         return (
             speaker_id,
             text_tensor,
@@ -160,7 +160,7 @@ class FilePathDataset(torch.utils.data.Dataset):
             wave,
             pitch,
             alignment,
-            focal_codes,
+            codes,
             s3_codes,
         )
 
@@ -217,7 +217,7 @@ class Collater(object):
         waves = torch.zeros((batch_size, batch[0][3].shape[-1])).float()
         pitches = torch.zeros((batch_size, mel_length)).float()
         alignments = torch.zeros((batch_size, 1, max_text_length))
-        focal_codes = torch.zeros((batch_size, mel_length // 4 // 2)).long()
+        codes = torch.zeros((batch_size, mel_length // 4 // 2)).long()
         s3_codes = torch.zeros((batch_size, mel_length // 4)).long()
         # alignments = torch.zeros((batch_size, max_text_length, mel_length))
         # alignments = torch.zeros((batch_size, max_text_length, mel_length // 2))
@@ -229,7 +229,7 @@ class Collater(object):
             wave,
             pitch,
             duration,
-            focal_code,
+            code,
             s3_code,
         ) in enumerate(batch):
             speaker_out[bid] = speaker
@@ -263,7 +263,7 @@ class Collater(object):
             #         exit(f"Alignment for segment {path} did not match audio length")
             #     alignments[bid, :text_size, :mel_length] = alignment
             alignments[bid, :1, :text_size] = duration[:1]
-            focal_codes[bid] = focal_code
+            codes[bid] = code
             # s3_codes[bid] = s3_code[:, :s3_codes.shape[1]]
 
         result = (
@@ -273,7 +273,7 @@ class Collater(object):
             paths,
             pitches,
             alignments,
-            focal_codes,
+            codes,
             s3_codes,
             speaker_out,
         )

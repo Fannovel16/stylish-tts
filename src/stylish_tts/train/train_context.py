@@ -203,7 +203,7 @@ class TrainContext:
         #     .to(self.config.training.device)
         #     .eval()
         # )
-        # self.focal_codec = (
+        # self.codec = (
         #     AdaptiveFocalCodec(self.model_config.sample_rate)
         #     .to(self.config.training.device)
         #     .eval()

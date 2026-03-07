@@ -12,7 +12,8 @@ import logging
 import torchaudio.compliance.kaldi as kaldi
 import torch.nn.functional as F
 from .emotion2vec import Emotion2Vec
-from focalcodec import FocalCodec
+
+# from focalcodec import FocalCodec
 from pathlib import Path
 from kanade_tokenizer import KanadeModel, load_vocoder, vocode
 

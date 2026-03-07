@@ -364,7 +364,7 @@ stages["alignment"] = StageType(
         "text",
         "text_length",
         "audio_gt",
-        "focal_codes",
+        "codes",
     ],
 )
 
@@ -696,7 +696,7 @@ def train_focal(batch, model, train, probing, disc_index):
             batch.alignment[:, 0, :],
             multiplier=0.5,
         )
-        semantic_gt = batch.focal_codes
+        semantic_gt = batch.codes
         text = (batch.text.unsqueeze(2) * alignment).sum(1)
         # prosody, *_ = train.emotion2vec(batch.audio_gt, 1)
         # style = torch.cat([prosody.mean(-1), prosody.std(-1)], 1)
@@ -704,10 +704,10 @@ def train_focal(batch, model, train, probing, disc_index):
         ref = train.kanade_codec.get_global_embeddings(batch.audio_gt)
         # ref = batch.speaker_id
         noisy_text, noisy_ref, noisy_semantic, corrupt_mask, t = (
-            model.focal_code_predictor.make_noisy_sample(text, ref, semantic_gt)
+            model.code_predictor.make_noisy_sample(text, ref, semantic_gt)
         )
 
-    logits = model.focal_code_predictor(noisy_text, noisy_ref, noisy_semantic, t)
+    logits = model.code_predictor(noisy_text, noisy_ref, noisy_semantic, t)
     train.stage.optimizer.zero_grad()
     log = build_loss_log(train)
     loss = F.cross_entropy(
@@ -734,10 +734,8 @@ def validate_focal(batch, train):
         # speech_style = model.speech_style_encoder(speaker_emb)
         # multi_spectrogram = MultiSpectrogram(sample_rate=16_000)
         # prosody, *_ = train.emotion2vec(batch.audio_gt, 1)
-        semantic_gt = batch.focal_codes
-        semantic = torch.full_like(
-            semantic_gt, model.focal_code_predictor.text_mask_token
-        )
+        semantic_gt = batch.codes
+        semantic = torch.full_like(semantic_gt, model.code_predictor.text_mask_token)
         alignment = train.duration_processor.duration_to_alignment(
             batch.alignment[:, 0, :],
             multiplier=0.5,
@@ -753,7 +751,7 @@ def validate_focal(batch, train):
         ref = train.kanade_codec.get_global_embeddings(batch.audio_gt)
         # ref = batch.speaker_id
 
-    pred_semantic = model.focal_code_predictor.generate(
+    pred_semantic = model.code_predictor.generate(
         text=text,
         ref=ref,
         output=semantic,
@@ -785,14 +783,14 @@ stages["duration"] = StageType(
     train_fn=train_focal,
     validate_fn=validate_focal,
     train_models=[
-        "focal_code_predictor",
+        "code_predictor",
     ],
     eval_models=[],
     discriminators=[],
     inputs=[
         "audio_gt",
         "pitch",
-        "focal_codes",
+        "codes",
         "s3_codes",
         "speaker_id",
         "text",

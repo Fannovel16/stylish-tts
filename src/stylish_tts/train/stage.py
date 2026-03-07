@@ -460,7 +460,7 @@ batch_names = [
     "path",
     "pitch",
     "alignment",
-    "focal_codes",
+    "codes",
     "s3_codes",
     "speaker_id",
 ]
