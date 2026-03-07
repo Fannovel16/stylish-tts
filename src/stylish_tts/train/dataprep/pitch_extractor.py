@@ -1,4 +1,5 @@
 import pathlib, sys
+import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import click
@@ -9,8 +10,6 @@ import librosa
 
 from safetensors.torch import save_file
 from stylish_tts.train.dataprep.align_text import audio_list, tqdm_wrapper
-
-# import pyworld
 import tqdm
 from stylish_tts.train.dataloader import get_frame_count, get_time_bin
 from safetensors.torch import save_file
@@ -51,6 +50,7 @@ def calculate_pitch_set(label, method, path, wavdir, model_config, workers, devi
 
         model = RMVPE(
             hf_hub_download("stylish-tts/pitch_extractor", "rmvpe.safetensors"),
+            device=device,
             hop_length=SAMPLE_RATE
             // (model_config.sample_rate // model_config.hop_length),
         )
@@ -59,38 +59,52 @@ def calculate_pitch_set(label, method, path, wavdir, model_config, workers, devi
     else:
         exit("Invalid pitch calculation method passed")
 
+    import concurrent.futures
+
     with path.open("r", encoding="utf-8") as f:
         total_segments = sum(1 for _ in f)
+
+    max_queue_size = workers * 2
+
     with ThreadPoolExecutor(max_workers=workers) as executor:
         future_map = {}
         iterator = tqdm_wrapper(
             audio_list(path, wavdir, model_config),
             total=total_segments,
-            desc="Pitch prep " + label,
+            desc="Pitch " + label,
             color="GREEN",
         )
-        for name, text_raw, wave in iterator:
-            future_map[
-                executor.submit(
-                    calculate_single,
-                    name,
-                    text_raw,
-                    wave,
-                    model_config.sample_rate,
-                    model_config.hop_length,
-                    model,
-                    device,
-                )
-            ] = name
 
         result = {}
-        iterator = tqdm_wrapper(
-            as_completed(future_map),
-            total=total_segments,
-            desc="Pitch " + label,
-            color="MAGENTA",
-        )
-        for future in iterator:
+
+        for name, text_raw, wave in iterator:
+            while len(future_map) >= max_queue_size:
+                done, _ = concurrent.futures.wait(
+                    future_map.keys(), return_when=concurrent.futures.FIRST_COMPLETED
+                )
+
+                for future in done:
+                    if future in future_map:
+                        name_done = future_map.pop(future)
+                        try:
+                            current = future.result()
+                            result[name_done] = current
+                        except Exception as e:
+                            print(f"{name_done} generated an exception: {str(e)}")
+
+            future = executor.submit(
+                calculate_single,
+                name,
+                text_raw,
+                wave,
+                model_config.sample_rate,
+                model_config.hop_length,
+                model,
+                device,
+            )
+            future_map[future] = name
+
+        for future in as_completed(future_map):
             name = future_map[future]
             try:
                 current = future.result()
@@ -103,6 +117,8 @@ def calculate_pitch_set(label, method, path, wavdir, model_config, workers, devi
 def calculate_pitch_pyworld(
     name, text_raw, wave, sample_rate, hop_length, model, device
 ):
+    import pyworld
+
     bad_f0 = 5
     zero_value = -10
     frame_period = hop_length / sample_rate * 1000

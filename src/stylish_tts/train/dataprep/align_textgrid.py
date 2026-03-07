@@ -99,51 +99,33 @@ def align_textgrid(audio_path, text, config, model_config, method):
     train.to_align_mel = train.to_align_mel.to(device)
 
     aligner_dict = load_file(model, device=device)
-    aligner = tdnn_blstm_ctc_model_base(80, model_config.text_encoder.tokens)
+    aligner = tdnn_blstm_ctc_model_base(
+        model_config.n_mels, model_config.text_encoder.tokens
+    )
     aligner = aligner.to(device)
     aligner.load_state_dict(aligner_dict)
     aligner = aligner.eval()
     process(train, aligner, audio_path, text, config, model_config, method, device)
     # Remove temporary output directoary
-    # shutil.rmtree(train.out_dir)
+    shutil.rmtree(train.out_dir)
 
 
 def process(train, aligner, audio_path, text_raw, config, model_config, method, device):
     wave = load_audio(model_config, audio_path)
-    audio_gt = torch.from_numpy(wave).float().to(device).unsqueeze(0)
     mels, mel_lengths = calculate_mel(
-        audio_gt,
+        torch.from_numpy(wave).float().to(device).unsqueeze(0),
         train.to_align_mel,
         train.normalization.mel_log_mean,
         train.normalization.mel_log_std,
     )
-    mels = rearrange(mels, "b f t -> b t f")
-    # mels, _ = train.kanade_codec.get_ssl_embeddings(audio_gt)
-    # mel_lengths = torch.tensor([mels.shape[1]] * mels.shape[0], device=mels.device)
     text = train.text_cleaner(text_raw)
     text = torch.tensor(text).to(device).unsqueeze(0)
     text_lengths = torch.zeros([1], dtype=int, device=device)
     text_lengths[0] = text.shape[1]
 
-    # mels = rearrange(mels, "b f t -> b t f")
+    mels = rearrange(mels, "b f t -> b t f")
     prediction, _ = aligner(mels, mel_lengths)
-    prediction: torch.Tensor = rearrange(prediction, "t b k -> b t k")
-    topk = prediction[0].exp().topk(5, -1)
-    for values, indices in zip(topk.values, topk.indices):
-        print(
-            *[
-                train.text_cleaner.index_word_dictionary[i.item()] + f":{v}"
-                for i, v in zip(indices, values)
-            ]
-        )
-    print(
-        "".join(
-            [
-                train.text_cleaner.index_word_dictionary[i.item()]
-                for i in prediction[0].argmax(-1).unique_consecutive()
-            ]
-        )
-    )
+    prediction = rearrange(prediction, "t b k -> b t k")
 
     coarse_hop_length: int = model_config.hop_length * model_config.coarse_multiplier
     hop_duration = 1 / (model_config.sample_rate / coarse_hop_length)

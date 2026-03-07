@@ -1,6 +1,11 @@
 
 # Stylish TTS (Text-To-Speech) System For Model Training
-<!-- <img src="https://img.icons8.com/?size=512&id=i46MwMdULdEi&format=png" alt="Alt text" width="100"> -->
+<a target="_blank" href="https://colab.research.google.com/github/Stylish-TTS/stylish-tts/blob/main/notebook/train-stylish.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
+</a>
+<a target="_blank" href="https://kaggle.com/kernels/welcome?src=https://github.com/Stylish-TTS/stylish-tts/blob/main/notebook/train-stylish.ipynb">
+  <img src="https://kaggle.com/static/images/open-in-kaggle.svg" alt="Open In Kaggle"/>
+</a>
 
 # Quick Links:
 1. [What is Stylish TTS?](#1-what-is-stylish-tts)
@@ -44,14 +49,6 @@ TBD: More dependencies as we flesh out inference
 
 Instructions are provided for both `uv` or `pip`. Install your preferred Python package manager and refer to the associated instructions.
 
-You will need to install `k2` during the installation process. This is a bit trickier than other dependencies:
-- Installing `k2` requires you to find the correct wheel from their installation page to install. Refer to thair [installation instructions](https://k2-fsa.github.io/k2/installation/index.html)
-- `k2` includes PyTorch version, Python version, CUDA version (for non-CPU installs), and OS as part of their URL. Make sure you pick the right one.
-- Use the proper wheel URL below where you see `<K2_URL>`
-- Make sure your `<K2_URL>` is not itself escaped (you should see a '+' in it instead of '%2B').
-- If you are using a non-cuda GPU, install the CPU variant of `k2` and during alignment training (the only place using k2), it will automatically fall back on the CPU device. Alignment training is reasonably fast even on CPU.
-- If you run into issues after installing, try removing `k2`, verifying that all the various versions are expected, then re-installing using the correct wheel.
-
 <details>
 	<summary>📘 <b>Installation via uv</b></summary>
 
@@ -65,10 +62,15 @@ uv init --python 3.12
 
 # Install pytorch and onnx.
 # Use onnxruntime-gpu if you want to do test inference with a GPU.
-uv add torch torchaudio onnxruntime
+# k2 have not supported torch 2.10+
+uv add "torch<2.10" "torchaudio<2.10" onnxruntime
 
-# Install k2. Remember to use the <K2_URL> you found above via the k2 installation instructions
-uv add "k2 @ <K2_URL>"
+# Install k2 for Linux or WSL.
+wget "https://github.com/Stylish-TTS/stylish-tts/raw/refs/heads/main/get_k2_whl.py" && uv add "k2 @ $(uv run get_k2_whl.py)"
+
+# For native Windows, find the wheel URL from https://k2-fsa.github.io/k2/installation/pre-compiled-cpu-wheels-windows/index.html
+# Or macOS: https://k2-fsa.github.io/k2/installation/pre-compiled-cpu-wheels-macos/index.html
+# uv add "k2 @ <K2_URL>"
 
 # Sync packages and verify that things work
 uv sync

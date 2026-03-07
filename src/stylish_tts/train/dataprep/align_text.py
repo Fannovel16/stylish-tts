@@ -62,7 +62,7 @@ def build_dataloader(
         root_path=Path(config.dataset.path) / config.dataset.wav_path,
         text_cleaner=text_cleaner,
         model_config=model_config,
-        pitch_path="",
+        pitch_path=Path(config.dataset.path) / config.dataset.pitch_path,
         alignment_path="",
         duration_processor=None,
     )
@@ -244,8 +244,6 @@ def calculate_alignment_batched(
             train.normalization.mel_log_std,
         )
         mels = rearrange(mels, "b f t -> b t f")
-        # mels, _ = train.kanade_codec.get_ssl_embeddings(batch.audio_gt)
-        # mel_lengths = torch.tensor([mels.shape[1]] * mels.shape[0], device=mels.device)
         prediction, _ = aligner(mels, mel_lengths)
         prediction = rearrange(prediction, "t b k -> b t k")
         alignments, scores = k2_align(
@@ -297,6 +295,8 @@ def calculate_alignment_single(
         train.normalization.mel_log_mean,
         train.normalization.mel_log_std,
     )
+    text = train.text_cleaner(text)
+    text = torch.tensor(text).to(device).unsqueeze(0)
     mels = rearrange(mels, "b f t -> b t f")
     # mels, _ = train.kanade_codec.get_ssl_embeddings(audio_gt)
     # mel_lengths = torch.tensor([mels.shape[1]] * mels.shape[0], device=mels.device)

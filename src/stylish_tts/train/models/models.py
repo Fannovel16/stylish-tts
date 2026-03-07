@@ -4,9 +4,9 @@ from stylish_tts.lib.config_loader import ModelConfig
 from .text_aligner import tdnn_blstm_ctc_model_base
 
 from .discriminator import (
-    MultiResolutionDiscriminator,
     SpecDiscriminator,
     ContextFreeDiscriminator,
+    MultiPeriodDiscriminator,
 )
 
 from .duration_predictor import DurationPredictor
@@ -40,7 +40,6 @@ def build_model(model_config: ModelConfig):
     pitch_energy_predictor = PitchEnergyPredictor(
         style_dim=model_config.style_dim,
         inter_dim=model_config.pitch_energy_predictor.inter_dim,
-        coarse_multiplier=model_config.coarse_multiplier,
         text_config=model_config.text_encoder,
         duration_config=model_config.duration_predictor,
         pitch_energy_config=model_config.pitch_energy_predictor,
