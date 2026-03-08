@@ -44,8 +44,6 @@ dependencies = [
     "sentence-transformers>=5.1.1",
     "textgrid",
     "positional_encodings",
-    "requests",
-    "beautifulsoup4",
 ]
 
 [project.urls]
