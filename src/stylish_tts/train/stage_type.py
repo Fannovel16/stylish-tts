@@ -369,9 +369,9 @@ def train_acoustic(
 
     step.mel_loss()
     # step.multi_phase_loss()
-    # step.generator_loss(disc_index)
+    step.generator_loss(disc_index)
     # step.slm_loss()
-    step.magphase_loss()
+    # step.magphase_loss()
 
     train.accelerator.backward(log.backwards_loss())
     return (
@@ -410,7 +410,7 @@ stages["acoustic"] = StageType(
         "speech_style_encoder",
     ],
     eval_models=[],
-    discriminators=[],  # ["mrd0", "mrd1", "mrd2", "disc"],
+    discriminators=["mrd0", "mrd1", "mrd2", "disc"],
     inputs=[
         "text",
         "text_length",
