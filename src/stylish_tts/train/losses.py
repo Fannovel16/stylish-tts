@@ -44,19 +44,19 @@ def anti_wrapping_loss(phase_diff, weights):
 
 def differential_phase_loss(pred, target, n_fft):
     freq_size = target.shape[1]
-    weights = torch.arange(freq_size).to(pred.device)
+    weights = torch.arange(freq_size, device=pred.device)
     base = math.exp(math.log(2.5) / (freq_size // 2))
     weights = torch.pow(base, weights)
     weights = rearrange(weights, "w -> 1 w 1")
 
     phase_loss = anti_wrapping_loss(pred - target, weights).mean()
 
+    freq_matrix = torch.ones(freq_size, freq_size, device=pred.device)
     freq_matrix = (
-        torch.triu(torch.ones(freq_size, freq_size), diagonal=1)
-        - torch.triu(torch.ones(freq_size, freq_size), diagonal=2)
-        - torch.eye(freq_size)
+        torch.triu(freq_matrix, diagonal=1)
+        - torch.triu(freq_matrix, diagonal=2)
+        - torch.eye(freq_size, device=pred.device)
     )
-    freq_matrix = freq_matrix.to(pred.device)
     pred_freq = torch.matmul(pred.transpose(1, 2), freq_matrix)
     target_freq = torch.matmul(target.transpose(1, 2), freq_matrix)
     phase_loss += anti_wrapping_loss(
@@ -64,12 +64,12 @@ def differential_phase_loss(pred, target, n_fft):
     ).mean()
 
     frames = target.shape[2]
+    time_matrix = torch.ones(frames, frames, device=pred.device)
     time_matrix = (
-        torch.triu(torch.ones(frames, frames), diagonal=1)
-        - torch.triu(torch.ones(frames, frames), diagonal=2)
+        torch.triu(time_matrix, diagonal=1)
+        - torch.triu(time_matrix, diagonal=2)
         - torch.eye(frames)
     )
-    time_matrix = time_matrix.to(pred.device)
     pred_time = torch.matmul(pred, time_matrix)
     target_time = torch.matmul(target, time_matrix)
     phase_loss += anti_wrapping_loss(pred_time - target_time, weights).mean()
