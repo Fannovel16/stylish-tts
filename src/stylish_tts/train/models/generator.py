@@ -826,7 +826,7 @@ class MultiGenerator(torch.nn.Module):
             conv_dropout=0.2,
         )
 
-        self.upsample_rates = [3, 4, 5]
+        self.upsample_rates = [2, 3, 5]
 
         after_dim = n_fft // 2 // 4
         self.basegen = Generator(

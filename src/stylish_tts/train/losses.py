@@ -111,7 +111,7 @@ class MagPhaseLoss(torch.nn.Module):
         y_stft = torch.stft(
             gt,
             n_fft=self.n_fft // 8,
-            hop_length=8,
+            hop_length=16,
             win_length=self.win_length // 8,
             return_complex=True,
             window=self.window,
