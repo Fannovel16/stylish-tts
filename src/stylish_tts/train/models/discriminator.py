@@ -142,21 +142,6 @@ class ContextFreeDiscriminator(torch.nn.Module):
             dim * 4 * 2, dim * 4, kernel=1, stride=1, dropout=0.1, bias=True
         )
         self.shrink = torch.nn.Linear(dim * 4, dim * 2)
-        self.t_layers = torch.nn.ModuleList(
-            [
-                torch.nn.TransformerEncoderLayer(
-                    d_model=dim * 2,
-                    nhead=8,
-                    dropout=0.0,
-                    batch_first=True,
-                    dim_feedforward=dim * 2 * 4,
-                    norm_first=True,
-                )
-                for _ in range(4)
-            ]
-        )
-        self.pos_encoding = PositionalEncoding1D(dim * 2)
-        self.t_norm = torch.nn.LayerNorm(dim * 2)
         # self.conformer = Conformer(input_dim=dim*2, num_heads=8, ffn_dim=dim*2*4, num_layers=4, depthwise_conv_kernel_size=3, dropout=0)
         self.head = torch.nn.Sequential(
             torch.nn.Linear(dim * 2, dim * 2 * 4),
@@ -180,10 +165,6 @@ class ContextFreeDiscriminator(torch.nn.Module):
         x = self.shrink(x)
         # lengths = torch.full((x.shape[0],), fill_value=x.shape[1], device=x.device)
         # x, _ = self.conformer(x, lengths)
-        x = x + self.pos_encoding(x)
-        for layer in self.t_layers:
-            x = layer(x)
-        x = self.t_norm(x)
         x = self.head(x)
         x = rearrange(x, "(b t) f c -> b (t f c)", t=time_steps)
         return x, []
