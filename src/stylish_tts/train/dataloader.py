@@ -55,6 +55,7 @@ class FilePathDataset(torch.utils.data.Dataset):
         self.duration_weights = durations.sum() / (durations * durations.shape[0])
         self.data_list = []
         self.codes = load_file(root_path / "codes.safetensors")
+        self.globals = load_file(root_path / "globals.safetensors")
         sentences = []
         for line in data_list:
             fields = line.strip().split("|")
@@ -152,7 +153,10 @@ class FilePathDataset(torch.utils.data.Dataset):
             codes = self.codes[path].detach()
         else:
             codes = 0
-        s3_codes = codes
+        if path in self.globals:
+            globals = self.globals[path].detach()
+        else:
+            globals = 0
         return (
             speaker_id,
             text_tensor,
@@ -161,7 +165,7 @@ class FilePathDataset(torch.utils.data.Dataset):
             pitch,
             alignment,
             codes,
-            s3_codes,
+            globals,
         )
 
     def _load_tensor(self, data):
@@ -217,8 +221,8 @@ class Collater(object):
         waves = torch.zeros((batch_size, batch[0][3].shape[-1])).float()
         pitches = torch.zeros((batch_size, mel_length)).float()
         alignments = torch.zeros((batch_size, 1, max_text_length))
-        codes = torch.zeros((batch_size, mel_length // 4 // 2)).long()
-        s3_codes = torch.zeros((batch_size, mel_length // 4)).long()
+        codes = torch.zeros((batch_size, mel_length // 2)).long()
+        globals = torch.zeros((batch_size, 128)).float()
         # alignments = torch.zeros((batch_size, max_text_length, mel_length))
         # alignments = torch.zeros((batch_size, max_text_length, mel_length // 2))
 
@@ -230,7 +234,7 @@ class Collater(object):
             pitch,
             duration,
             code,
-            s3_code,
+            global_emb,
         ) in enumerate(batch):
             speaker_out[bid] = speaker
 
@@ -264,7 +268,7 @@ class Collater(object):
             #     alignments[bid, :text_size, :mel_length] = alignment
             alignments[bid, :1, :text_size] = duration[:1]
             codes[bid] = code
-            # s3_codes[bid] = s3_code[:, :s3_codes.shape[1]]
+            globals[bid] = global_emb
 
         result = (
             waves,
@@ -274,7 +278,7 @@ class Collater(object):
             pitches,
             alignments,
             codes,
-            s3_codes,
+            globals,
             speaker_out,
         )
         return result

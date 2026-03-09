@@ -89,7 +89,7 @@ class MagPhaseLoss(torch.nn.Module):
 
     def __init__(self, *, n_fft, hop_length, win_length):
         super(MagPhaseLoss, self).__init__()
-        window = torch.hann_window(win_length)
+        window = torch.hann_window(win_length // 8)
         self.register_buffer("window", window)
         self.n_fft = n_fft
         self.hop_length = hop_length
@@ -110,9 +110,9 @@ class MagPhaseLoss(torch.nn.Module):
     def forward(self, pred, gt, log):
         y_stft = torch.stft(
             gt,
-            n_fft=self.n_fft,
-            hop_length=self.hop_length,
-            win_length=self.win_length,
+            n_fft=self.n_fft // 8,
+            hop_length=8,
+            win_length=self.win_length // 8,
             return_complex=True,
             window=self.window,
         )

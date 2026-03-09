@@ -226,11 +226,11 @@ def train_model(
         pitch=train.model.pitch_disc,
         duration=train.model.dur_disc,
     ).to(train.config.training.device)
-    train.wavlm_loss = WavLMLoss(
-        train.model_config.slm.model,
-        train.model_config.sample_rate,
-        train.model_config.slm.sr,
-    ).to(train.config.training.device)
+    # train.wavlm_loss = WavLMLoss(
+    #     train.model_config.slm.model,
+    #     train.model_config.sample_rate,
+    #     train.model_config.slm.sr,
+    # ).to(train.config.training.device)
 
     if not is_valid_stage(stage):
         exit(f"{stage} is not a valid stage. Must be one of {valid_stage_list()}")

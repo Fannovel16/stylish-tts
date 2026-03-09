@@ -104,29 +104,19 @@ class AcousticStep:
             # self.pitch = normalize_log2(
             #     self.pitch, train.f0_log2_mean, train.f0_log2_std
             # )
-            self.speaker_emb = train.speaker_embedder(batch.audio_gt)
-            self.phones, *_ = train.hubert(
-                batch.audio_gt, train.model_config.coarse_multiplier
-            )
-            current_step = (
-                train.manifest.current_step
-                + (train.manifest.current_epoch - 1) * train.manifest.steps_per_epoch
-            )
-            train_student = current_step > train.config.training.val_interval
 
-        if alignment is None:
-            alignment = train.duration_processor.duration_to_alignment(
-                batch.alignment[:, 0, :].long()
-            )
-            alignment_fine = train.duration_processor.duration_to_alignment(
-                batch.alignment[:, 0, :].long(),
-                multiplier=train.model_config.coarse_multiplier,
-            )
+        # if alignment is None:
+        #     alignment = train.duration_processor.duration_to_alignment(
+        #         batch.alignment[:, 0, :].long()
+        #     )
+        #     alignment_fine = train.duration_processor.duration_to_alignment(
+        #         batch.alignment[:, 0, :].long(),
+        #         multiplier=train.model_config.coarse_multiplier,
+        #     )
         if use_predicted_pe:
-            self.pe_style = train.model.pe_style_encoder(self.speaker_emb)
-            # self.pe_style = train.model.pe_style_encoder(
-            #     self.style_mel, self.pitch, self.energy
-            # )
+            self.pe_style = train.model.pe_style_encoder(
+                self.style_mel, self.pitch, self.energy
+            )
             self.pred_pitch, self.pred_energy = train.model.pitch_energy_predictor(
                 batch.text,
                 batch.text_length,
@@ -143,7 +133,7 @@ class AcousticStep:
             # self.speech_style = train.model.speech_style_encoder(
             #     self.style_mel.unsqueeze(1)
             # )
-            self.speech_style = train.model.speech_style_encoder(self.speaker_emb)
+
             # voiced = self.voiced
             pitch = self.pitch
             energy = self.energy
@@ -161,18 +151,16 @@ class AcousticStep:
             # pitch = torch.log(torch.abs(pitch) + 1)
             # pitch = pitch * voiced
             # base_pitch = base_pitch * voiced
-            self.pred, self._distil_loss = train.model.speech_predictor(
-                self.phones,
+            self.pred = train.model.speech_predictor(
                 # batch.text,
                 # batch.text_length,
                 # alignment_fine,
+                train.kanade_codec.decode_codes(batch.codes),
                 pitch,
                 energy,
                 voiced,
-                self.speech_style,
+                batch.globals,  # self.speech_style,
                 base_pitch,
-                prior_mel=self.mel,
-                train_student=train_student,
             )
             (
                 self.target_spec,
@@ -239,7 +227,7 @@ class AcousticStep:
         )
 
     def magphase_loss(self):
-        # self.train.magphase_loss(self.pred, self.batch.audio_gt, self.log)
+        self.train.magphase_loss(self.pred, self.batch.audio_gt, self.log)
         pass
 
     def pitch_loss(self):
@@ -274,13 +262,6 @@ class AcousticStep:
         #     "voiced",
         #     torch.nn.functional.binary_cross_entropy(self.pred_voiced, self.voiced),
         # )
-
-    def distil_loss(self):
-        if self._distil_loss is not None:
-            self.log.add_loss(
-                "distil",
-                self._distil_loss,
-            )
 
 
 ##### Alignment #####
@@ -375,6 +356,7 @@ def train_acoustic(
     batch, model, train, probing, disc_index
 ) -> Tuple[LossLog, Optional[torch.Tensor]]:
     """Train a single batch for the acoustic stage"""
+    train.kanade_codec.remove_encoder()
     log = build_loss_log(train)
     step = AcousticStep(
         batch,
@@ -387,10 +369,9 @@ def train_acoustic(
 
     step.mel_loss()
     # step.multi_phase_loss()
-    step.generator_loss(disc_index)
+    # step.generator_loss(disc_index)
     # step.slm_loss()
     step.magphase_loss()
-    step.distil_loss()
 
     train.accelerator.backward(log.backwards_loss())
     return (
@@ -405,6 +386,7 @@ def train_acoustic(
 @torch.no_grad()
 def validate_acoustic(batch, train):
     """Validate a single batch for the acoustic stage"""
+    train.kanade_codec.remove_encoder()
     log = build_loss_log(train)
     step = AcousticStep(
         batch,
@@ -428,13 +410,15 @@ stages["acoustic"] = StageType(
         "speech_style_encoder",
     ],
     eval_models=[],
-    discriminators=["mrd0", "mrd1", "mrd2", "disc"],
+    discriminators=[],  # ["mrd0", "mrd1", "mrd2", "disc"],
     inputs=[
         "text",
         "text_length",
         "audio_gt",
         "pitch",
         "alignment",
+        "codes",
+        "globals",
     ],
 )
 
@@ -791,7 +775,7 @@ stages["duration"] = StageType(
         "audio_gt",
         "pitch",
         "codes",
-        "s3_codes",
+        "globals",
         "speaker_id",
         "text",
         "alignment",

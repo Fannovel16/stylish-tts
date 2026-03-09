@@ -796,7 +796,7 @@ class Generator(torch.nn.Module):
         x = torch.cos(phase_full)
         y = torch.sin(phase_full)
 
-        return self.stft.inverse(spec_full, x, y).to(x.device)
+        return self.stft.inverse(spec_full, x, y).to(x.device), spec_full, phase_full
 
 
 class MultiGenerator(torch.nn.Module):
@@ -810,15 +810,15 @@ class MultiGenerator(torch.nn.Module):
         hidden_dim = n_fft // 2  # // 4
 
         self.amp_input_conv = Conv1d(
-            config.input_dim,
+            config.input_dim // 2,
             hidden_dim,
             config.io_conv_kernel_size,
             1,
             padding=get_padding(config.io_conv_kernel_size, 1),
         )
-        self.amp_norm = nn.LayerNorm(hidden_dim, eps=1e-6)
+        # self.amp_norm = nn.LayerNorm(hidden_dim, eps=1e-6)
         self.amp_conformer = Conformer(
-            dim=hidden_dim,
+            dim=config.input_dim,
             style_dim=style_dim,
             depth=config.conformer_layers,
             attn_dropout=0.2,
@@ -826,10 +826,8 @@ class MultiGenerator(torch.nn.Module):
             conv_dropout=0.2,
         )
 
-        self.upsample_rates = [3, 5, 5]
+        self.upsample_rates = [3, 4, 5]
 
-        scale = 1
-        scalehop = 1
         after_dim = n_fft // 2 // 4
         self.basegen = Generator(
             style_dim=style_dim,
@@ -842,7 +840,7 @@ class MultiGenerator(torch.nn.Module):
             # start_fft=0,
             # hidden_dim=after_dim,
             scale=8,
-            scalehop=75,
+            scalehop=math.prod(self.upsample_rates),
             start_fft=0,
             hidden_dim=n_fft // 2 // 8,
             input_dim=hidden_dim,
@@ -851,7 +849,7 @@ class MultiGenerator(torch.nn.Module):
             conformer_layers=config.conformer_layers,
             conv_layers=config.conv_layers,
             # upsample_rates=[],
-            upsample_rates=[3, 5, 5],
+            upsample_rates=self.upsample_rates,
         )
 
         # self.generators = nn.ModuleList()
@@ -882,12 +880,12 @@ class MultiGenerator(torch.nn.Module):
         #     )
 
     def forward(self, *, mel, style, pitch, energy, voiced):
-        x = self.amp_input_conv(mel)
-        x = x.transpose(1, 2)
-        x = self.amp_norm(x)
+        x = mel.transpose(1, 2)
         x = self.amp_conformer(x, style)
         x = x.transpose(1, 2)
-        audio = self.basegen(
+        x = rearrange(x, "b (c s) t -> b c (t s)", s=2)
+        x = self.amp_input_conv(x)
+        audio, spec, phase = self.basegen(
             mel=x, style=style, pitch=pitch, energy=energy, voiced=voiced
         )
         # for gen in self.generators:
@@ -896,8 +894,8 @@ class MultiGenerator(torch.nn.Module):
         audio = torch.tanh(audio)
         return DecoderPrediction(
             audio=audio,
-            magnitude=None,
-            phase=None,
+            magnitude=spec,
+            phase=phase,
         )
 
 

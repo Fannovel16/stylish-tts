@@ -233,7 +233,11 @@ class AdaptiveKanadeCodec(nn.Module):
         self.vocoder = load_vocoder(self.model.config.vocoder_name)
 
     def remove_encoder(self):
-        pass
+        if hasattr(self.model, "mel_decoder"):
+            del self.vocoder
+            del self.model.mel_prenet
+            del self.model.mel_decoder
+            del self.model.mel_postnet
 
     def normalize(self, wave):
         max_val = torch.max(torch.abs(wave)) + 1e-8
@@ -256,6 +260,9 @@ class AdaptiveKanadeCodec(nn.Module):
             codes.append(_x)
         return codes
 
+    def encode(self, waveform):
+        return self.model.encode(self.normalize(waveform)[0])
+
     def get_ssl_embeddings(self, waveform: torch.Tensor):
         waveform = self.normalize(waveform)
         audio_length = waveform.size(-1)
@@ -272,6 +279,9 @@ class AdaptiveKanadeCodec(nn.Module):
         ]
         x = torch.stack(x, 0)
         return x
+
+    def decode_codes(self, content_token_indices):
+        return self.model.decode_token_indices(content_token_indices).mT
 
     def decode(self, content_tokens, global_embs):
         mel = []

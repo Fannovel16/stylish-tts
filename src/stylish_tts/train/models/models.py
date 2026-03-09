@@ -44,13 +44,13 @@ def build_model(model_config: ModelConfig):
         duration_config=model_config.duration_predictor,
         pitch_energy_config=model_config.pitch_energy_predictor,
     )
-
-    # speech_style_encoder = MelStyleEncoder(
-    #     model_config.style_encoder.n_mels,
-    #     model_config.style_dim,
-    #     model_config.style_encoder.max_channels,
-    #     model_config.style_encoder.skip_downsample,
-    # )
+    model_config.generator.input_dim = 768
+    speech_style_encoder = MelStyleEncoder(
+        768,
+        model_config.style_dim,
+        model_config.style_encoder.max_channels,
+        model_config.style_encoder.skip_downsample,
+    )
     # pe_style_encoder = PitchStyleEncoder(
     #     model_config.style_encoder.n_mels,
     #     model_config.style_dim,
@@ -80,7 +80,7 @@ def build_model(model_config: ModelConfig):
     #     torch.nn.Linear(64 * 80 * 2, model_config.style_dim)
     # )
 
-    speech_style_encoder = torch.nn.Linear(64 * 80 * 2, model_config.style_dim)
+    # speech_style_encoder = torch.nn.Linear(64 * 80 * 2, model_config.style_dim)
     pe_style_encoder = torch.nn.Linear(64 * 80 * 2, model_config.style_dim)
     duration_style_encoder = torch.nn.Linear(64 * 80 * 2, model_config.style_dim)
 
