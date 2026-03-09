@@ -68,7 +68,7 @@ def differential_phase_loss(pred, target, n_fft):
     time_matrix = (
         torch.triu(time_matrix, diagonal=1)
         - torch.triu(time_matrix, diagonal=2)
-        - torch.eye(frames)
+        - torch.eye(frames, device=pred.device)
     )
     pred_time = torch.matmul(pred, time_matrix)
     target_time = torch.matmul(target, time_matrix)
