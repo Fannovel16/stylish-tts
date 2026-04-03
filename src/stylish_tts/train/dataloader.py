@@ -176,7 +176,7 @@ class FilePathDataset(torch.utils.data.Dataset):
             wave = wave[:, 0].squeeze()
         if sr != self.sample_rate:
             wave = librosa.resample(wave, orig_sr=sr, target_sr=self.sample_rate)
-            logger.debug(f"{wave_path}, {sr}")
+            # logger.debug(f"{wave_path}, {sr}")
 
         pad_start = 5000
         pad_end = 5000

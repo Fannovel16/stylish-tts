@@ -8,7 +8,7 @@ from typing import Dict
 
 logger = logging.getLogger(__name__)
 logical_step_limit = 10000
-logical_step_warmup = 0
+logical_step_warmup = 1000
 
 discriminators = {"mrd0", "mrd1", "mrd2", "disc", "pitch_disc", "dur_disc"}
 

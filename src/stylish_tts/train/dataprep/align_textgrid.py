@@ -39,6 +39,8 @@ import numpy
 import librosa
 import logging
 from stylish_tts.train.dataprep.align_text import torch_align, k2_align
+from misaki.en import G2P
+from tqdm import tqdm
 
 logging.basicConfig(
     level=logging.INFO,
@@ -107,7 +109,45 @@ def align_textgrid(audio_path, text, config, model_config, method):
     aligner = aligner.eval()
     process(train, aligner, audio_path, text, config, model_config, method, device)
     # Remove temporary output directoary
-    shutil.rmtree(train.out_dir)
+    # shutil.rmtree(train.out_dir)
+
+
+@torch.no_grad()
+def get_long_audio_logprobs(aligner, long_mel, max_ctx_frames, overlap_frames):
+    """
+    Processes long audio in overlapping chunks to avoid edge effects.
+
+    Args:
+        long_mel: (1, T_total, Features)
+        max_ctx_frames: Frames corresponding to your 15s limit (e.g., 1500 if 10ms/frame)
+        overlap_frames: Frames to discard on edges (e.g., 250 frames / 2.5s)
+    """
+    T_total = long_mel.size(1)
+    step = max_ctx_frames - 2 * overlap_frames
+
+    log_probs_list = []
+
+    for start in tqdm(list(range(0, T_total, step))):
+        end = min(start + max_ctx_frames, T_total)
+        chunk = long_mel[:, start:end, :]
+
+        # Run your aligner on the chunk (<= 15s)
+        chunk_log_probs, _ = aligner(
+            chunk, torch.tensor([chunk.shape[1]] * chunk.shape[0]).to(chunk.device)
+        )
+        chunk_log_probs = rearrange(chunk_log_probs, "t b k -> b t k")
+
+        # Discard the overlapping edge frames (except for the very first/last chunks)
+        valid_start = overlap_frames if start > 0 else 0
+        valid_end = -overlap_frames if end < T_total else chunk_log_probs.size(1)
+
+        log_probs_list.append(chunk_log_probs[:, valid_start:valid_end, :])
+
+        if end == T_total:
+            break
+
+    # Concatenate into one massive tensor: (1, T_valid_total, Vocab)
+    return torch.cat(log_probs_list, dim=1)
 
 
 def process(train, aligner, audio_path, text_raw, config, model_config, method, device):
@@ -118,14 +158,28 @@ def process(train, aligner, audio_path, text_raw, config, model_config, method, 
         train.normalization.mel_log_mean,
         train.normalization.mel_log_std,
     )
+    text_raw, tokens = G2P()(
+        text_raw.replace('"', "").replace("(", "").replace(")", "")
+    )
+    text_raw = text_raw.replace("ˈ", "").replace("ˌ", "")
+    phone_to_word_idx = []
+    for i, tk in enumerate(tokens):
+        ph = tk.phonemes if tk.phonemes is not None else "❓"
+        ph = ph.replace("ˈ", "").replace("ˌ", "")
+        if tk.text in set('.,!?;:()"'):
+            tk.whitespace = ""
+        phone_to_word_idx.extend([i] * len(ph) + [-2] * len(tk.whitespace))
+    phone_to_word_idx = [-1] + phone_to_word_idx + [-1]
+
     text = train.text_cleaner(text_raw)
     text = torch.tensor(text).to(device).unsqueeze(0)
     text_lengths = torch.zeros([1], dtype=int, device=device)
     text_lengths[0] = text.shape[1]
 
     mels = rearrange(mels, "b f t -> b t f")
-    prediction, _ = aligner(mels, mel_lengths)
-    prediction = rearrange(prediction, "t b k -> b t k")
+    # prediction, _ = aligner(mels, mel_lengths)
+    # prediction = rearrange(prediction, "t b k -> b t k")
+    prediction = get_long_audio_logprobs(aligner, mels, 750, 125)
 
     coarse_hop_length: int = model_config.hop_length * model_config.coarse_multiplier
     hop_duration = 1 / (model_config.sample_rate / coarse_hop_length)
@@ -142,14 +196,34 @@ def process(train, aligner, audio_path, text_raw, config, model_config, method, 
 
     tg = textgrid.TextGrid()
     phone_tier = textgrid.IntervalTier(name="Phonemes")
-    start_time = 0
-    for token, duration in zip("$" + text_raw + "$", alignment):
-        duration = duration.item() * hop_duration
-        end_time = start_time + duration
-        phone_tier.add(start_time, end_time, token)
-        start_time += duration
+    word_tier = textgrid.IntervalTier(name="Words")
 
-    tg.extend([phone_tier])
+    start = word_start = 0.0
+    current_word_idx = phone_to_word_idx[0]
+
+    for char, dur, word_idx in zip("$" + text_raw + "$", alignment, phone_to_word_idx):
+        end = start + dur.item() * hop_duration
+        if end > start:
+            phone_tier.add(start, end, char)
+        if word_idx != current_word_idx:
+            if start > word_start:
+                word_tier.add(
+                    word_start,
+                    start,
+                    tokens[current_word_idx].text if current_word_idx >= 0 else "",
+                )
+            current_word_idx, word_start = word_idx, start
+        start = end
+
+    if start > word_start:
+        word_tier.add(
+            word_start,
+            start,
+            tokens[current_word_idx].text if current_word_idx >= 0 else "",
+        )
+
+    tg.extend([word_tier, phone_tier])
+
     padded_audo_name = f"padded_{audio_path.split('/')[-1]}"
     textgrid_name = f"padded_{method}_{audio_path.split('/')[-1]}.textgrid"
     tg.write(textgrid_name)

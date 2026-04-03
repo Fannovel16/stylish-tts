@@ -231,6 +231,8 @@ class AdaptiveKanadeCodec(nn.Module):
         super().__init__()
         self.model = KanadeModel.from_pretrained(codec_path)
         self.vocoder = load_vocoder(self.model.config.vocoder_name)
+        for param in self.model.parameters():
+            param.requires_grad = False
 
     def remove_encoder(self):
         if hasattr(self.model, "mel_decoder"):
@@ -292,6 +294,51 @@ class AdaptiveKanadeCodec(nn.Module):
             )
             mel.append(_mel)
         return vocode(self.vocoder, torch.stack(mel, 0))
+
+    def get_latent_codes(self, content_tokens):
+        return self.model.local_quantizer.fsq.indices_to_codes(content_tokens)
+
+    def latent_codes_to_wave(self, latent_codes, global_embedding):
+        latent_codes = self.model.local_quantizer.fsq.quantize(latent_codes)
+        content_embedding = self.model.local_quantizer.proj_out(latent_codes)
+        # Estimate original audio length from content token sequence length
+        seq_len = content_embedding.size(1)
+        target_audio_length = self.model._calculate_original_audio_length(seq_len)
+
+        mel_length = self.model._calculate_target_mel_length(target_audio_length)
+        mel_spectrogram = self.model.forward_mel(
+            content_embedding, global_embedding, mel_length=mel_length
+        )
+        return vocode(self.vocoder, mel_spectrogram)
+
+    # def mel_to_wave(self, mel):
+    #     return vocode(self.vocoder, mel)
+
+    # def continuos_decode(self, z, global_embedding):
+    #     z_q, indices = self.model.local_quantizer.fsq.encode(z)
+    #     z_q = self.model.local_quantizer.proj_out(z_q)
+    #     content_embedding = z_q
+
+    #     # Estimate original audio length from content token sequence length
+    #     seq_len = content_embedding.size(1)
+    #     target_audio_length = self.model._calculate_original_audio_length(seq_len)
+
+    #     mel_length = self.model._calculate_target_mel_length(target_audio_length)
+    #     mel_spectrogram = self.model.forward_mel(content_embedding, global_embedding, mel_length=mel_length)
+    #     return mel_spectrogram
+
+    # def discrete_decode(self, content_tokens, global_embedding):
+    #     content_embedding = self.model.decode_token_indices(content_tokens)
+    #     # Estimate original audio length from content token sequence length
+    #     seq_len = content_embedding.size(1)
+    #     target_audio_length = self.model._calculate_original_audio_length(seq_len)
+
+    #     mel_length = self.model._calculate_target_mel_length(target_audio_length)
+    #     mel_spectrogram = self.model.forward_mel(content_embedding, global_embedding, mel_length=mel_length)
+    #     return mel_spectrogram
+
+    # def mel_to_wave(self, mel):
+    #     return vocode(self.vocoder, mel)
 
 
 # class AdaptiveOrangeWavLM(nn.Module):

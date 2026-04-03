@@ -196,7 +196,7 @@ def align_text(config, model_config, method, batch_size):
         out.unlink()
     save_file(result, out)
     # Remove temporary output directoary
-    shutil.rmtree(train.out_dir)
+    # shutil.rmtree(train.out_dir)
 
 
 def tqdm_wrapper(iterable, total=None, desc="", color="GREEN"):
@@ -594,16 +594,21 @@ def soft_alignment_bad(pred, phonemes):
     return result
 
 
+import librosa
+
+
 def audio_list(path, wavdir, model_config):
     coarse_hop_length = model_config.hop_length * model_config.coarse_multiplier
     with path.open("r", encoding="utf-8") as f:
         for line in f:
-            fields = line.split("|")
-            name = fields[0]
-            phonemes = fields[1]
-            wave, sr = soundfile.read(wavdir / name)
-            if sr != 24000:
-                sys.stderr.write(f"Skipping {name}: Wrong sample rate ({sr})")
+            try:
+                fields = line.split("|")
+                name = fields[0]
+                phonemes = fields[1]
+            except Exception as e:
+                print(line)
+                raise e
+            wave, sr = librosa.load(wavdir / name, sr=model_config.sample_rate)
             if wave.shape[-1] == 2:
                 wave = wave[:, 0].squeeze()
             time_bin = get_time_bin(

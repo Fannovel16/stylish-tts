@@ -675,7 +675,6 @@ from stylish_tts.train.multi_spectrogram import MultiSpectrogram
 
 def train_focal(batch, model, train, probing, disc_index):
     with torch.no_grad():
-        train.kanade_codec.remove_encoder()
         alignment = train.duration_processor.duration_to_alignment(
             batch.alignment[:, 0, :],
             multiplier=0.5,
@@ -685,33 +684,35 @@ def train_focal(batch, model, train, probing, disc_index):
         # prosody, *_ = train.emotion2vec(batch.audio_gt, 1)
         # style = torch.cat([prosody.mean(-1), prosody.std(-1)], 1)
         # style = train.prosody_wavlm(batch.audio_gt)
-        ref = train.kanade_codec.get_global_embeddings(batch.audio_gt)
+        ref = batch.globals
         # ref = batch.speaker_id
-        noisy_text, noisy_ref, noisy_semantic, corrupt_mask, t = (
-            model.code_predictor.make_noisy_sample(text, ref, semantic_gt)
-        )
+        # noisy_text, noisy_ref, noisy_semantic, corrupt_mask, t = (
+        #     model.code_predictor.make_noisy_sample(text, ref, semantic_gt)
+        # )
 
-    logits = model.code_predictor(noisy_text, noisy_ref, noisy_semantic, t)
+    # logits = model.code_predictor(noisy_text, noisy_ref, noisy_semantic, t)
+    logits = model.code_predictor(
+        text, normalize_log2(batch.pitch, train.f0_log2_mean, train.f0_log2_std), ref
+    )
     train.stage.optimizer.zero_grad()
     log = build_loss_log(train)
     loss = F.cross_entropy(
         rearrange(logits, "b t c -> (b t) c"),
         rearrange(semantic_gt, "b t -> (b t)"),
-        reduction="none",
+        # reduction="none",
     )
-    loss_mask = rearrange(corrupt_mask, "b t -> (b t)")
-    loss = (loss * loss_mask).sum() / (loss_mask.sum() + 1e-6)
+    # loss_mask = rearrange(corrupt_mask, "b t -> (b t)")
+    # loss = (loss * loss_mask).sum() / (loss_mask.sum() + 1e-6)
     log.add_loss("focal_match", loss)
     train.accelerator.backward(log.backwards_loss())
 
-    return log.detach(), None, None
+    return log.detach(), None, None, None, None
 
 
 @torch.no_grad()
 def validate_focal(batch, train):
     model = train.model
     with torch.no_grad():
-        train.kanade_codec.remove_encoder()
         # train.s3_codec.remove_encoder()
         # speaker_emb = train.speaker_embedder(batch.audio_gt)
         # phones, *_ = train.hubert(batch.audio_gt, 1)
@@ -719,7 +720,7 @@ def validate_focal(batch, train):
         # multi_spectrogram = MultiSpectrogram(sample_rate=16_000)
         # prosody, *_ = train.emotion2vec(batch.audio_gt, 1)
         semantic_gt = batch.codes
-        semantic = torch.full_like(semantic_gt, model.code_predictor.text_mask_token)
+        # semantic = torch.full_like(semantic_gt, model.code_predictor.text_mask_token)
         alignment = train.duration_processor.duration_to_alignment(
             batch.alignment[:, 0, :],
             multiplier=0.5,
@@ -732,17 +733,32 @@ def validate_focal(batch, train):
         #     prompt_semantic = semantic_gt[:, :25*3]
         # else:
         #     prompt_semantic = semantic_gt
-        ref = train.kanade_codec.get_global_embeddings(batch.audio_gt)
+        ref = batch.globals
         # ref = batch.speaker_id
 
-    pred_semantic = model.code_predictor.generate(
-        text=text,
-        ref=ref,
-        output=semantic,
-        T_prompt=None,
+    # pred_semantic = model.code_predictor.generate(
+    #     text=text,
+    #     ref=ref,
+    #     output=semantic,
+    #     T_prompt=None,
+    # )
+
+    # z = model.code_predictor(text, ref)
+    # pred_mel = train.kanade_codec.continuos_decode(z, ref)
+    # gt_mel = train.kanade_codec.discrete_decode(batch.codes, ref)
+    # pred_audio = train.kanade_codec.mel_to_wave(pred_mel)
+    # loss = 30 * F.l1_loss(pred_mel, gt_mel)
+
+    logits = model.code_predictor(
+        text, normalize_log2(batch.pitch, train.f0_log2_mean, train.f0_log2_std), ref
     )
-    global_embs = train.kanade_codec.get_global_embeddings(batch.audio_gt)
-    pred_audio = train.kanade_codec.decode(pred_semantic, global_embs)
+    loss = F.cross_entropy(
+        rearrange(logits, "b t c -> (b t) c"),
+        rearrange(semantic_gt, "b t -> (b t)"),
+        # reduction="none",
+    )
+    pred_audio = train.kanade_codec.decode(logits.argmax(-1), ref)
+
     (
         target_spec,
         pred_spec,
@@ -759,6 +775,7 @@ def validate_focal(batch, train):
     # )
     log = build_loss_log(train)
     train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
+    log.add_loss("focal_match", loss)
     return log.detach(), None, pred_audio, batch.audio_gt
 
 
