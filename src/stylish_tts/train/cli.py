@@ -426,3 +426,22 @@ def voicepack(config_path, dynamic, model_config_path, voicepack_path, checkpoin
     if dynamic:
         key = "voicepack_dynamic"
     save_file({key: result}, voicepack_path)
+
+
+@cli.command(short_help="Generate audio tokens.")
+@click.argument(
+    "config_path",
+    type=str,
+)
+@click.option(
+    "-mc",
+    "--model-config",
+    "model_config_path",
+    default="",
+    type=str,
+    help="Model configuration (optional), defaults to known-good model parameters.",
+)
+def gen_code(config_path, model_config_path):
+    from stylish_tts.train.dataprep.gen_code import generate_codes
+
+    generate_codes(config_path, model_config_path)

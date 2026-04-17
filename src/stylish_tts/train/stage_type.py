@@ -677,28 +677,37 @@ def train_focal(batch, model, train, probing, disc_index):
     with torch.no_grad():
         alignment = train.duration_processor.duration_to_alignment(
             batch.alignment[:, 0, :],
-            multiplier=0.5,
-        )
-        semantic_gt = batch.codes
-        text = (batch.text.unsqueeze(2) * alignment).sum(1)
+            multiplier=1,
+        ).float()
+        # semantic_gt = batch.codes
+        # text = (batch.text.unsqueeze(2) * alignment).sum(1)
         # prosody, *_ = train.emotion2vec(batch.audio_gt, 1)
         # style = torch.cat([prosody.mean(-1), prosody.std(-1)], 1)
         # style = train.prosody_wavlm(batch.audio_gt)
         ref = batch.globals
         # ref = batch.speaker_id
-        # noisy_text, noisy_ref, noisy_semantic, corrupt_mask, t = (
-        #     model.code_predictor.make_noisy_sample(text, ref, semantic_gt)
-        # )
+        pitch = normalize_log2(
+            batch.pitch,
+            train.f0_log2_mean,
+            train.f0_log2_std,
+        )
+        # pitch = F.interpolate(pitch.unsqueeze(1), scale_factor=0.5).squeeze(1)
+        # (
+        #     input_text_ids,
+        #     input_audio_ids,
+        #     input_pitch,
+        #     target_text_ids,
+        #     target_audio_ids,
+        # ) = model.code_predictor.make_noisy_sample(text, batch.codes, pitch)
 
-    # logits = model.code_predictor(noisy_text, noisy_ref, noisy_semantic, t)
-    logits = model.code_predictor(
-        text, normalize_log2(batch.pitch, train.f0_log2_mean, train.f0_log2_std), ref
-    )
+    logits = model.code_predictor(batch.text, None, pitch, alignment)
+    # logits = model.code_predictor(input_text_ids, input_audio_ids, input_pitch)
     train.stage.optimizer.zero_grad()
     log = build_loss_log(train)
     loss = F.cross_entropy(
         rearrange(logits, "b t c -> (b t) c"),
-        rearrange(semantic_gt, "b t -> (b t)"),
+        # rearrange(torch.cat([target_text_ids, target_audio_ids], 1), "b t -> (b t)"),
+        rearrange(batch.codes, "b t -> (b t)"),
         # reduction="none",
     )
     # loss_mask = rearrange(corrupt_mask, "b t -> (b t)")
@@ -723,9 +732,9 @@ def validate_focal(batch, train):
         # semantic = torch.full_like(semantic_gt, model.code_predictor.text_mask_token)
         alignment = train.duration_processor.duration_to_alignment(
             batch.alignment[:, 0, :],
-            multiplier=0.5,
-        )
-        text = (batch.text.unsqueeze(2) * alignment).sum(1)
+            multiplier=1,
+        ).float()
+        # text = (batch.text.unsqueeze(2) * alignment).sum(1)
         # prosody, *_ = train.emotion2vec(batch.audio_gt, 1)
         # style = torch.cat([prosody.mean(-1), prosody.std(-1)], 1)
         # style = train.prosody_wavlm(batch.audio_gt)
@@ -735,6 +744,12 @@ def validate_focal(batch, train):
         #     prompt_semantic = semantic_gt
         ref = batch.globals
         # ref = batch.speaker_id
+        pitch = normalize_log2(
+            batch.pitch,
+            train.f0_log2_mean,
+            train.f0_log2_std,
+        )
+        # pitch = F.interpolate(pitch.unsqueeze(1), scale_factor=0.5).squeeze(1)
 
     # pred_semantic = model.code_predictor.generate(
     #     text=text,
@@ -749,15 +764,13 @@ def validate_focal(batch, train):
     # pred_audio = train.kanade_codec.mel_to_wave(pred_mel)
     # loss = 30 * F.l1_loss(pred_mel, gt_mel)
 
-    logits = model.code_predictor(
-        text, normalize_log2(batch.pitch, train.f0_log2_mean, train.f0_log2_std), ref
-    )
-    loss = F.cross_entropy(
-        rearrange(logits, "b t c -> (b t) c"),
-        rearrange(semantic_gt, "b t -> (b t)"),
-        # reduction="none",
-    )
-    pred_audio = train.kanade_codec.decode(logits.argmax(-1), ref)
+    pred_logits = model.code_predictor(batch.text, None, pitch, alignment)
+    pred_codes = pred_logits.softmax(-1).argmax(-1)
+    # pred_codes = model.code_predictor.generate_iterative(
+    #     text,
+    #     pitch
+    # )
+    pred_audio = train.kanade_codec.decode(pred_codes, ref)
 
     (
         target_spec,
@@ -775,11 +788,10 @@ def validate_focal(batch, train):
     # )
     log = build_loss_log(train)
     train.stft_loss(target_list=target_spec, pred_list=pred_spec, log=log)
-    log.add_loss("focal_match", loss)
     return log.detach(), None, pred_audio, batch.audio_gt
 
 
-stages["duration"] = StageType(
+stages["acoustic"] = StageType(
     next_stage=None,
     train_fn=train_focal,
     validate_fn=validate_focal,

@@ -98,7 +98,7 @@ def build_model(model_config: ModelConfig):
         duration_style_encoder=duration_style_encoder,
         pitch_disc=PitchDiscriminator(dim_in=2, dim_hidden=64, kernel=21),
         dur_disc=PitchDiscriminator(dim_in=1, dim_hidden=64, kernel=5),
-        code_predictor=TokenPredictor(178, 12800),
+        code_predictor=TokenPredictor(180, 12800),  # MaskedTokenPredictor(178, 12800),
     )
 
     return nets

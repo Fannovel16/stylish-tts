@@ -1,178 +1,149 @@
 import math
-import torch.nn as nn
+import random
+from einops import rearrange
 import torch
-from typing import Callable, Optional, Union, Unpack
-from transformers.models.qwen3.modeling_qwen3 import (
-    Qwen3Attention,
-    Qwen3MLP,
-    Qwen3RotaryEmbedding,
-    Qwen3Config,
-    Qwen3RMSNorm,
-)
-from transformers.utils import TransformersKwargs
-from transformers.utils.deprecation import deprecate_kwarg
-from transformers import Cache
-from kanade_tokenizer.model import GlobalEncoder
+import torch.nn as nn
+import torch.nn.functional as F
+from dataclasses import dataclass
+from typing import List, Optional, Tuple
+from transformers import Qwen3Model, Qwen3Config
 
 
-class TimestepEmbedder(nn.Module):
-    """
-    Embeds scalar timesteps into vector representations.
-    """
-
-    def __init__(self, hidden_size: int, frequency_embedding_size: int = 256):
-        super().__init__()
-        self.mlp = nn.Sequential(
-            nn.Linear(frequency_embedding_size, hidden_size, bias=True),
-            nn.SiLU(),
-            nn.Linear(hidden_size, hidden_size, bias=True),
-        )
-        self.frequency_embedding_size = frequency_embedding_size
-
-    @staticmethod
-    def timestep_embedding(time, dim: int, max_period: int = 10000):
-        half = dim // 2
-        freqs = torch.exp(
-            -math.log(max_period)
-            * torch.arange(start=0, end=half, dtype=torch.float32)
-            / half
-        ).to(device=time.device)
-        args = time[:, None].float() * freqs[None]
-        embedding = torch.cat([torch.cos(args), torch.sin(args)], dim=-1)
-        if dim % 2:
-            embedding = torch.cat(
-                [embedding, torch.zeros_like(embedding[:, :1])], dim=-1
-            )
-        return embedding
-
-    def forward(self, time):
-        t_freq = self.timestep_embedding(time=time, dim=self.frequency_embedding_size)
-        t_emb = self.mlp(t_freq)
-        return t_emb
+# ---------------------------------------------------------------------------
+# Dataclasses & Config
+# ---------------------------------------------------------------------------
 
 
-class Qwen3AdaptiveRMSNorm(nn.Module):
-    def __init__(self, hidden_size, eps: float = 1e-6) -> None:
-        super().__init__()
-        self.to_weight = nn.Linear(128, hidden_size)
-        self.variance_epsilon = eps
-
-    def forward(self, hidden_states: torch.Tensor, cond: torch.Tensor) -> torch.Tensor:
-        text_dtype = hidden_states.dtype
-        hidden_states = hidden_states.to(torch.float32)
-        variance = hidden_states.pow(2).mean(-1, keepdim=True)
-        hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
-        return self.to_weight(cond).unsqueeze(1) * hidden_states.to(text_dtype)
-
-    def extra_repr(self):
-        return f"{tuple(self.weight.shape)}, eps={self.variance_epsilon}"
+@dataclass
+class OmniVoiceGenerationConfig:
+    num_step: int = 1
+    guidance_scale: float = 2.0
+    t_shift: float = 0.1
+    layer_penalty_factor: float = 0.0
+    position_temperature: float = 5.0
+    class_temperature: float = 0.0
 
 
-class Qwen3NAREncoderLayer(torch.nn.Module):
-    def __init__(self, config: Qwen3Config, layer_idx: int):
-        super().__init__()
-        self.hidden_size = config.hidden_size
+@dataclass
+class GenerationTask:
+    batch_size: int
+    texts: List[str]  # kept as strings, matching OmniVoice
+    target_lens: List[int]
+    text_ids: List[torch.Tensor]  # pre-tokenised 1D tensors
 
-        self.self_attn = Qwen3Attention(config=config, layer_idx=layer_idx)
-        self.self_attn.is_causal = False  # Encoder is non-causal
 
-        self.mlp = Qwen3MLP(config)
-        self.text_layernorm = Qwen3RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
-        self.post_attention_layernorm = Qwen3RMSNorm(
-            config.hidden_size, eps=config.rms_norm_eps
-        )
-        self.attention_type = config.layer_types[layer_idx]
+# ---------------------------------------------------------------------------
+# Core Model
+# ---------------------------------------------------------------------------
 
-    @deprecate_kwarg("past_key_value", new_name="past_key_values", version="4.58")
-    def forward(
+
+class TokenPredictor(nn.Module):
+    def __init__(
         self,
-        hidden_states: torch.Tensor,
-        cond: torch.Tensor,
-        attention_mask: Optional[torch.Tensor] = None,
-        position_ids: Optional[torch.LongTensor] = None,
-        past_key_values: Optional[Cache] = None,
-        use_cache: Optional[bool] = False,
-        cache_position: Optional[torch.LongTensor] = None,
-        position_embeddings: Optional[
-            tuple[torch.Tensor, torch.Tensor]
-        ] = None,  # necessary, but kept here for BC
-        **kwargs: Unpack[TransformersKwargs],
-    ) -> torch.Tensor:
-        residual = hidden_states
-        hidden_states = self.text_layernorm(hidden_states)  # , cond)
-        # Self Attention
-        hidden_states, _ = self.self_attn(
-            hidden_states=hidden_states,
-            attention_mask=attention_mask,
-            position_ids=position_ids,
-            past_key_values=past_key_values,
-            use_cache=use_cache,
-            cache_position=cache_position,
-            position_embeddings=position_embeddings,
-            **kwargs,
-        )
-        hidden_states = residual + hidden_states
-
-        # Fully Connected
-        residual = hidden_states
-        hidden_states = self.post_attention_layernorm(hidden_states)  # , cond)
-        hidden_states = self.mlp(hidden_states)
-        hidden_states = residual + hidden_states
-        return hidden_states
-
-
-class Qwen3NARModel(torch.nn.Module):
-    def __init__(self, config: Qwen3Config):
+        text_vocab: int,
+        audio_vocab: int,
+        hidden_dim: int = 512,
+        hidden_layers: int = 8,
+        attn_heads: int = 8,
+        kv_heads: int = 4,
+    ):
         super().__init__()
-        config._attn_implementation = "sdpa"
-        self.layers = nn.ModuleList(
-            [
-                Qwen3NAREncoderLayer(config, layer_idx)
-                for layer_idx in range(config.num_hidden_layers)
-            ]
-        )
-        self.norm = Qwen3RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
-        self.rotary_emb = Qwen3RotaryEmbedding(config=config)
+        self.text_vocab = text_vocab
+        self.audio_vocab = audio_vocab
+        self.audio_mask_id = audio_vocab
+        self.text_mask_id = text_vocab
 
-    def forward(self, texts_embeds, cond, attention_mask=None):
-        hidden_states = texts_embeds
-        position_ids = torch.arange(
-            0, hidden_states.shape[1], dtype=torch.long, device=hidden_states.device
-        )
-        position_ids = position_ids.unsqueeze(0).expand(hidden_states.shape[0], -1)
-        position_embeddings = self.rotary_emb(hidden_states, position_ids)
-        for decoder_layer in self.layers:
-            hidden_states = decoder_layer(
-                hidden_states,
-                cond,
-                attention_mask=attention_mask,
-                position_ids=position_ids,
-                position_embeddings=position_embeddings,
+        self.pre_align = Qwen3Model(
+            Qwen3Config(
+                vocab_size=0,
+                hidden_size=hidden_dim,
+                intermediate_size=hidden_dim * 2,
+                num_hidden_layers=hidden_layers // 2,
+                num_attention_heads=attn_heads,
+                num_key_value_heads=kv_heads,
+                head_dim=128,
+                max_window_layers=0,
+                use_cache=False,
+                use_sliding_window=False,
+                max_position_embeddings=60 * 50,
             )
-        hidden_states = self.norm(hidden_states)  # , cond)
-        return hidden_states
+        )
+        self.post_align = Qwen3Model(
+            Qwen3Config(
+                vocab_size=0,
+                hidden_size=hidden_dim,
+                intermediate_size=hidden_dim * 2,
+                num_hidden_layers=hidden_layers // 2,
+                num_attention_heads=attn_heads,
+                num_key_value_heads=kv_heads,
+                head_dim=128,
+                max_window_layers=0,
+                use_cache=False,
+                use_sliding_window=False,
+                max_position_embeddings=60 * 50,
+            )
+        )
+
+        self.embed_text = nn.Embedding(text_vocab + 1, hidden_dim)
+        self.embed_pitch = nn.Linear(1, hidden_dim)
+        self.downsample = nn.Conv1d(hidden_dim, hidden_dim, kernel_size=2, stride=2)
+        self.audio_head = nn.Linear(hidden_dim, audio_vocab, bias=False)
+
+    @property
+    def device(self):
+        return next(self.parameters()).device
+
+    def forward(self, text_ids, audio_ids, pitch, alignment):
+        text_embeds = self.embed_text(text_ids)
+        pitch_embeds = self.embed_pitch(pitch.unsqueeze(-1))
+        B, T_text = text_ids.shape
+        _, _, T_audio = alignment.shape
+
+        hidden_state = self.pre_align(
+            inputs_embeds=text_embeds,
+            attention_mask=torch.ones(
+                B, 1, T_text, T_text, dtype=torch.bool, device=self.device
+            ),
+        ).last_hidden_state
+        hidden_state = (hidden_state.mT @ alignment).mT + pitch_embeds
+        hidden_state = self.downsample(hidden_state.mT).mT
+        hidden_state = self.post_align(
+            inputs_embeds=hidden_state,
+            attention_mask=torch.ones(
+                B, 1, T_audio // 2, T_audio // 2, dtype=torch.bool, device=self.device
+            ),
+        ).last_hidden_state
+        return self.audio_head(hidden_state)
 
 
 class MaskedTokenPredictor(nn.Module):
+    """
+    Single-codebook OmniVoice NAR predictor with pitch conditioning and CFG.
+    """
+
     def __init__(
-        self, text_vocab, output_vocab, hidden_layers=8, attn_heads=1 * 4, kv_heads=1
+        self,
+        text_vocab: int,
+        audio_vocab: int,
+        hidden_dim: int = 512,
+        hidden_layers: int = 8,
+        attn_heads: int = 16,
+        kv_heads: int = 4,
     ):
         super().__init__()
-        self.text_vocab = text_vocab + 1
-        self.output_vocab = output_vocab + 1
-        self.text_mask_token = text_vocab
-        self.output_mask_token = output_vocab
-        # self.speaker_mask_id = 355
-        self.ref_mask = 0
+        self.text_vocab = text_vocab
+        self.audio_vocab = audio_vocab
+        self.audio_mask_id = audio_vocab
+        self.text_mask_id = text_vocab
+        self.drop_cond_ratio: float = 0.1
+        self.prompt_ratio_range: Tuple[float, float] = (0.0, 0.3)
+        self.mask_ratio_range: Tuple[float, float] = (0.0, 1.0)
 
-        self.embed_text = nn.Embedding(self.text_vocab, 256)
-        self.embed_output = nn.Embedding(self.output_vocab, 256)
-        self.t_embed = TimestepEmbedder(512)
-        self.input_proj = nn.Linear(256 * 2 + 128, 512)
-        self.model = Qwen3NARModel(
+        self.llm = Qwen3Model(
             Qwen3Config(
-                hidden_size=512,
-                intermediate_size=512 * 3,
+                vocab_size=text_vocab + audio_vocab + 1,  # text | audio | mask
+                hidden_size=hidden_dim,
+                intermediate_size=hidden_dim * 2,
                 num_hidden_layers=hidden_layers,
                 num_attention_heads=attn_heads,
                 num_key_value_heads=kv_heads,
@@ -183,153 +154,267 @@ class MaskedTokenPredictor(nn.Module):
                 max_position_embeddings=2048,
             )
         )
-        self.lm_head = nn.Linear(512, self.output_vocab)
+        del self.llm.embed_tokens
 
-    def mask_prob(self, t):
-        return torch.cos(t * torch.pi / 2)
+        self.embed_text = nn.Embedding(text_vocab + 1, hidden_dim // 4)
+        self.embed_audio = nn.Embedding(audio_vocab + 1, hidden_dim // 2)
+        self.embed_pitch = nn.Sequential(
+            nn.Linear(1, hidden_dim // 4),
+            nn.SiLU(),
+            nn.Linear(hidden_dim // 4, hidden_dim // 4),
+        )
+        self.audio_head = nn.Linear(
+            hidden_dim, audio_vocab, bias=False
+        )  # mask token never predicted
 
-    def forward(self, text, ref, output, t, output_hidden_state=False):
-        text = self.embed_text(text)
-        style = ref.unsqueeze(1).repeat(1, text.shape[1], 1)
-        # style = self.embed_speaker(ref).unsqueeze(1).repeat(1, text.shape[1], 1)
-        output = self.embed_output(output)
-        t = self.t_embed(t)
-        x = self.input_proj(torch.cat([text, style, output], -1))
-        x = self.model(x, t)
-        if output_hidden_state:
-            return x
+    @property
+    def device(self):
+        return next(self.parameters()).device
+
+    def _prepare_embed_inputs(
+        self,
+        text_ids: torch.Tensor,  # [B, N_text]
+        audio_ids: torch.Tensor,  # [B, N_audio]
+        pitch: torch.Tensor,  # [B, N_audio]
+    ) -> torch.Tensor:  # [B, N_text + N_audio, hidden_dim]
+        # shared_embed = self.llm.get_input_embeddings()
+        # text_embeds = shared_embed(text_ids)  # [B, N_text,  H]
+        text_embeds = self.embed_text(text_ids)
+
+        # audio_embeds = shared_embed(audio_ids + self.text_vocab)  # [B, N_audio, H]
+        audio_embeds = self.embed_audio(audio_ids)
+        pitch_embeds = self.embed_pitch(pitch.unsqueeze(-1))
+        # audio_embeds = audio_embeds + self.embed_pitch(
+        #     pitch.unsqueeze(-1)
+        # )  # superimpose pitch
+        return torch.cat(
+            [text_embeds, pitch_embeds, audio_embeds],
+            dim=2,  # dim=1
+        )  # [B, N_text + N_audio, H]
+
+    def make_noisy_sample(
+        self,
+        text_ids: torch.Tensor,  # [B, N_text]
+        audio_ids: torch.Tensor,  # [B, N_audio]
+        pitch: torch.Tensor,  # [B, N_audio]
+    ):
+        drop_cond = random.uniform(0, 1) < self.drop_cond_ratio
+        mask_ratio = torch.tensor(
+            [random.uniform(*self.mask_ratio_range) for _ in range(text_ids.shape[0])],
+            device=self.device,
+        ).unsqueeze(-1)
+
+        prompt_ratio = 0.0
+        # if drop_cond:
+        #     prompt_ratio = 0.0
+        # else:
+        #     prompt_ratio = random.uniform(*self.prompt_ratio_range)
+
+        prompt_length = int(audio_ids.shape[1] * prompt_ratio)
+        input_audio_ids = audio_ids.clone()
+        target_audio_ids = audio_ids.clone()
+
+        maskable_region = audio_ids[:, prompt_length:]
+        token_mask = torch.rand(maskable_region.shape, device=self.device) < mask_ratio
+        # Prevent CE NaN loss if mask_ratio = 0
+        if not token_mask.any():
+            token_mask[:, random.randint(0, token_mask.shape[1] - 1)] = True
+
+        input_audio_ids[:, prompt_length:][token_mask] = self.audio_mask_id
+        target_audio_ids[:, prompt_length:][
+            ~token_mask
+        ] = -100  # Only compute loss on masked tokens
+
+        if drop_cond:
+            # input_text_ids = torch.empty(
+            #     (text_ids.shape[0], 0), dtype=text_ids.dtype, device=text_ids.device
+            # )
+            # target_text_ids = torch.empty(
+            #     (text_ids.shape[0], 0), dtype=text_ids.dtype, device=text_ids.device
+            # )
+            input_text_ids = torch.full_like(text_ids, self.text_mask_id)
+            target_text_ids = torch.full_like(text_ids, -100)
+            input_pitch = torch.zeros_like(pitch)
         else:
-            return self.lm_head(x)
+            input_text_ids = text_ids.clone()
+            target_text_ids = torch.full_like(text_ids, -100)
+            input_pitch = pitch.clone()
+            # No loss on prompt region
+            target_audio_ids[:, :prompt_length] = -100
 
-    def make_noisy_sample(self, text, ref, output, cond_dropout=0.1):
-        B, T = output.shape
-        device = output.device
+        return (
+            input_text_ids,
+            input_audio_ids,
+            input_pitch,
+            target_text_ids,
+            target_audio_ids,
+        )
 
-        drop_mask = torch.rand(B, 1, device=device) < cond_dropout
-        # prompt_len = torch.randint(min(T//4, 12), T//2, (1,)).item()
-        # noisy_ref = ref[:, :prompt_len, :].masked_fill(drop_mask.unsqueeze(-1), 0)
-        noisy_ref = ref.masked_fill(drop_mask, self.ref_mask)
-        noisy_text = text.masked_fill(drop_mask, self.text_mask_token)
-
-        t = torch.rand(B, 1, device=device)
-        mask_prob = self.mask_prob(t)
-        corrupt_mask = torch.bernoulli(mask_prob.expand(B, T)).bool()
-        noisy_output = output.masked_fill(corrupt_mask, self.output_mask_token)
-        return noisy_text, noisy_ref, noisy_output, corrupt_mask, t.squeeze(1)
+    def forward(
+        self,
+        text_ids: torch.Tensor,  # [B, N_text]
+        audio_ids: torch.Tensor,  # [B, N_audio]
+        pitch: torch.Tensor,  # [B, N_audio]
+    ) -> torch.Tensor:  # [B, N_text + N_audio, audio_vocab]
+        inputs_embeds = self._prepare_embed_inputs(text_ids, audio_ids, pitch)
+        B, N_total, _ = inputs_embeds.shape
+        # Bidirectional mask
+        attention_mask = torch.ones(
+            B, 1, N_total, N_total, dtype=torch.bool, device=self.device
+        )
+        hidden_states = self.llm(
+            inputs_embeds=inputs_embeds, attention_mask=attention_mask
+        ).last_hidden_state
+        return self.audio_head(hidden_states)
 
     @torch.no_grad()
-    def generate(
+    def generate_iterative(
         self,
-        text,
-        ref,
-        output,
-        T_prompt=None,
-        steps=8,
-        cfg_scale=0,
-        temp=1,
-        gumbel_sampling=False,
-    ):
-        # Helper: Gumbel Noise for "Confidence Randomization"
-        def gumbel_noise(t):
-            noise = torch.zeros_like(t).uniform_(0, 1)
-            return -torch.log(-torch.log(noise + 1e-10) + 1e-10)
+        text_ids: torch.Tensor,  # [B, N_text]
+        pitch: torch.Tensor,  # [B, target_len]
+        gen_config: OmniVoiceGenerationConfig = OmniVoiceGenerationConfig(),
+    ) -> torch.Tensor:  # [B, target_len]
+        B = text_ids.shape[0]
+        target_len = pitch.shape[1]
+        N_text = text_ids.shape[1]
 
-        B, T_total = output.shape
-        if T_prompt is None:
-            T_prompt, T_tgt = 0, T_total
-        else:
-            T_tgt = T_total - T_prompt
-        for step in range(steps):
-            t = torch.tensor([step / steps], device=text.device)
-            if cfg_scale > 0:
-                h_cond = self(text, ref, output, t.repeat(B), output_hidden_state=True)[
-                    :, T_prompt:
-                ]
-                h_uncond = self(
-                    torch.full_like(text[:, T_prompt:], self.text_mask_token),
-                    torch.full_like(ref, self.ref_mask),
-                    output[:, T_prompt:],
-                    t.repeat(B),
-                    output_hidden_state=True,
+        audio_ids = torch.full(
+            (B, target_len), self.audio_mask_id, dtype=torch.long, device=self.device
+        )
+        # u_text_ids = torch.empty((B, 0), dtype=text_ids.dtype, device=text_ids.device)
+        u_text_ids = torch.full_like(text_ids, self.text_mask_id)
+        u_pitch = torch.zeros_like(pitch)
+
+        timesteps = _get_time_steps(
+            t_start=0.0,
+            t_end=1.0,
+            num_step=gen_config.num_step + 1,
+            t_shift=gen_config.t_shift,
+            device=self.device,
+        ).tolist()
+
+        rem = target_len
+        schedule = []
+        for step in range(gen_config.num_step):
+            num = (
+                rem
+                if step == gen_config.num_step - 1
+                else min(
+                    math.ceil(target_len * (timesteps[step + 1] - timesteps[step])),
+                    rem,
                 )
-                h_cfg = h_cond + cfg_scale * (h_cond - h_uncond)
-                logits = self.lm_head(h_cfg)
-            else:
-                logits = self(text, ref, output, t.repeat(B), output_hidden_state=False)
-                logits = logits[:, T_prompt:, :]
-
-            if gumbel_sampling:
-                current_temp = max(temp * (1 - t), 0.001)
-                logits = logits + gumbel_noise(logits) * current_temp
-                candidate_ids = torch.argmax(logits, dim=-1)
-                probs = torch.softmax(logits, dim=-1)
-                candidate_probs = torch.gather(
-                    probs, -1, candidate_ids.unsqueeze(-1)
-                ).squeeze(-1)
-                candidate_probs = (
-                    candidate_probs + gumbel_noise(candidate_probs) * current_temp
-                )
-            else:
-                probs = nn.functional.softmax(logits / temp, dim=-1)
-                candidate_ids = torch.argmax(probs, dim=-1)  # [B, T_tgt]
-                candidate_probs = torch.gather(
-                    probs, -1, candidate_ids.unsqueeze(-1)
-                ).squeeze(-1)
-            ratio_mask = self.mask_prob(t + 1 / steps).item()
-            n_tokens_to_mask = int(T_tgt * ratio_mask)
-
-            if n_tokens_to_mask > 0:
-                n_keep = T_tgt - n_tokens_to_mask
-                _, keep_indices = torch.topk(candidate_probs, n_keep, dim=-1)
-                mask_next = torch.ones_like(candidate_ids, dtype=torch.bool)
-                mask_next.scatter_(1, keep_indices, False)
-                new_target_part = candidate_ids.clone()
-                new_target_part[mask_next] = self.output_mask_token
-                output[:, T_prompt:] = new_target_part
-            else:
-                output[:, T_prompt:] = candidate_ids
-        return output[:, T_prompt:]
-
-
-class TokenPredictor(nn.Module):
-    def __init__(
-        self,
-        text_vocab,
-        output_vocab,
-        hidden_dim=512,
-        hidden_layers=8,
-        head_dim=128,
-        attn_heads=2 * 4,
-        kv_heads=2,
-    ):
-        super().__init__()
-        self.text_vocab = text_vocab
-        self.output_vocab = output_vocab
-
-        self.embed_text = nn.Embedding(self.text_vocab, hidden_dim)
-        self.embed_pitch = nn.Conv1d(1, hidden_dim, kernel_size=7, stride=2, padding=3)
-        self.embed_inputs = nn.Linear(hidden_dim * 2, hidden_dim)
-        self.model = Qwen3NARModel(
-            Qwen3Config(
-                hidden_size=hidden_dim,
-                intermediate_size=hidden_dim * 4,
-                num_hidden_layers=hidden_layers,
-                num_attention_heads=attn_heads,
-                num_key_value_heads=kv_heads,
-                head_dim=head_dim,
-                max_window_layers=0,
-                use_cache=False,
-                use_sliding_window=False,
-                max_position_embeddings=2048,
             )
-        )
-        self.lm_head = nn.Linear(hidden_dim, output_vocab)
+            schedule.append(int(num))
+            rem -= int(num)
 
-    def forward(self, text, pitch, ref):
-        x = torch.cat(
-            [self.embed_text(text), self.embed_pitch(pitch.unsqueeze(1)).mT], -1
-        )
-        x = self.embed_inputs(x)
-        # style = self.embed_speaker(ref).unsqueeze(1).repeat(1, text.shape[1], 1)
-        x = self.model(x, ref)
-        return self.lm_head(x)
+        # --- Iterative unmasking loop ---
+        for step in range(gen_config.num_step):
+            k = schedule[step]
+            if k <= 0:
+                continue
+
+            c_logits_full = self(
+                text_ids, audio_ids, pitch
+            )  # [B, N_text + target_len, audio_vocab]
+            u_logits_full = self(
+                u_text_ids, audio_ids, u_pitch
+            )  # [B,          target_len, audio_vocab]
+
+            # Extract audio-region logits for each half
+            # c_logits = c_logits_full[:, N_text:, :]  # [B, target_len, audio_vocab]
+            c_logits = c_logits_full[:, 0:, :]
+            u_logits = u_logits_full[:, 0:, :]  # [B, target_len, audio_vocab]
+
+            pred_tokens, scores = self._predict_tokens_with_scoring(
+                c_logits, u_logits, gen_config
+            )
+
+            if gen_config.position_temperature > 0.0:
+                scores = _gumbel_sample(scores, gen_config.position_temperature)
+
+            # Prevent already-unmasked positions from being selected again
+            scores.masked_fill_(audio_ids != self.audio_mask_id, -float("inf"))
+
+            # Unmask top-k positions per item in the batch
+            for i in range(B):
+                _, topk_idx = torch.topk(scores[i], k)
+                audio_ids[i][topk_idx] = pred_tokens[i][topk_idx]
+
+        return audio_ids  # [B, target_len]
+
+    def _predict_tokens_with_scoring(
+        self,
+        c_logits: torch.Tensor,  # [B, T, audio_vocab]  conditional
+        u_logits: torch.Tensor,  # [B, T, audio_vocab]  unconditional
+        gen_config: OmniVoiceGenerationConfig,
+    ):  # → pred_tokens [B, T], scores [B, T]
+        # CFG combination — identical formula to OmniVoice
+        if gen_config.guidance_scale != 0:
+            c_log_probs = F.log_softmax(c_logits, dim=-1)
+            u_log_probs = F.log_softmax(u_logits, dim=-1)
+            log_probs = F.log_softmax(
+                c_log_probs + gen_config.guidance_scale * (c_log_probs - u_log_probs),
+                dim=-1,
+            )
+        else:
+            log_probs = F.log_softmax(c_logits, dim=-1)
+
+        if gen_config.class_temperature > 0.0:
+            filtered = _filter_top_k(log_probs, ratio=0.1)
+            pred_tokens = _gumbel_sample(filtered, gen_config.class_temperature).argmax(
+                dim=-1
+            )
+        else:
+            pred_tokens = log_probs.argmax(dim=-1)
+
+        confidence_scores = log_probs.max(dim=-1)[0]
+        return pred_tokens, confidence_scores
+
+
+def _filter_top_k(logits: torch.Tensor, ratio: float = 0.1) -> torch.Tensor:
+    k = math.ceil(ratio * logits.shape[-1])
+    val, ind = logits.topk(k, dim=-1)
+    probs = torch.full_like(logits, float("-inf"))
+    probs.scatter_(-1, ind, val)
+    return probs
+
+
+def _gumbel_sample(logits: torch.Tensor, temperature: float) -> torch.Tensor:
+    scaled_logits = logits / temperature
+    u = torch.rand_like(scaled_logits)
+    gumbel_noise = -torch.log(-torch.log(u + 1e-10) + 1e-10)
+    return scaled_logits + gumbel_noise
+
+
+def _get_time_steps(
+    t_start: float = 0.0,
+    t_end: float = 1.0,
+    num_step: int = 10,
+    t_shift: float = 1.0,
+    device: torch.device = torch.device("cpu"),
+) -> torch.Tensor:
+    timesteps = torch.linspace(t_start, t_end, num_step + 1).to(device)
+    timesteps = t_shift * timesteps / (1 + (t_shift - 1) * timesteps)
+    return timesteps
+
+
+if __name__ == "__main__":
+    model = MaskedTokenPredictor(500, 500).cuda()
+    text_ids, audio_ids, pitch = (
+        torch.arange(500).repeat(2, 1).cuda(),  # torch.arange(125).repeat(2, 1).cuda(),
+        torch.arange(500).repeat(2, 1).cuda(),
+        torch.rand(1, 500).repeat(2, 1).cuda(),
+    )
+    input_text_ids, input_audio_ids, input_pitch, target_text_ids, target_audio_ids = (
+        model.make_noisy_sample(text_ids, audio_ids, pitch)
+    )
+    ce_loss = F.cross_entropy(
+        rearrange(
+            model(input_text_ids, input_audio_ids, input_pitch),
+            "b t c -> (b t) c",
+        ),
+        # rearrange(torch.cat([target_text_ids, target_audio_ids], 1), "b t -> (b t)")
+        rearrange(target_audio_ids, "b t -> (b t)"),
+    )
+    print(ce_loss)
+    print(model.generate_iterative(text_ids, pitch).shape)

@@ -92,7 +92,7 @@ def train_model(
     ):
         # HACK: Force PyTorch to only use dedicated VRAM and ignore shared VRAM on Windows
         # https://github.com/microsoft/WSL/issues/11050#issuecomment-2003124905
-        torch.cuda.set_per_process_memory_fraction(1.0, 0)
+        torch.cuda.set_per_process_memory_fraction(0.95, 0)
 
     train_logger = logging.getLogger(__name__)
 
