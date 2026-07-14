@@ -441,7 +441,8 @@ def voicepack(config_path, dynamic, model_config_path, voicepack_path, checkpoin
     type=str,
     help="Model configuration (optional), defaults to known-good model parameters.",
 )
-def gen_code(config_path, model_config_path):
+@click.option("--code-type", "code_type", type=click.Choice(["kanade", "vevo"]))
+def gen_code(config_path, model_config_path, code_type):
     from stylish_tts.train.dataprep.gen_code import generate_codes
 
-    generate_codes(config_path, model_config_path)
+    generate_codes(config_path, model_config_path, code_type)

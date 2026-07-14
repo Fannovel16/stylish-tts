@@ -52,8 +52,9 @@ class FilePathDataset(torch.utils.data.Dataset):
                     durations += dur
         self.duration_weights = durations.sum() / (durations * durations.shape[0])
         self.data_list = []
-        self.codes = load_file(root_path / "codes.safetensors")
-        self.globals = load_file(root_path / "globals.safetensors")
+        self.codes = load_file(pitch_path.parent / "codes.safetensors")
+        self.vevo_codes = load_file(pitch_path.parent / "vevo_codes.safetensors")
+        self.globals = load_file(pitch_path.parent / "globals.safetensors")
         sentences = []
         for line in data_list:
             fields = line.strip().split("|")
@@ -144,13 +145,17 @@ class FilePathDataset(torch.utils.data.Dataset):
         else:
             # TODO need to warn here or check for alignment stage and skip
             alignment = torch.zeros(
-                (3, text_tensor.shape[0]),
+                (3, text_tensor.shape[0]),  # (3, text_tensor.shape[1]),
                 dtype=torch.float32,  # Match Collater's target dtype
             )
         if path in self.codes:
             codes = self.codes[path].detach()
         else:
             codes = 0
+        if path in self.codes:
+            vevo_codes = self.vevo_codes[path].detach()
+        else:
+            vevo_codes = 0
         if path in self.globals:
             globals = self.globals[path].detach()
         else:
@@ -164,6 +169,7 @@ class FilePathDataset(torch.utils.data.Dataset):
             alignment,
             codes,
             globals,
+            vevo_codes,
         )
 
     def _load_tensor(self, data):
@@ -188,6 +194,8 @@ class FilePathDataset(torch.utils.data.Dataset):
         )
         wave = torch.from_numpy(wave).float()
 
+        # text, text_supra = self.text_cleaner(text)
+        # text = torch.LongTensor((text, text_supra))
         text = self.text_cleaner(text)
         text = torch.LongTensor(text)
 
@@ -209,11 +217,13 @@ class Collater(object):
     def __call__(self, batch):
         batch_size = len(batch)
 
+        # max_text_length = max([b[1].shape[-1] for b in batch])
         max_text_length = max([b[1].shape[0] for b in batch])
         mel_length = batch[0][3].shape[-1] // self.hop_length
 
         speaker_out = torch.zeros((batch_size)).long()
         texts = torch.zeros((batch_size, max_text_length)).long()
+        # texts = torch.zeros((batch_size, 2, max_text_length)).long()
         text_lengths = torch.zeros(batch_size).long()
         paths = ["" for _ in range(batch_size)]
         waves = torch.zeros((batch_size, batch[0][3].shape[-1])).float()
@@ -221,6 +231,7 @@ class Collater(object):
         alignments = torch.zeros((batch_size, 1, max_text_length))
         codes = torch.zeros((batch_size, mel_length // 2)).long()
         globals = torch.zeros((batch_size, 128)).float()
+        vevo_codes = torch.zeros((batch_size, mel_length)).long()
         # alignments = torch.zeros((batch_size, max_text_length, mel_length))
         # alignments = torch.zeros((batch_size, max_text_length, mel_length // 2))
 
@@ -233,11 +244,14 @@ class Collater(object):
             duration,
             code,
             global_emb,
+            vevo_code,
         ) in enumerate(batch):
             speaker_out[bid] = speaker
 
             text_size = text.size(0)
             texts[bid, :text_size] = text
+            # text_size = text.size(1)
+            # texts[bid, :, :text_size] = text
 
             text_lengths[bid] = text_size
             paths[bid] = path
@@ -264,9 +278,10 @@ class Collater(object):
             #     if alignment.shape[1] != mel_length:
             #         exit(f"Alignment for segment {path} did not match audio length")
             #     alignments[bid, :text_size, :mel_length] = alignment
-            alignments[bid, :1, :text_size] = duration[:1]
+            # alignments[bid, :1, :text_size] = duration
             codes[bid] = code
             globals[bid] = global_emb
+            vevo_codes[bid] = vevo_code
 
         result = (
             waves,
@@ -278,6 +293,7 @@ class Collater(object):
             codes,
             globals,
             speaker_out,
+            vevo_codes,
         )
         return result
 

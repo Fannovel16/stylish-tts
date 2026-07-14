@@ -28,6 +28,8 @@ from stylish_tts.train.models.pretrained import (
     AdaptiveFocalCodec,
     AdaptiveEmotion2Vec,
     AdaptiveKanadeCodec,
+    AdaptiveMioCodec,
+    MelSpectrogramFeature,
 )
 
 
@@ -193,11 +195,11 @@ class TrainContext:
             .to(self.config.training.device)
             .eval()
         )
-        # self.hubert = (
-        #     AdaptiveHubert("lengyue233/content-vec-best", self.model_config.sample_rate)
-        #     .to(self.config.training.device)
-        #     .eval()
-        # )
+        self.hubert = (
+            AdaptiveHubert("lengyue233/content-vec-best", self.model_config.sample_rate)
+            .to(self.config.training.device)
+            .eval()
+        )
         # self.emotion2vec = (
         #     AdaptiveEmotion2Vec(self.model_config.sample_rate)
         #     .to(self.config.training.device)
@@ -214,15 +216,35 @@ class TrainContext:
         #     .eval()
         # )
         self.kanade_codec = (
-            AdaptiveKanadeCodec(self.model_config.sample_rate)
+            AdaptiveKanadeCodec(self.model_config.sample_rate, extract_all=True)
             .to(self.config.training.device)
             .eval()
         )
+        # self.kanade_codec = (
+        #     AdaptiveMioCodec(self.model_config.sample_rate)
+        #     .to(self.config.training.device)
+        #     .eval()
+        # )
         # self.prosody_wavlm = (
         #     AdaptiveOrangeWavLM(self.model_config.sample_rate)
         #     .to(self.config.training.device)
         #     .eval()
         # )
+        # https://github.com/frothywater/kanade-tokenizer/blob/main/config/model/25hz.yaml#L17-L21
+        self.to_vocos_mel = (
+            MelSpectrogramFeature(
+                sample_rate=24000,
+                n_fft=1024,
+                hop_length=256,
+                n_mels=100,
+                padding="center",
+                fmin=0,
+                fmax=None,
+                bigvgan_style_mel=False,
+            )
+            .eval()
+            .cuda()
+        )
 
     def reset_out_dir(self, stage_name):
         self.out_dir = osp.join(self.base_output_dir, stage_name)

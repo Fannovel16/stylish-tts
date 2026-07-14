@@ -463,6 +463,7 @@ batch_names = [
     "codes",
     "globals",
     "speaker_id",
+    "vevo_codes",
 ]
 
 

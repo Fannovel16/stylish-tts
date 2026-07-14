@@ -31,6 +31,9 @@ class TextCleaner:
                 logger.error("Meld " + char + ": " + text)
         return indexes
 
+    def decode(self, ids):
+        return "".join(self.index_word_dictionary[i] for i in ids)
+
     def build_text_cleaner(self):
         # Export all symbols:
         symbols = (

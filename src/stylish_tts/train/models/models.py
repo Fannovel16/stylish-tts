@@ -18,7 +18,9 @@ from .mel_style_encoder import MelStyleEncoder, PitchStyleEncoder
 from .pitch_energy_predictor import PitchEnergyPredictor
 from .speech_predictor import SpeechPredictor
 from .pitch_discriminator import PitchDiscriminator
-from .token_predictor import MaskedTokenPredictor, TokenPredictor
+from .token_predictor import MaskedTokenPredictor, TokenPredictor, TokenFrameWiseProbe
+from .conv_next import BasicConvNeXtBlock
+from .soft_kanade import SoftKanade
 
 from munch import Munch
 
@@ -98,7 +100,19 @@ def build_model(model_config: ModelConfig):
         duration_style_encoder=duration_style_encoder,
         pitch_disc=PitchDiscriminator(dim_in=2, dim_hidden=64, kernel=21),
         dur_disc=PitchDiscriminator(dim_in=1, dim_hidden=64, kernel=5),
-        code_predictor=TokenPredictor(180, 12800),  # MaskedTokenPredictor(178, 12800),
+        code_predictor=TokenPredictor(
+            180 + 10, 12800
+        ),  # MaskedTokenPredictor(178, 12800),
+        soft_kanade=SoftKanade(
+            input_dim=768,
+            hidden_dim=512,
+            latent_dim=16,
+            style_dim=256,
+            content_discrete_vocab=32,
+            downsample_factor=2,
+            mel_upsample_factor=4,
+            n_mels=100,
+        ),
     )
 
     return nets

@@ -491,7 +491,7 @@ class CTCLossWithLabelPriors(nn.Module):
         self.log_priors_sum = None
         self.num_samples = 0
         self.prior_scaling_factor = prior_scaling_factor  # This corresponds to the `alpha` hyper parameter in the paper
-        self.k2_device = "cpu"
+        self.k2_device = "cuda"
 
     def to(self, device):
         super().to(device)
@@ -531,6 +531,8 @@ class CTCLossWithLabelPriors(nn.Module):
         target_lengths: Tensor,
         step_type="train",
     ) -> Tensor:
+        import k2
+
         supervision_segments, token_ids, indices = self.encode_supervisions(
             targets, target_lengths, input_lengths
         )
@@ -565,7 +567,7 @@ class CTCLossWithLabelPriors(nn.Module):
         # Compute CTC loss
         dense_fsa_vec = k2.DenseFsaVec(
             log_probs.to(self.k2_device),  # (N, T, C)
-            supervision_segments.to(self.k2_device),
+            supervision_segments.to("cpu"),
         )
 
         loss = k2.ctc_loss(
@@ -586,6 +588,8 @@ class CTCLossWithLabelPriors(nn.Module):
         input_lengths: Tensor,
         target_lengths: Tensor,
     ):
+        import k2
+
         supervision_segments, token_ids, indices = self.encode_supervisions(
             targets, target_lengths, input_lengths
         )
@@ -595,7 +599,7 @@ class CTCLossWithLabelPriors(nn.Module):
         # Compute CTC loss
         dense_fsa_vec = k2.DenseFsaVec(
             log_probs.to(self.k2_device),  # (N, T, C)
-            supervision_segments.to(self.k2_device),
+            supervision_segments.to("cpu"),
         )
         lattices = k2.intersect_dense(
             decoding_graph,
@@ -605,7 +609,11 @@ class CTCLossWithLabelPriors(nn.Module):
 
         best_paths = k2.shortest_path(lattices, use_double_scores=True)
         frame_scores = best_paths.scores[(best_paths.labels != -1)]
-        frame_scores = frame_scores.split(input_lengths.tolist())
+        # encode_supervisions sorted the batch by length, so best_paths come back
+        # in that sorted order. Split the scores by the sorted per-segment lengths
+        # rather than the original input lengths.
+        sorted_lengths = supervision_segments[:, 2].tolist()
+        frame_scores = frame_scores.split(sorted_lengths)
         scores = torch.stack([p.mean() for p in frame_scores])
 
         batch_arc_shape = best_paths.arcs.shape().remove_axis(1)
@@ -615,6 +623,13 @@ class CTCLossWithLabelPriors(nn.Module):
         # k2 makes an extra frame for some reasons
         for i in range(len(batch_frame_labels)):
             batch_frame_labels[i][-1] -= 1
+        # Restore the original batch order so each segment's labels and score line
+        # up with the caller's segment. Without this every segment receives another
+        # segment's alignment.
+        inverse = torch.empty_like(indices)
+        inverse[indices] = torch.arange(indices.numel(), device=indices.device)
+        batch_frame_labels = [batch_frame_labels[j] for j in inverse.tolist()]
+        scores = scores[inverse]
         return batch_frame_labels, scores
 
     def on_train_epoch_end(self, train):

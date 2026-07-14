@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 from transformers import Qwen3Model, Qwen3Config
+from kanade_tokenizer.model import Transformer, GlobalEncoder
 
 
 # ---------------------------------------------------------------------------
@@ -37,6 +38,103 @@ class GenerationTask:
 # ---------------------------------------------------------------------------
 
 
+# class TokenPredictor(nn.Module):
+#     def __init__(
+#         self,
+#         text_vocab: int,
+#         audio_vocab: int,
+#         hidden_dim: int = 768,
+#         hidden_layers: int = 4,
+#         attn_heads: int = 8,
+#         kv_heads: int = 4,
+#     ):
+#         super().__init__()
+
+#         self.pre_align = Qwen3Model(
+#             Qwen3Config(
+#                 vocab_size=0,
+#                 hidden_size=hidden_dim,
+#                 intermediate_size=hidden_dim * 2,
+#                 num_hidden_layers=hidden_layers // 2,
+#                 num_attention_heads=attn_heads,
+#                 num_key_value_heads=kv_heads,
+#                 head_dim=128,
+#                 max_window_layers=0,
+#                 use_cache=False,
+#                 use_sliding_window=False,
+#                 max_position_embeddings=60 * 50,
+#             )
+#         )
+#         self.post_align = Qwen3Model(
+#             Qwen3Config(
+#                 vocab_size=0,
+#                 hidden_size=hidden_dim,
+#                 intermediate_size=hidden_dim * 2,
+#                 num_hidden_layers=hidden_layers // 2,
+#                 num_attention_heads=attn_heads,
+#                 num_key_value_heads=kv_heads,
+#                 head_dim=128,
+#                 max_window_layers=0,
+#                 use_cache=False,
+#                 use_sliding_window=False,
+#                 max_position_embeddings=60 * 50,
+#             )
+#         )
+
+#         self.embed_text = nn.Embedding(text_vocab + 1, hidden_dim)
+#         #self.embed_pitch = nn.Conv1d(1, hidden_dim, kernel_size=7, padding=3)
+#         #self.embed_energy = nn.Conv1d(1, hidden_dim, kernel_size=7, padding=3)
+#         self.embed_pitch = nn.Linear(1, hidden_dim)
+#         self.downsample = nn.Conv1d(hidden_dim, hidden_dim, kernel_size=2, stride=2)
+#         self.audio_head = nn.Linear(hidden_dim, audio_vocab, bias=False)
+#         levels = [8, 8, 8, 5, 5]
+#         self.audio_heads = nn.ModuleList([
+#             nn.Linear(hidden_dim, level, bias=False)
+#             for level in levels
+#         ])
+#         # self.audio_head = nn.Linear(hidden_dim, 768, bias=False)
+
+#     @property
+#     def device(self):
+#         return next(self.parameters()).device
+
+#     def forward(self, text_ids, pitch, energy, alignment):
+#         text_embeds = self.embed_text(text_ids)
+#         #pitch_embeds = self.embed_pitch(pitch.unsqueeze(-1).mT).mT
+#         #energy_embeds = self.embed_energy(energy.unsqueeze(-1).mT).mT
+#         pitch_embeds, energy_embeds = 0, 0
+#         hidden_state = text_embeds
+
+#         B, T_text = text_ids.shape
+#         _, _, T_audio = alignment.shape
+
+#         hidden_state = self.pre_align(
+#             inputs_embeds=hidden_state,
+#             attention_mask=torch.ones(
+#                 B, 1, T_text, T_text, dtype=torch.bool, device=self.device
+#             ),
+#         ).last_hidden_state
+#         hidden_state = (hidden_state.mT @ alignment).mT
+#         hidden_state = hidden_state + pitch_embeds + energy_embeds
+#         hidden_state = self.downsample(hidden_state.mT).mT
+#         hidden_state = self.post_align(
+#             inputs_embeds=hidden_state,
+#             attention_mask=torch.ones(
+#                 B, 1, T_audio // 2, T_audio // 2, dtype=torch.bool, device=self.device
+#             ),
+#         ).last_hidden_state
+#         #return self.audio_head(hidden_state)
+#         preds = []
+#         for head in self.audio_heads:
+#             proj = head(hidden_state)
+#             rest = torch.abs(proj)[:, :, 1:]
+#             pred = torch.cat([proj[:, :, :1], rest], dim=2)
+#             pred = torch.cumsum(pred, dim=2)
+#             pred = -torch.abs(pred)
+#             preds.append(pred)
+#         return preds
+
+
 class TokenPredictor(nn.Module):
     def __init__(
         self,
@@ -48,72 +146,112 @@ class TokenPredictor(nn.Module):
         kv_heads: int = 4,
     ):
         super().__init__()
-        self.text_vocab = text_vocab
-        self.audio_vocab = audio_vocab
-        self.audio_mask_id = audio_vocab
-        self.text_mask_id = text_vocab
 
-        self.pre_align = Qwen3Model(
-            Qwen3Config(
-                vocab_size=0,
-                hidden_size=hidden_dim,
-                intermediate_size=hidden_dim * 2,
-                num_hidden_layers=hidden_layers // 2,
-                num_attention_heads=attn_heads,
-                num_key_value_heads=kv_heads,
-                head_dim=128,
-                max_window_layers=0,
-                use_cache=False,
-                use_sliding_window=False,
-                max_position_embeddings=60 * 50,
-            )
+        self.pre_align = Transformer(
+            dim=hidden_dim,
+            n_layers=hidden_layers // 2,
+            n_heads=attn_heads,
+            window_size=None,
+            use_rope=True,
+            rope_theta=10000.0,
+            max_seq_len=1024,
+            adanorm_condition_dim=256,  # Must match global encoder output dimension
+            use_adaln_zero=True,  # Use AdaLNZero for conditioning
+            use_flash_attention=False,
         )
-        self.post_align = Qwen3Model(
-            Qwen3Config(
-                vocab_size=0,
-                hidden_size=hidden_dim,
-                intermediate_size=hidden_dim * 2,
-                num_hidden_layers=hidden_layers // 2,
-                num_attention_heads=attn_heads,
-                num_key_value_heads=kv_heads,
-                head_dim=128,
-                max_window_layers=0,
-                use_cache=False,
-                use_sliding_window=False,
-                max_position_embeddings=60 * 50,
-            )
+        self.post_align = Transformer(
+            dim=hidden_dim,
+            n_layers=hidden_layers // 2,
+            n_heads=attn_heads,
+            window_size=None,
+            use_rope=True,
+            rope_theta=10000.0,
+            max_seq_len=1024,
+            adanorm_condition_dim=256,  # Must match global encoder output dimension
+            use_adaln_zero=True,  # Use AdaLNZero for conditioning
+            use_flash_attention=False,
+        )
+        self.style_encoder = GlobalEncoder(
+            input_channels=768,  # WavLM base plus feature dimension
+            output_channels=256,
+            num_layers=4,
+            dim=384,
+            intermediate_dim=1152,
         )
 
         self.embed_text = nn.Embedding(text_vocab + 1, hidden_dim)
-        self.embed_pitch = nn.Linear(1, hidden_dim)
         self.downsample = nn.Conv1d(hidden_dim, hidden_dim, kernel_size=2, stride=2)
-        self.audio_head = nn.Linear(hidden_dim, audio_vocab, bias=False)
+        levels = [8, 8, 8, 5, 5]
+        self.audio_heads = nn.ModuleList(
+            [nn.Linear(hidden_dim, level, bias=False) for level in levels]
+        )
 
     @property
     def device(self):
         return next(self.parameters()).device
 
-    def forward(self, text_ids, audio_ids, pitch, alignment):
+    def forward(self, text_ids, pitch, energy, alignment, style_emb):
         text_embeds = self.embed_text(text_ids)
-        pitch_embeds = self.embed_pitch(pitch.unsqueeze(-1))
-        B, T_text = text_ids.shape
-        _, _, T_audio = alignment.shape
+        style_vector = self.style_encoder(style_emb).unsqueeze(1)
 
-        hidden_state = self.pre_align(
-            inputs_embeds=text_embeds,
-            attention_mask=torch.ones(
-                B, 1, T_text, T_text, dtype=torch.bool, device=self.device
-            ),
-        ).last_hidden_state
-        hidden_state = (hidden_state.mT @ alignment).mT + pitch_embeds
+        hidden_state = self.pre_align(text_embeds, condition=style_vector)
+        hidden_state = (hidden_state.mT @ alignment).mT
         hidden_state = self.downsample(hidden_state.mT).mT
-        hidden_state = self.post_align(
-            inputs_embeds=hidden_state,
+        hidden_state = self.post_align(hidden_state, condition=style_vector)
+        preds = []
+        for head in self.audio_heads:
+            proj = head(hidden_state)
+            rest = torch.abs(proj)[:, :, 1:]
+            pred = torch.cat([proj[:, :, :1], rest], dim=2)
+            pred = torch.cumsum(pred, dim=2)
+            pred = -torch.abs(pred)
+            preds.append(pred)
+        return preds
+
+
+class TokenFrameWiseProbe(nn.Module):
+    def __init__(
+        self,
+        text_vocab: int,
+        probe_dim: int,
+        hidden_dim: int = 768,
+        hidden_layers: int = 2,
+        attn_heads: int = 4,
+        kv_heads: int = 4,
+    ):
+        super().__init__()
+        self.conv_upsample = nn.ConvTranspose1d(hidden_dim, hidden_dim, 2, 2)
+        self.lm = Qwen3Model(
+            Qwen3Config(
+                vocab_size=0,
+                hidden_size=hidden_dim,
+                intermediate_size=hidden_dim * 2,
+                num_hidden_layers=hidden_layers,
+                num_attention_heads=attn_heads,
+                num_key_value_heads=kv_heads,
+                head_dim=128,
+                max_window_layers=0,
+                use_cache=False,
+                use_sliding_window=False,
+                max_position_embeddings=60 * 50,
+            )
+        )
+        self.proj = nn.Linear(hidden_dim, probe_dim)
+
+    @property
+    def device(self):
+        return next(self.parameters()).device
+
+    def forward(self, x):
+        x = self.conv_upsample(x.mT).mT
+        B, T_audio, _ = x.shape
+        hidden_state = self.lm(
+            inputs_embeds=x,
             attention_mask=torch.ones(
-                B, 1, T_audio // 2, T_audio // 2, dtype=torch.bool, device=self.device
+                B, 1, T_audio, T_audio, dtype=torch.bool, device=self.device
             ),
         ).last_hidden_state
-        return self.audio_head(hidden_state)
+        return self.proj(hidden_state)
 
 
 class MaskedTokenPredictor(nn.Module):
