@@ -889,111 +889,6 @@ stages["acoustic"] = StageType(
 )
 
 
-def train_probe(batch, model, train, probing, disc_index):
-    # kanade = train.kanade_codec.model
-    # audio_length = batch.audio_gt.size(1)
-    # padding = kanade._calculate_waveform_padding(audio_length)
-    # local_ssl_features, global_ssl_features = kanade.forward_ssl_features(batch.audio_gt, padding=padding)
-    # logits = model.code_probe(local_ssl_features)
-    # logits = model.code_predictor(input_text_ids, input_audio_ids, input_pitch)
-    with torch.no_grad():
-        alignment = train.duration_processor.duration_to_alignment(
-            batch.alignment[:, 0, :],
-            multiplier=1,
-        ).float()
-        # semantic_gt = batch.codes
-        # text = (batch.text.unsqueeze(2) * alignment).sum(1)
-        # prosody, *_ = train.emotion2vec(batch.audio_gt, 1)
-        # style = torch.cat([prosody.mean(-1), prosody.std(-1)], 1)
-        # style = train.prosody_wavlm(batch.audio_gt)
-        ref = batch.globals
-        # ref = batch.speaker_id
-        pitch = normalize_log2(batch.pitch, 0, 1)
-        mel, _ = calculate_mel(
-            batch.audio_gt,
-            train.to_mel,
-            train.normalization.mel_log_mean,
-            train.normalization.mel_log_std,
-        )
-        energy = log_norm(mel.unsqueeze(1), 0, 1).squeeze(1)
-        # print(energy.min().item(), energy.max().item())
-        phones = train.hubert(batch.audio_gt)
-        content_emb = train.kanade_codec.decode_content_tokens(batch.codes)
-    _, loss_recon, loss_kl = model.code_probe(phones, pitch, energy, target=content_emb)
-    train.stage.optimizer.zero_grad()
-    log = build_loss_log(train)
-    # loss = F.cross_entropy(
-    #     rearrange(logits, "b t c -> (b t) c"),
-    #     rearrange(batch.codes, "b t -> (b t)"),
-    # )
-    # loss_mask = rearrange(corrupt_mask, "b t -> (b t)")
-    # loss = (loss * loss_mask).sum() / (loss_mask.sum() + 1e-6)
-    log.add_loss("recon", loss_recon)
-    log.add_loss("kl", loss_kl)
-    train.accelerator.backward(log.backwards_loss())
-
-    return log.detach(), None, None, None, None
-
-
-def validate_probe(batch, train):
-    # model = train.model
-    # kanade = train.kanade_codec.model
-    # audio_length = batch.audio_gt.size(1)
-    # padding = kanade._calculate_waveform_padding(audio_length)
-    # local_ssl_features, global_ssl_features = kanade.forward_ssl_features(batch.audio_gt, padding=padding)
-    # logits = model.code_probe(local_ssl_features)
-    # print('\n', batch_pred_phonemes[0], '\n', batch_gt_phonemes[0])
-    with torch.no_grad():
-        alignment = train.duration_processor.duration_to_alignment(
-            batch.alignment[:, 0, :],
-            multiplier=1,
-        ).float()
-        # semantic_gt = batch.codes
-        # text = (batch.text.unsqueeze(2) * alignment).sum(1)
-        # prosody, *_ = train.emotion2vec(batch.audio_gt, 1)
-        # style = torch.cat([prosody.mean(-1), prosody.std(-1)], 1)
-        # style = train.prosody_wavlm(batch.audio_gt)
-        ref = batch.globals
-        # ref = batch.speaker_id
-        pitch = normalize_log2(
-            batch.pitch,
-            train.f0_log2_mean,
-            train.f0_log2_std,
-        )
-        mel, _ = calculate_mel(
-            batch.audio_gt,
-            train.to_mel,
-            train.normalization.mel_log_mean,
-            train.normalization.mel_log_std,
-        )
-        energy = log_norm(
-            mel.unsqueeze(1),
-            train.normalization.mel_log_mean,
-            train.normalization.mel_log_std,
-        ).squeeze(1)
-        phones = train.hubert(batch.audio_gt)
-        content_emb = train.kanade_codec.decode_content_tokens(batch.codes)
-    content_emb_pred, loss_recon, loss_kl = train.model.code_probe(
-        phones, pitch, energy, target=content_emb
-    )
-    pred_audio = train.kanade_codec.decode_continuous(content_emb, batch.globals)
-
-    log = build_loss_log(train)
-    log.add_loss("recon", loss_recon)
-    log.add_loss("kl", loss_kl)
-
-    # loss = F.cross_entropy(
-    #     rearrange(logits, "b t c -> (b t) c"),
-    #     rearrange(batch.codes, "b t -> (b t)"),
-    # )
-    # matched_codes = logits.argmax(-1) == batch.codes
-    # accuracy = matched_codes.float().mean()
-    # log.add_loss("frame_wise_ce", loss)
-    # log.add_loss("accuracy", accuracy)
-
-    return log.detach(), None, pred_audio, batch.audio_gt
-
-
 def train_soft_kanade(batch, model, train, probing, disc_index):
     with torch.no_grad():
         local_ssl_features, global_ssl_features = train.kanade_codec.get_ssl_embeddings(
@@ -1063,6 +958,63 @@ stages["joint"] = StageType(
     next_stage=None,
     train_fn=train_soft_kanade,
     validate_fn=validate_soft_kanade,
+    train_models=[
+        "soft_kanade",
+    ],
+    eval_models=[],
+    discriminators=[],
+    inputs=[
+        "audio_gt",
+        "pitch",
+        "codes",
+        "globals",
+        "speaker_id",
+        "text",
+        "alignment",
+        "vevo_codes",
+    ],
+)
+
+
+def train_spk_probe(batch, model, train, probing, disc_index):
+    with torch.no_grad():
+        local_ssl_features, global_ssl_features = train.kanade_codec.get_ssl_embeddings(
+            batch.audio_gt
+        )
+        # mel_gt = train.to_vocos_mel(batch.audio_gt).mT
+    _, sv_loss, _ = model.soft_kanade.spk_probe(
+        local_ssl_features, global_ssl_features, batch.speaker_id
+    )
+    train.stage.optimizer.zero_grad()
+    log = build_loss_log(train)
+    log.add_loss("soft_aam", sv_loss)
+    train.accelerator.backward(log.backwards_loss())
+
+    return log.detach(), None, None, None, None
+
+
+def validate_spk_probe(batch, train):
+    model = train.model
+    with torch.no_grad():
+        local_ssl_features, global_ssl_features = train.kanade_codec.get_ssl_embeddings(
+            batch.audio_gt
+        )
+        # mel_gt = train.to_vocos_mel(batch.audio_gt).mT
+    _, sv_loss, prec1 = model.soft_kanade.spk_probe(
+        local_ssl_features, global_ssl_features, batch.speaker_id
+    )
+
+    log = build_loss_log(train)
+    log.add_loss("soft_aam", sv_loss)
+    log.add_loss("precision@1", prec1)
+
+    return log.detach(), None, None, batch.audio_gt
+
+
+stages["style"] = StageType(
+    next_stage=None,
+    train_fn=train_spk_probe,
+    validate_fn=validate_spk_probe,
     train_models=[
         "soft_kanade",
     ],

@@ -369,18 +369,11 @@ class AdaptiveKanadeCodec(nn.Module):
 
 
 class AdaptiveMioCodec(nn.Module):
-    def __init__(
-        self,
-        global_sr: int,
-        codec_path: str = "Aratako/MioCodec-25Hz-24kHz",
-        extract_all=False,
-    ):
+    def __init__(self, global_sr: int, codec_path: str = "Aratako/MioCodec-25Hz-24kHz"):
         super().__init__()
         self.model = MioCodecModel.from_pretrained(codec_path)
         for param in self.model.parameters():
             param.requires_grad = False
-        if not extract_all:
-            self.model.ssl_feature_extractor.output_layer = 3
 
     def normalize(self, wave):
         max_val = torch.max(torch.abs(wave)) + 1e-8

@@ -216,7 +216,7 @@ class TrainContext:
         #     .eval()
         # )
         self.kanade_codec = (
-            AdaptiveKanadeCodec(self.model_config.sample_rate, extract_all=True)
+            AdaptiveKanadeCodec(self.model_config.sample_rate)
             .to(self.config.training.device)
             .eval()
         )

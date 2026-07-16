@@ -105,7 +105,7 @@ def build_model(model_config: ModelConfig):
         ),  # MaskedTokenPredictor(178, 12800),
         soft_kanade=SoftKanade(
             input_dim=768,
-            hidden_dim=512,
+            hidden_dim=256,
             latent_dim=16,
             style_dim=256,
             content_discrete_vocab=32,

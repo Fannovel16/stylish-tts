@@ -17,7 +17,7 @@ def generate_codes(config_path, model_config_path, code_type):
     root = Path(config.dataset.path)
     wavdir = root / config.dataset.wav_path
     if code_type == "kanade":
-        model = AdaptiveKanadeCodec(24_000, extract_all=True).cuda().eval()
+        model = AdaptiveKanadeCodec(24_000).cuda().eval()
         val_codes, val_globals = calculate_kanade_codes(
             model, "Val set", root / config.dataset.val_data, wavdir, model_config
         )
