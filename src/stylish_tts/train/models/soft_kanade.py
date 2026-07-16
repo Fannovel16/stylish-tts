@@ -5,6 +5,13 @@ from kanade_tokenizer.model import GlobalEncoder
 from dataclasses import dataclass
 
 
+def freeze_modules(*modules: list[nn.Module]):
+    for module in modules:
+        if module is not None:
+            for param in module.parameters():
+                param.requires_grad = False
+
+
 @dataclass
 class SoftKanadeFeatures:
     content_latent: torch.Tensor = None
@@ -100,12 +107,10 @@ class SoftKanade(nn.Module):
             features.content_logit = self.content_quant_head(decoded_latents[1]).mT
         else:
             freeze_modules(
-                [
-                    self.content_encoder,
-                    self.content_decoder,
-                    self.content_recon_head,
-                    self.content_quant_head,
-                ]
+                self.content_encoder,
+                self.content_decoder,
+                self.content_recon_head,
+                self.content_quant_head,
             )
         # https://github.com/frothywater/kanade-tokenizer/blob/main/src/kanade_tokenizer/model.py#L324-L331
         if output_mel:
