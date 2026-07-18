@@ -3,6 +3,7 @@ import torch.nn as nn
 from .conv_next import BasicConvNeXtBlock, GeneratorConvNeXtBlock
 from kanade_tokenizer.model import GlobalEncoder
 from dataclasses import dataclass
+import torch.nn.functional as F
 
 
 def freeze_modules(*modules: list[nn.Module]):
@@ -35,6 +36,11 @@ class StylishSequential(nn.Sequential):
         return x
 
 
+class ChannelFirstLayerNorm(nn.LayerNorm):
+    def forward(self, input):
+        return super().forward(input.mT).mT
+
+
 class SoftKanade(nn.Module):
     def __init__(
         self,
@@ -46,6 +52,7 @@ class SoftKanade(nn.Module):
         downsample_factor,
         mel_upsample_factor,
         n_mels,
+        content_logit_temperature=0.1,
     ):
         super().__init__()
         inter_dim = hidden_dim * 4
@@ -54,20 +61,15 @@ class SoftKanade(nn.Module):
             nn.Conv1d(input_dim, hidden_dim, 1, 1),
             *[BasicConvNeXtBlock(hidden_dim, inter_dim) for _ in range(4)],
             nn.Conv1d(hidden_dim, latent_dim, downsample_factor, downsample_factor),
-            nn.GroupNorm(
-                1, latent_dim, affine=False
-            )  # Channel-first LayerNorm, mean 0 std unit
+            ChannelFirstLayerNorm(latent_dim, elementwise_affine=False),
         )
         self.content_decoder = nn.Sequential(
             nn.ConvTranspose1d(
                 latent_dim, hidden_dim, downsample_factor, downsample_factor
             ),
-            *[BasicConvNeXtBlock(hidden_dim, inter_dim) for _ in range(4)]
+            *[BasicConvNeXtBlock(hidden_dim, inter_dim) for _ in range(4)],
         )
-        self.content_recon_head = nn.Conv1d(hidden_dim // 2, input_dim, 1, 1)
-        self.content_quant_head = nn.Conv1d(
-            hidden_dim // 2, content_discrete_vocab, 1, 1
-        )
+        self.centroids = nn.Embedding(content_discrete_vocab, hidden_dim)
 
         self.global_encoder = GlobalEncoder(
             input_channels=input_dim,
@@ -84,8 +86,9 @@ class SoftKanade(nn.Module):
                 GeneratorConvNeXtBlock(hidden_dim, hidden_dim * 4, style_dim)
                 for _ in range(4)
             ],
-            proj=nn.Conv1d(hidden_dim, n_mels, 1, 1)
+            proj=nn.Conv1d(hidden_dim, n_mels, 1, 1),
         )
+        self.content_logit_temperature = content_logit_temperature
 
     def forward(
         self,
@@ -102,15 +105,17 @@ class SoftKanade(nn.Module):
             content_latent=content_latent.mT, global_style=global_style
         )
         if train_feature:
-            decoded_latents = self.content_decoder(content_latent).chunk(2, dim=1)
-            features.content_recon = self.content_recon_head(decoded_latents[0]).mT
-            features.content_logit = self.content_quant_head(decoded_latents[1]).mT
+            # Angular softmax: cosine with a set of centroid embeddings, then softmax in cross-entropy loss
+            # https://github.com/bshall/hubert/blob/main/hubert/model.py#L50-L62
+            centroid_embedding = F.normalize(self.centroids.weight.mT, dim=-1)
+            content_logit = F.normalize(self.content_decoder(content_latent).mT, dim=-1)
+            features.content_logit = (
+                content_logit @ centroid_embedding
+            ) / self.content_logit_temperature
         else:
             freeze_modules(
                 self.content_encoder,
                 self.content_decoder,
-                self.content_recon_head,
-                self.content_quant_head,
             )
         # https://github.com/frothywater/kanade-tokenizer/blob/main/src/kanade_tokenizer/model.py#L324-L331
         if output_mel:

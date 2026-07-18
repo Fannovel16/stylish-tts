@@ -903,9 +903,9 @@ def train_soft_kanade(batch, model, train, probing, disc_index):
     )
     train.stage.optimizer.zero_grad()
     log = build_loss_log(train)
-    log.add_loss(
-        "ssl_recon", 5 * F.mse_loss(features.content_recon, local_ssl_features)
-    )
+    # log.add_loss(
+    #     "ssl_recon", 5 * F.mse_loss(features.content_recon, local_ssl_features)
+    # )
     log.add_loss(
         "ssl_quant_ce",
         F.cross_entropy(
@@ -935,9 +935,9 @@ def validate_soft_kanade(batch, train):
     pred_audio = train.kanade_codec.decode_mel(features.mel.mT)
 
     log = build_loss_log(train)
-    log.add_loss(
-        "ssl_recon", 5 * F.mse_loss(features.content_recon, local_ssl_features)
-    )
+    # log.add_loss(
+    #     "ssl_recon", 5 * F.mse_loss(features.content_recon, local_ssl_features)
+    # )
     log.add_loss(
         "ssl_quant_ce",
         F.cross_entropy(
