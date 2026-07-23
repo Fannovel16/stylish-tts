@@ -33,13 +33,18 @@ class AdaptiveHubert(nn.Module):
         self.model = HubertModelWithFinalProj.from_pretrained(hubert_path)
         self.resample = torchaudio.transforms.Resample(global_sr, 16000)
 
-    def forward(self, wave, center_pad=True):
-        wave = self.resample(wave)
-        x = self.model(wave)["last_hidden_state"]
-        pad = 1
-        if center_pad:
-            x = F.pad(x.mT, (pad // 2, pad // 2 + (pad % 2)), "reflect").mT
-        return x
+    def forward(self, waveform, center_pad=True):
+        waveform = self.resample(waveform)
+        xs = []
+        for wave in waveform:
+            x = self.model(wave.unsqueeze(0))["last_hidden_state"]
+            pad = 1
+            if center_pad:
+                x = F.pad(x.mT, (pad // 2, pad // 2 + (pad % 2)), "reflect").mT
+            xs.append(x)
+            torch.cuda.empty_cache()
+        xs = torch.cat(xs, 0)
+        return xs
 
 
 class AdaptiveFocalCodec(nn.Module):
@@ -260,6 +265,7 @@ class AdaptiveKanadeCodec(nn.Module):
             )
             local_ssl_features.append(local_emb)
             global_ssl_features.append(global_emb)
+            torch.cuda.empty_cache()
         local_ssl_features = torch.cat(local_ssl_features, 0)
         global_ssl_features = torch.cat(global_ssl_features, 0)
         return local_ssl_features, global_ssl_features
@@ -289,8 +295,7 @@ class AdaptiveKanadeCodec(nn.Module):
         return waveform
 
     def decode_mel(self, mel):
-        waveform = vocode(self.vocoder, mel)
-        return waveform
+        return torch.cat([vocode(self.vocoder, _mel.unsqueeze(0)) for _mel in mel], 0)
 
     def encode_latent_classes(self, content_tokens):
         codes = self.model.local_quantizer.fsq.indices_to_codes(content_tokens)

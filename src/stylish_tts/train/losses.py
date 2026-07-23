@@ -194,12 +194,13 @@ class DiscriminatorLoss(torch.nn.Module):
             # loss = self.disc_list[index](
             #     target=target_list[index], pred=pred_list[index]
             # )
-            loss = 0
-            for i in range(0, 3):
-                loss += self.disc_list[i](target=target_list[i], pred=pred_list[i])
-            loss += 5 * self.discriminators["disc"](
-                target=target_audio, pred=pred_audio
-            )
+            # loss = 0
+            # for i in range(0, 3):
+            #     loss += self.disc_list[i](target=target_list[i], pred=pred_list[i])
+            # loss += 5 * self.discriminators["disc"](
+            #     target=target_audio, pred=pred_audio
+            # )
+            loss = self.discriminators["mrd0"](target=target_list[0], pred=pred_list[0])
         # loss = 0
         # for key in used:
         #     loss += self.discriminators[key](
@@ -322,10 +323,11 @@ class GeneratorLoss(torch.nn.Module):
             # loss = self.gen_list[index](
             #     target=target_list[index], pred=pred_list[index]
             # )
-            loss = 0
-            for i in range(0, 3):
-                loss += self.gen_list[i](target=target_list[i], pred=pred_list[i])
-            loss += 5 * self.generators["disc"](target=target_audio, pred=pred_audio)
+            # loss = 0
+            # for i in range(0, 3):
+            #     loss += self.gen_list[i](target=target_list[i], pred=pred_list[i])
+            # loss += 5 * self.generators["disc"](target=target_audio, pred=pred_audio)
+            loss = self.generators["mrd0"](target=target_list[0], pred=pred_list[0])
         # loss = 0
         # for key in used:
         #     loss += self.generators[key](target_list=target_list, pred_list=pred_list)

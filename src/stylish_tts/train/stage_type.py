@@ -868,7 +868,7 @@ def validate_focal(batch, train):
     return log.detach(), None, pred_audio, batch.audio_gt
 
 
-stages["acoustic"] = StageType(
+stages["textual"] = StageType(
     next_stage=None,
     train_fn=train_focal,
     validate_fn=validate_focal,
@@ -976,50 +976,82 @@ stages["joint"] = StageType(
 )
 
 
-def train_spk_probe(batch, model, train, probing, disc_index):
+def train_gan_soft_kanade(batch, model, train, probing, disc_index):
     with torch.no_grad():
         local_ssl_features, global_ssl_features = train.kanade_codec.get_ssl_embeddings(
             batch.audio_gt
         )
-        # mel_gt = train.to_vocos_mel(batch.audio_gt).mT
-    _, sv_loss, _ = model.soft_kanade.spk_probe(
-        local_ssl_features, global_ssl_features, batch.speaker_id
+        mel_gt = train.to_vocos_mel(batch.audio_gt).mT
+    features = model.soft_kanade(
+        local_ssl_features,
+        global_ssl_features,
+        train_feature=False,
+        mel_length=mel_gt.shape[1],
     )
+    target_fft = [rearrange(mel_gt, "b t f -> b 1 f t")]
+    pred_fft = [rearrange(features.mel, "b t f -> b 1 f t")]
+    target_audio, pred_audio = [mel_gt], [features.mel]  # Not used
     train.stage.optimizer.zero_grad()
     log = build_loss_log(train)
-    log.add_loss("soft_aam", sv_loss)
+    # log.add_loss(
+    #     "ssl_recon", 5 * F.mse_loss(features.content_recon, local_ssl_features)
+    # )
+    log.add_loss(
+        "generator",
+        train.generator_loss(
+            target_list=target_fft,
+            pred_list=pred_fft,
+            target_audio=target_audio,
+            pred_audio=pred_audio,
+            used=["mrd"],
+            index=disc_index,
+        ).mean(),
+    )
+    log.add_loss("mel", F.l1_loss(features.mel, mel_gt))
     train.accelerator.backward(log.backwards_loss())
 
-    return log.detach(), None, None, None, None
+    return (
+        log.detach(),
+        detach_all(target_fft),
+        detach_all(pred_fft),
+        detach_all(target_audio),
+        detach_all(pred_audio),
+    )
 
 
-def validate_spk_probe(batch, train):
+def validate_gan_soft_kanade(batch, train):
     model = train.model
     with torch.no_grad():
         local_ssl_features, global_ssl_features = train.kanade_codec.get_ssl_embeddings(
             batch.audio_gt
         )
-        # mel_gt = train.to_vocos_mel(batch.audio_gt).mT
-    _, sv_loss, prec1 = model.soft_kanade.spk_probe(
-        local_ssl_features, global_ssl_features, batch.speaker_id
+        mel_gt = train.to_vocos_mel(batch.audio_gt).mT
+    features = model.soft_kanade(
+        local_ssl_features,
+        global_ssl_features,
+        train_feature=False,
+        mel_length=mel_gt.shape[1],
     )
+    pred_audio = train.kanade_codec.decode_mel(features.mel.mT)
 
     log = build_loss_log(train)
-    log.add_loss("soft_aam", sv_loss)
-    log.add_loss("precision@1", prec1)
+    # log.add_loss(
+    #     "ssl_recon", 5 * F.mse_loss(features.content_recon, local_ssl_features)
+    # )
+    log.add_loss("mel", F.l1_loss(features.mel, mel_gt))
 
-    return log.detach(), None, None, batch.audio_gt
+    return log.detach(), None, pred_audio, batch.audio_gt
 
 
-stages["style"] = StageType(
+stages["acoustic"] = StageType(
     next_stage=None,
-    train_fn=train_spk_probe,
-    validate_fn=validate_spk_probe,
+    train_fn=train_gan_soft_kanade,
+    validate_fn=validate_gan_soft_kanade,
     train_models=[
         "soft_kanade",
     ],
     eval_models=[],
-    discriminators=[],
+    discriminators=["mrd0"],
     inputs=[
         "audio_gt",
         "pitch",

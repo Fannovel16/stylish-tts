@@ -195,11 +195,11 @@ class TrainContext:
             .to(self.config.training.device)
             .eval()
         )
-        self.hubert = (
-            AdaptiveHubert("lengyue233/content-vec-best", self.model_config.sample_rate)
-            .to(self.config.training.device)
-            .eval()
-        )
+        # self.hubert = (
+        #     AdaptiveHubert("lengyue233/content-vec-best", self.model_config.sample_rate)
+        #     .to(self.config.training.device)
+        #     .eval()
+        # )
         # self.emotion2vec = (
         #     AdaptiveEmotion2Vec(self.model_config.sample_rate)
         #     .to(self.config.training.device)

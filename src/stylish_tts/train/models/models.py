@@ -103,14 +103,15 @@ def build_model(model_config: ModelConfig):
         code_predictor=TokenPredictor(
             180 + 10, 12800
         ),  # MaskedTokenPredictor(178, 12800),
+        # SSL embedding is 50Hz, Vocos's mel is 100Hz
         soft_kanade=SoftKanade(
             input_dim=768,
-            hidden_dim=256,
-            latent_dim=16,
-            style_dim=256,
+            hidden_dim=512,
+            latent_dim=64,
+            style_dim=512,
             content_discrete_vocab=32,
-            downsample_factor=2,
-            mel_upsample_factor=4,
+            downsample_factor=1,
+            mel_upsample_factor=2,
             n_mels=100,
         ),
     )

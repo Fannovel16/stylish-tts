@@ -135,12 +135,13 @@ class Stage:
             config.discriminators,
             train,
         )
-        if probing:
-            disc_index = 0
-        else:
-            # TODO: Fix hardcoded value
-            disc_index = random.randrange(3)
-            # disc_index = 0
+        # if probing:
+        #     disc_index = 0
+        # else:
+        #     # TODO: Fix hardcoded value
+        #     disc_index = random.randrange(3)
+        #     # disc_index = 0
+        disc_index = 0
         result, target_spec, pred_spec, target_audio, pred_audio = self.train_fn(
             batch, model, train, probing, disc_index
         )
@@ -163,7 +164,8 @@ class Stage:
             elif "dur_disc" in config.discriminators:
                 disc_list = ["dur_disc"]
             else:
-                disc_list = [f"mrd{disc_index}", "disc"]
+                # disc_list = [f"mrd{disc_index}", "disc"]
+                disc_list = [f"mrd{disc_index}"]
             optimizer_step(self.optimizer, disc_list)  # config.discriminators)
             train.stage.optimizer.zero_grad()
             result.add_loss("discriminator", d_loss)
